@@ -226,6 +226,21 @@ button.ghost,
   display: flex;
   gap: 0.4rem;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* 모드 버튼 줄 우측의 외부 링크 */
+.tier-link {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: 0.85rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tier-link:hover {
+  text-decoration: underline;
 }
 
 .mode-switch button {
