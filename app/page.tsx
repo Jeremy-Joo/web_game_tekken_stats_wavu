@@ -367,6 +367,12 @@ export default function Home() {
   const [searchMsg, setSearchMsg] = useState('');
   const [results, setResults] = useState<Favorite[]>([]);
   const [pendingToken, setPendingToken] = useState('');
+  // 칩 선택의 동작: replace = 조회 중 모호한 항목 교체 후 재조회, append = 비교 목록에 추가
+  const [resultsMode, setResultsMode] = useState<'replace' | 'append'>('replace');
+
+  // 비교 모드: 검색해서 목록에 추가하는 보조 입력
+  const [addQ, setAddQ] = useState('');
+  const [addBusy, setAddBusy] = useState(false);
 
   // 과거 버전이 저장해둔 값 정리 (입력 ID·관리자 비밀번호는 더 이상 저장하지 않는다)
   useEffect(() => {
@@ -441,6 +447,7 @@ export default function Home() {
           if ('error' in r) throw new Error(r.error);
           if ('choices' in r) {
             setPendingToken(tok);
+            setResultsMode('replace');
             setResults(r.choices);
             setSearchMsg(`'${tok}' 검색 결과가 여러 명입니다 — 선택하세요.`);
             return;
@@ -467,6 +474,7 @@ export default function Home() {
             if ('error' in r) throw new Error(r.error);
             if ('choices' in r) {
               setPendingToken(tok);
+              setResultsMode('replace');
               setResults(r.choices);
               setSearchMsg(`'${tok}' 검색 결과가 여러 명입니다 — 선택하세요.`);
               return;
@@ -494,10 +502,34 @@ export default function Home() {
     [mode, id, ids, periodQuery],
   );
 
-  /** 여러 명 후보 칩 선택 → 해당 항목만 식별코드로 바꿔 즉시 재조회. */
+  /** 비교 목록에 식별코드 추가 (중복 제외). */
+  const appendToIds = (fid: string, name?: string) => {
+    setIds((prev) => {
+      const list = prev
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (list.includes(fid)) {
+        setSearchMsg(`${name ?? fid} 은(는) 이미 목록에 있습니다.`);
+        return prev;
+      }
+      setSearchMsg(`${name ? `${name} (${fid})` : fid} 추가됨`);
+      return [...list, fid].join(', ');
+    });
+  };
+
+  /**
+   * 후보 칩 선택.
+   * - replace: 조회 중 모호했던 항목을 바꿔 즉시 재조회
+   * - append: 비교 목록에 덧붙이기만 (계속 검색해서 더 추가할 수 있게 조회는 안 함)
+   */
   const pickResult = (f: Favorite) => {
     setResults([]);
     setSearchMsg('');
+    if (resultsMode === 'append') {
+      appendToIds(f.id, f.name);
+      return;
+    }
     if (mode === 'single') {
       setId(f.id);
       run(f.id);
@@ -509,6 +541,30 @@ export default function Home() {
         .join(', ');
       setIds(newIds);
       run(undefined, newIds);
+    }
+  };
+
+  /** 비교 모드 보조 검색: 닉네임/ID 를 해석해 목록에 추가. 여러 명이면 칩으로 고르게. */
+  const searchAndAdd = async () => {
+    const tok = addQ.trim();
+    if (!tok) return;
+    setAddBusy(true);
+    setSearchMsg('');
+    setResults([]);
+    try {
+      const r = await resolveToken(tok);
+      if ('error' in r) {
+        setSearchMsg(r.error);
+      } else if ('choices' in r) {
+        setResultsMode('append');
+        setResults(r.choices);
+        setSearchMsg(`'${tok}' 검색 결과 — 탭하면 목록에 추가됩니다.`);
+      } else {
+        appendToIds(r.id, r.name);
+        setAddQ('');
+      }
+    } finally {
+      setAddBusy(false);
     }
   };
 
@@ -638,6 +694,27 @@ export default function Home() {
               />
               <button onClick={() => run()} disabled={loading}>
                 {loading ? '수집 중…' : '조회'}
+              </button>
+            </div>
+
+            <label htmlFor="addq" style={{ marginTop: '0.8rem' }}>
+              검색해서 목록에 추가
+            </label>
+            <div className="row id-row">
+              <input
+                id="addq"
+                className="id-input"
+                type="text"
+                placeholder="닉네임 또는 ID"
+                value={addQ}
+                onChange={(e) => setAddQ(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !addBusy && searchAndAdd()}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+              <button className="ghost" onClick={searchAndAdd} disabled={addBusy}>
+                {addBusy ? '검색 중…' : '검색·추가'}
               </button>
             </div>
           </>
