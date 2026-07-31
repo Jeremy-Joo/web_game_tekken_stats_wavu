@@ -760,15 +760,15 @@ export default function Home() {
         </p>
       )}
       {compare && (
-        <p className="meta">
+        <p className="meta compare-meta">
           {compare.players.map((p, i) => (
             <span key={p.polarisId}>
-              {i > 0 && ' vs '}
-              <b>{p.name}</b> ({p.count})
+              {i > 0 && <span className="vs"> vs </span>}
+              <b>{p.name}</b> <span className="cnt">({p.count})</span>
             </span>
           ))}
           {(compare.filtered?.start || compare.filtered?.end) && (
-            <span>
+            <span className="cnt">
               {' '}
               · 기간 {compare.filtered?.start ?? '처음'} ~{' '}
               {compare.filtered?.end ?? '오늘'}

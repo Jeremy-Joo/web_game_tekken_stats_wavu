@@ -263,6 +263,28 @@ button.ghost,
   color: var(--text);
 }
 
+/* 비교 상단: 대결 구도가 한눈에 보이게 크게 */
+.compare-meta {
+  font-size: 1.25rem;
+  line-height: 1.4;
+}
+
+.compare-meta b {
+  font-weight: 700;
+}
+
+.compare-meta .vs {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0 0.15rem;
+}
+
+.compare-meta .cnt {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 /* ── 탭 ── */
 .tabs {
   display: flex;
