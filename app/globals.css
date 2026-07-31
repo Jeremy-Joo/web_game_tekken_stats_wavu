@@ -52,6 +52,14 @@ h1 {
   color: var(--accent);
 }
 
+.byline {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+  margin-left: 0.6rem;
+  white-space: nowrap;
+}
+
 .sub {
   color: var(--muted);
   margin: 0 0 1.25rem;

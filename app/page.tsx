@@ -626,6 +626,7 @@ export default function Home() {
         <button className="home-btn" onClick={goHome} title="메인으로">
           철권8 전적 통계
         </button>
+        <span className="byline">by Jeremio, jinho.ju@live.com</span>
       </h1>
       <p className="sub">
         wavu wank 랭크전 데이터 · 식별코드만 넣으면 전체 이력을 집계합니다
