@@ -547,7 +547,6 @@ export default function Home() {
         <button className="home-btn" onClick={goHome} title="메인으로">
           철권8 전적 통계
         </button>
-        <span className="byline">by Jeremio, jinho.ju@live.com</span>
       </h1>
       <p className="sub">
         wavu wank 랭크전 데이터 · 식별코드만 넣으면 전체 이력을 집계합니다
@@ -857,6 +856,8 @@ export default function Home() {
           wank.wavu.wiki
         </a>{' '}
         (랭크전만 집계됨) · 이 사이트는 Bandai Namco 와 무관합니다
+        <br />
+        <span className="byline">by Jeremio, Jinho.ju@live.com</span>
       </footer>
     </main>
   );
