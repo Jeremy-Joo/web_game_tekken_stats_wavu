@@ -150,50 +150,6 @@ select {
   margin-left: 0.25rem;
 }
 
-/* 관리자 패널 */
-.admin summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 0.9rem;
-  user-select: none;
-}
-
-.admin[open] summary {
-  margin-bottom: 0.6rem;
-}
-
-.fav-list {
-  list-style: none;
-  margin: 0.6rem 0 0;
-  padding: 0;
-}
-
-.fav-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.35rem 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.9rem;
-}
-
-.fav-list li:last-child {
-  border-bottom: none;
-}
-
-.fav-id {
-  color: var(--muted);
-  font-size: 0.78rem;
-  margin-left: 0.3rem;
-}
-
-button.small {
-  min-height: 30px;
-  padding: 0.2rem 0.7rem;
-  font-size: 0.8rem;
-}
-
 button,
 .btn-link {
   background: var(--accent);

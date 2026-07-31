@@ -37,13 +37,11 @@ interface CompareResponse {
 type Mode = 'single' | 'compare';
 type PeriodMode = 'all' | 'month' | 'year' | 'custom';
 
-/** 자주 쓰는 ID 항목 — 서버(Vercel Blob) 전역 목록. 등록/삭제는 관리자 비밀번호 필요. */
+/** 닉네임 검색 결과 항목. */
 interface Favorite {
   id: string;
   name: string;
 }
-
-const ADMIN_PW_KEY = 'tkwavu_admin_pw'; // 이 브라우저에 비밀번호 기억(선택)
 
 const WIN_LOSS_COLS = new Set(['result', 'result_for_a']);
 const ROW_CHUNK = 100; // 긴 표는 이 단위로 끊어 보여준다
@@ -362,14 +360,6 @@ export default function Home() {
   const [view, setView] = useState<'chart' | 'table'>('chart');
   const [dailyGran, setDailyGran] = useState<DailyGran>('day');
 
-  // 자주 쓰는 ID — 서버 전역 목록 (누구나 보이고, 등록/삭제는 비밀번호 필요)
-  const [favs, setFavs] = useState<Favorite[]>([]);
-  const [favId, setFavId] = useState('');
-  const [favName, setFavName] = useState('');
-  const [favBusy, setFavBusy] = useState(false);
-  const [favMsg, setFavMsg] = useState('');
-  const [adminPw, setAdminPw] = useState('');
-
   // 비교 표 우위 하이라이트 on/off
   const [hlOn, setHlOn] = useState(true);
 
@@ -410,20 +400,14 @@ export default function Home() {
     }
   };
 
-  // 관리자 비밀번호 기억 + 전역 목록 로드.
-  // (입력한 식별코드는 저장하지 않는다 — 새로 열면 빈 칸에서 시작)
+  // 과거 버전이 저장해둔 값 정리 (입력 ID·관리자 비밀번호는 더 이상 저장하지 않는다)
   useEffect(() => {
     try {
-      localStorage.removeItem('tkwavu'); // 과거 버전이 저장해둔 ID 정리
-      const pw = localStorage.getItem(ADMIN_PW_KEY);
-      if (pw) setAdminPw(pw);
+      localStorage.removeItem('tkwavu');
+      localStorage.removeItem('tkwavu_admin_pw');
     } catch {
       /* ignore */
     }
-    fetch('/api/favorites')
-      .then((r) => r.json())
-      .then((d: { favorites?: Favorite[] }) => setFavs(d.favorites ?? []))
-      .catch(() => {});
   }, []);
 
   /** 칩 탭 → 모드에 맞게 입력칸에 바로 채운다 (비교 모드는 뒤에 덧붙임). */
@@ -442,69 +426,6 @@ export default function Home() {
     }
   };
 
-  /** 관리자 패널: 서버에 등록/삭제. 비밀번호가 맞아야만 반영된다. */
-  const postFav = async (
-    action: 'add' | 'remove',
-    fid: string,
-    name?: string,
-  ): Promise<boolean> => {
-    const res = await fetch('/api/favorites', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: adminPw, action, id: fid, name }),
-    });
-    const data = (await res.json()) as { favorites?: Favorite[]; error?: string };
-    if (!res.ok) {
-      setFavMsg(data.error ?? `HTTP ${res.status}`);
-      return false;
-    }
-    setFavs(data.favorites ?? []);
-    localStorage.setItem(ADMIN_PW_KEY, adminPw); // 성공한 비밀번호만 기억
-    return true;
-  };
-
-  /** ID 등록. 이름을 비우면 wavu 에서 닉네임을 받아와 채운다. */
-  const addFav = async () => {
-    const nid = favId.replace(/[^A-Za-z0-9]/g, '');
-    if (!nid) {
-      setFavMsg('식별코드를 입력하세요.');
-      return;
-    }
-    if (!adminPw) {
-      setFavMsg('비밀번호를 입력하세요.');
-      return;
-    }
-    setFavBusy(true);
-    setFavMsg('');
-    let name = favName.trim();
-    if (!name) {
-      try {
-        const res = await fetch(`/api/replays/${encodeURIComponent(nid)}`);
-        const data = (await res.json()) as PlayerResponse;
-        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-        name = data.myName || nid;
-      } catch (e) {
-        setFavBusy(false);
-        setFavMsg(`이름 조회 실패: ${(e as Error).message} — 표시 이름을 직접 넣고 다시 등록하세요.`);
-        return;
-      }
-    }
-    const ok = await postFav('add', nid, name);
-    setFavBusy(false);
-    if (ok) {
-      setFavId('');
-      setFavName('');
-      setFavMsg(`등록됨: ${name} (${nid})`);
-    }
-  };
-
-  const removeFav = async (fid: string) => {
-    if (!adminPw) {
-      setFavMsg('비밀번호를 입력하세요.');
-      return;
-    }
-    await postFav('remove', fid);
-  };
 
   /** 기간 모드 → 실제 start/end 쿼리. */
   const periodQuery = useCallback((): URLSearchParams => {
@@ -689,21 +610,6 @@ export default function Home() {
               </button>
             </div>
           </>
-        )}
-
-        {favs.length > 0 && (
-          <div className="fav-chips">
-            {favs.map((f) => (
-              <button
-                key={f.id}
-                className="chip"
-                title={f.id}
-                onClick={() => pickFav(f)}
-              >
-                {f.name}
-              </button>
-            ))}
-          </div>
         )}
 
         <label htmlFor="nickq" style={{ marginTop: '0.8rem' }}>
@@ -944,60 +850,6 @@ export default function Home() {
         </>
       )}
 
-      <details className="panel admin">
-        <summary>⚙️ 관리자 — 자주 쓰는 ID 등록</summary>
-        <div className="row id-row">
-          <input
-            className="id-input"
-            type="password"
-            placeholder="관리자 비밀번호"
-            value={adminPw}
-            onChange={(e) => setAdminPw(e.target.value)}
-            autoComplete="current-password"
-          />
-        </div>
-        <div className="row id-row">
-          <input
-            className="id-input"
-            type="text"
-            placeholder="식별코드"
-            value={favId}
-            onChange={(e) => setFavId(e.target.value)}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-          <input
-            className="id-input"
-            type="text"
-            placeholder="표시 이름 (비우면 자동)"
-            value={favName}
-            onChange={(e) => setFavName(e.target.value)}
-          />
-          <button onClick={addFav} disabled={favBusy}>
-            {favBusy ? '조회 중…' : '등록'}
-          </button>
-        </div>
-        {favMsg && <p className="hint">{favMsg}</p>}
-        {favs.length > 0 && (
-          <ul className="fav-list">
-            {favs.map((f) => (
-              <li key={f.id}>
-                <span>
-                  <b>{f.name}</b> <span className="fav-id">{f.id}</span>
-                </span>
-                <button className="ghost small" onClick={() => removeFav(f.id)}>
-                  삭제
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="hint">
-          목록은 서버에 저장되어 모든 방문자에게 보입니다. 등록/삭제는 비밀번호가
-          맞을 때만 반영됩니다.
-        </p>
-      </details>
 
       <footer>
         데이터:{' '}
