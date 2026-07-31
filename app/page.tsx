@@ -576,7 +576,7 @@ export default function Home() {
                 id="pid"
                 className="id-input"
                 type="text"
-                placeholder="예: 5m6Lj5Jb6MfQ"
+                placeholder="예: 53deQ2dmLday"
                 value={id}
                 onChange={(e) => setId(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !loading && run()}
@@ -596,7 +596,7 @@ export default function Home() {
               <input
                 id="pids"
                 type="text"
-                placeholder="예: 5m6Lj5Jb6MfQ, 2e2dtbDNeiTG"
+                placeholder="ex) ID, ID"
                 value={ids}
                 onChange={(e) => setIds(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !loading && run()}
