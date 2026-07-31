@@ -5,7 +5,7 @@
 // 레이팅 추이 탭만 클라이언트에서 SVG 그래프를 추가로 그린다.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { TrendChart, DailyChart, SessionChart } from './charts';
+import { TrendChart, DailyChart, SessionChart, type DailyStyle } from './charts';
 import {
   LANGS,
   LANG_KEY,
@@ -101,6 +101,13 @@ function downloadBlob(content: string, mime: string, filename: string): void {
    를 기간 키로 다시 묶는다. 합산은 W/L/Δ, EndRating 은 기간 내 마지막 날 값. */
 
 type DailyGran = 'day' | 'month' | 'quarter' | 'half' | 'year';
+
+const DAILY_STYLE_LABEL: Record<DailyStyle, Record<Lang, string>> = {
+  updown: { ko: '승▲ 패▼', en: 'W▲ L▼', ja: '勝▲ 敗▼' },
+  stack: { ko: '누적', en: 'Stacked', ja: '積み上げ' },
+  rate: { ko: '승률 라인', en: 'Win rate', ja: '勝率ライン' },
+};
+const DAILY_STYLES: DailyStyle[] = ['updown', 'stack', 'rate'];
 
 const GRAN_LABEL: Record<DailyGran, Record<Lang, string>> = {
   day: { ko: '일별', en: 'Daily', ja: '日別' },
@@ -399,6 +406,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('');
   const [view, setView] = useState<'chart' | 'table'>('chart');
   const [dailyGran, setDailyGran] = useState<DailyGran>('day');
+  const [dailyStyle, setDailyStyle] = useState<DailyStyle>('updown');
   const [charSel, setCharSel] = useState(''); // ''=전체, 그 외=해당 캐릭터만 집계
   const [lang, setLangState] = useState<Lang>('ko');
   const t = makeT(lang);
@@ -1027,6 +1035,20 @@ export default function Home() {
                 >
                   {t('table')}
                 </button>
+                {current.key === 'daily' && view === 'chart' && (
+                  <>
+                    <span className="gran-sep" />
+                    {DAILY_STYLES.map((st) => (
+                      <button
+                        key={st}
+                        className={dailyStyle === st ? 'on' : ''}
+                        onClick={() => setDailyStyle(st)}
+                      >
+                        {DAILY_STYLE_LABEL[st][lang]}
+                      </button>
+                    ))}
+                  </>
+                )}
                 {dailyOpts && dailyOpts.length > 1 && (
                   <>
                     <span className="gran-sep" />
@@ -1046,7 +1068,7 @@ export default function Home() {
                 current.key === 'trend' ? (
                   <TrendChart rows={current.rows} lang={lang} />
                 ) : current.key === 'daily' ? (
-                  <DailyChart rows={displayTab!.rows} lang={lang} />
+                  <DailyChart rows={displayTab!.rows} lang={lang} style={dailyStyle} />
                 ) : (
                   <SessionChart rows={current.rows} lang={lang} />
                 )

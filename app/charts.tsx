@@ -262,14 +262,22 @@ interface DayAgg {
   delta: number;
 }
 
-const DAILY_MAX_BARS = 184; // 두 줄 × 92일. 그 이상은 최근 것만 (기간 필터로 좁히면 전부 보임)
+const DAILY_MAX_BARS = 184; // 그 이상은 최근 것만 (기간 필터로 좁히면 전부 보임)
 
-// 두 줄 레이아웃: 표시 기간을 반으로 갈라 윗줄=과거, 아랫줄=최근.
-// 줄이 늘어난 만큼 막대를 얇게(≤10px) 해 하루하루가 더 잘 보이게 한다.
-const ROW_H = 200;
-const RPAD = { l: 46, r: 12, t: 8, b: 22 };
+/** 일별 그래프 스타일: 상하(승▲/패▼) · 누적 스택 · 승률 라인 */
+export type DailyStyle = 'updown' | 'stack' | 'rate';
 
-export function DailyChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLang }) {
+const ACCENT = '#3987e5'; // 승률 라인 (단일 시리즈)
+
+export function DailyChart({
+  rows,
+  lang = 'ko',
+  style = 'updown',
+}: {
+  rows: Row[];
+  lang?: ChartLang;
+  style?: DailyStyle;
+}) {
   const [hoverI, setHoverI] = useState<number | null>(null);
 
   const model = useMemo(() => {
@@ -286,29 +294,62 @@ export function DailyChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLan
     const allDays = [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
     const days = allDays.slice(-DAILY_MAX_BARS);
     if (!days.length) return null;
-    const maxGames = Math.max(...days.map((d) => d.w + d.l));
-    const { ticks, hi } = niceTicks(0, maxGames);
-    // 두 줄 분할 (데이터가 적으면 한 줄): 두 줄의 y 축은 같은 스케일을 공유해
-    // 줄 사이 막대 높이를 그대로 비교할 수 있게 한다.
-    const half = Math.ceil(days.length / 2);
-    const bands = days.length > 14 ? [days.slice(0, half), days.slice(half)] : [days];
-    return { days, bands, truncated: allDays.length - days.length, ticks, hi };
-  }, [rows]);
+
+    // 스타일별 y 범위 — 상하는 0 을 사이에 두고 위=승·아래=패 (같은 픽셀 스케일),
+    // 누적은 0~최대 경기 수, 승률은 0~100 고정.
+    let lo = 0;
+    let hi = 1;
+    const ticks: number[] = [];
+    if (style === 'updown') {
+      const maxW = Math.max(...days.map((d) => d.w));
+      const maxL = Math.max(...days.map((d) => d.l));
+      const { ticks: base } = niceTicks(0, Math.max(maxW, maxL, 1));
+      const step = base.length > 1 ? base[1] - base[0] : 1;
+      hi = Math.ceil(Math.max(maxW, 1) / step) * step;
+      lo = -Math.ceil(Math.max(maxL, 1) / step) * step;
+      for (let v = lo; v <= hi + 1e-9; v += step) ticks.push(Math.round(v * 100) / 100);
+    } else if (style === 'stack') {
+      const maxGames = Math.max(...days.map((d) => d.w + d.l));
+      const t = niceTicks(0, Math.max(maxGames, 1));
+      ticks.push(...t.ticks);
+      hi = t.hi;
+    } else {
+      lo = 0;
+      hi = 100;
+      ticks.push(0, 25, 50, 75, 100);
+    }
+
+    const plotW = W - PAD.l - PAD.r;
+    const band = plotW / days.length;
+    const barW = Math.min(10, Math.max(1.2, band - 1.2)); // 얇은 막대
+    const x = (i: number) => PAD.l + i * band + (band - barW) / 2;
+    const y = (v: number) => H - PAD.b - ((v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
+    return { days, truncated: allDays.length - days.length, ticks, x, y, band, barW };
+  }, [rows, style]);
 
   if (!model) return <p className="hint">{CL.noData[lang]}</p>;
-  const { days, bands, truncated, ticks, hi } = model;
+  const { days, truncated, ticks, x, y, band, barW } = model;
   const hover = hoverI !== null ? days[hoverI] : null;
+  const labelEvery = Math.max(1, Math.ceil(days.length / 6));
+  const rr = Math.min(3, barW / 2); // 데이터 끝 라운드
+  const wrOf = (d: DayAgg) => (d.w + d.l ? (d.w * 100) / (d.w + d.l) : 0);
 
-  const yOf = (v: number) => ROW_H - RPAD.b - (v / hi) * (ROW_H - RPAD.t - RPAD.b);
+  const legendItems =
+    style === 'rate'
+      ? [{ label: `${CL.winrate[lang]} (%)`, color: ACCENT }]
+      : style === 'updown'
+        ? [
+            { label: `${CL.win[lang]} ▲`, color: GOOD },
+            { label: `${CL.loss[lang]} ▼`, color: CRIT },
+          ]
+        : [
+            { label: CL.win[lang], color: GOOD },
+            { label: CL.loss[lang], color: CRIT },
+          ];
 
   return (
     <div className="chart-root">
-      <Legend
-        items={[
-          { label: CL.win[lang], color: GOOD },
-          { label: CL.loss[lang], color: CRIT },
-        ]}
-      />
+      <Legend items={legendItems} />
       {truncated > 0 && (
         <p className="hint">
           {lang === 'ko'
@@ -318,84 +359,143 @@ export function DailyChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLan
               : `Showing last ${days.length} days (${truncated} earlier days: narrow the period or use the table)`}
         </p>
       )}
-      {bands.map((rowDays, bi) => {
-        const base = bi === 0 ? 0 : bands[0].length; // 전체 days 기준 시작 인덱스
-        const plotW = W - RPAD.l - RPAD.r;
-        const band = plotW / rowDays.length;
-        // 얇은 막대: 최대 10px, 막대 사이 표면 간격 최소 1px
-        const barW = Math.min(10, Math.max(1.2, band - 1.2));
-        const x = (i: number) => RPAD.l + i * band + (band - barW) / 2;
-        const labelEvery = Math.max(1, Math.ceil(rowDays.length / 5));
-        const segGap = 1.5; // 승/패 세그먼트 사이 표면 간격 (얇은 막대에 맞춰 축소)
-        const rr = Math.min(3, barW / 2); // 데이터 끝 라운드
-        return (
-          <svg
-            key={bi}
-            viewBox={`0 0 ${W} ${ROW_H}`}
-            className="trend-svg"
-            onPointerLeave={() => setHoverI(null)}
-            role="img"
-            aria-label={`일별 승패 그래프 ${bi + 1}/${bands.length}`}
-          >
-            {ticks.map((v) => (
-              <g key={v}>
-                <line x1={RPAD.l} x2={W - RPAD.r} y1={yOf(v)} y2={yOf(v)} stroke={GRID} strokeWidth="1" />
-                <text x={RPAD.l - 6} y={yOf(v) + 4} textAnchor="end" fontSize="10" fill={INK_MUTED}>
-                  {v}
-                </text>
-              </g>
-            ))}
-            {rowDays.map((d, i) => {
-              const gi = base + i;
-              const total = d.w + d.l;
-              const yTop = yOf(total);
-              const yMid = yOf(d.l); // 패가 아래(기준선), 승이 위
-              return (
-                <g key={d.date}>
-                  {d.l > 0 && (
-                    <rect x={x(i)} y={yMid} width={barW} height={ROW_H - RPAD.b - yMid} fill={CRIT} />
-                  )}
-                  {d.w > 0 && (
-                    <path
-                      d={`M ${x(i)} ${(d.l > 0 ? yMid - segGap : ROW_H - RPAD.b)}
-                          L ${x(i)} ${yTop + rr}
-                          Q ${x(i)} ${yTop} ${x(i) + rr} ${yTop}
-                          L ${x(i) + barW - rr} ${yTop}
-                          Q ${x(i) + barW} ${yTop} ${x(i) + barW} ${yTop + rr}
-                          L ${x(i) + barW} ${(d.l > 0 ? yMid - segGap : ROW_H - RPAD.b)} Z`}
-                      fill={GOOD}
-                    />
-                  )}
-                  <rect
-                    x={RPAD.l + i * band}
-                    y={RPAD.t}
-                    width={band}
-                    height={ROW_H - RPAD.t - RPAD.b}
-                    fill="transparent"
-                    onPointerMove={() => setHoverI(gi)}
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="trend-svg"
+        onPointerLeave={() => setHoverI(null)}
+        role="img"
+        aria-label="일별 승패 그래프"
+      >
+        {ticks.map((v) => {
+          const emphasized = style === 'updown' ? v === 0 : style === 'rate' ? v === 50 : false;
+          return (
+            <g key={v}>
+              <line
+                x1={PAD.l}
+                x2={W - PAD.r}
+                y1={y(v)}
+                y2={y(v)}
+                stroke={emphasized ? BASELINE : GRID}
+                strokeWidth="1"
+              />
+              <text x={PAD.l - 6} y={y(v) + 4} textAnchor="end" fontSize="10" fill={INK_MUTED}>
+                {Math.abs(v)}
+              </text>
+            </g>
+          );
+        })}
+
+        {style === 'updown' &&
+          days.map((d, i) => {
+            const y0 = y(0);
+            const yW = y(d.w);
+            const yL = y(-d.l);
+            return (
+              <g key={d.date}>
+                {d.w > 0 && (
+                  <path
+                    d={`M ${x(i)} ${y0} L ${x(i)} ${yW + rr}
+                        Q ${x(i)} ${yW} ${x(i) + rr} ${yW}
+                        L ${x(i) + barW - rr} ${yW}
+                        Q ${x(i) + barW} ${yW} ${x(i) + barW} ${yW + rr}
+                        L ${x(i) + barW} ${y0} Z`}
+                    fill={GOOD}
                   />
-                  {i % labelEvery === 0 && (
-                    <text x={x(i) + barW / 2} y={ROW_H - 7} textAnchor="middle" fontSize="10" fill={INK_MUTED}>
-                      {d.date.length === 10 ? d.date.slice(5) : d.date}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-            <line x1={RPAD.l} x2={W - RPAD.r} y1={ROW_H - RPAD.b} y2={ROW_H - RPAD.b} stroke={BASELINE} strokeWidth="1" />
-            {hover && hoverI !== null && hoverI >= base && hoverI < base + rowDays.length && (
-              <rect
-                x={RPAD.l + (hoverI - base) * band}
-                y={RPAD.t}
-                width={band}
-                height={ROW_H - RPAD.t - RPAD.b}
-                fill="rgba(110,168,254,0.1)"
-                pointerEvents="none"
+                )}
+                {d.l > 0 && (
+                  <path
+                    d={`M ${x(i)} ${y0} L ${x(i)} ${yL - rr}
+                        Q ${x(i)} ${yL} ${x(i) + rr} ${yL}
+                        L ${x(i) + barW - rr} ${yL}
+                        Q ${x(i) + barW} ${yL} ${x(i) + barW} ${yL - rr}
+                        L ${x(i) + barW} ${y0} Z`}
+                    fill={CRIT}
+                  />
+                )}
+              </g>
+            );
+          })}
+
+        {style === 'stack' &&
+          days.map((d, i) => {
+            const total = d.w + d.l;
+            const yTop = y(total);
+            const yMid = y(d.l); // 패가 아래(기준선), 승이 위
+            const segGap = 1.5;
+            return (
+              <g key={d.date}>
+                {d.l > 0 && (
+                  <rect x={x(i)} y={yMid} width={barW} height={H - PAD.b - yMid} fill={CRIT} />
+                )}
+                {d.w > 0 && (
+                  <path
+                    d={`M ${x(i)} ${d.l > 0 ? yMid - segGap : H - PAD.b}
+                        L ${x(i)} ${yTop + rr}
+                        Q ${x(i)} ${yTop} ${x(i) + rr} ${yTop}
+                        L ${x(i) + barW - rr} ${yTop}
+                        Q ${x(i) + barW} ${yTop} ${x(i) + barW} ${yTop + rr}
+                        L ${x(i) + barW} ${d.l > 0 ? yMid - segGap : H - PAD.b} Z`}
+                    fill={GOOD}
+                  />
+                )}
+              </g>
+            );
+          })}
+
+        {style === 'rate' && (
+          <>
+            <polyline
+              points={days
+                .map((d, i) => `${(x(i) + barW / 2).toFixed(1)},${y(wrOf(d)).toFixed(1)}`)
+                .join(' ')}
+              fill="none"
+              stroke={ACCENT}
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+            {hover && hoverI !== null && (
+              <circle
+                cx={x(hoverI) + barW / 2}
+                cy={y(wrOf(hover))}
+                r="4"
+                fill={ACCENT}
+                stroke={SURFACE}
+                strokeWidth="2"
               />
             )}
-          </svg>
-        );
-      })}
+          </>
+        )}
+
+        {/* 히트 타깃 + x 라벨 (전 스타일 공통) */}
+        {days.map((d, i) => (
+          <g key={`hit-${d.date}`}>
+            <rect
+              x={PAD.l + i * band}
+              y={PAD.t}
+              width={band}
+              height={H - PAD.t - PAD.b}
+              fill="transparent"
+              onPointerMove={() => setHoverI(i)}
+            />
+            {i % labelEvery === 0 && (
+              <text x={x(i) + barW / 2} y={H - 8} textAnchor="middle" fontSize="10" fill={INK_MUTED}>
+                {d.date.length === 10 ? d.date.slice(5) : d.date}
+              </text>
+            )}
+          </g>
+        ))}
+        {hover && hoverI !== null && style !== 'rate' && (
+          <rect
+            x={PAD.l + hoverI * band}
+            y={PAD.t}
+            width={band}
+            height={H - PAD.t - PAD.b}
+            fill="rgba(110,168,254,0.1)"
+            pointerEvents="none"
+          />
+        )}
+      </svg>
       {hover && (
         <div className="chart-tip">
           <div className="tip-date">{hover.date}</div>
@@ -410,7 +510,7 @@ export function DailyChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLan
             <span className="tip-ch">{CL.loss[lang]}</span>
           </div>
           <div className="tip-row">
-            <b>{hover.w + hover.l ? Math.round((hover.w * 1000) / (hover.w + hover.l)) / 10 : 0}%</b>
+            <b>{Math.round(wrOf(hover) * 10) / 10}%</b>
             <span className="tip-ch">{CL.winrate[lang]}</span>
           </div>
           <div className="tip-row">
