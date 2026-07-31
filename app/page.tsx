@@ -36,28 +36,13 @@ interface CompareResponse {
 type Mode = 'single' | 'compare';
 type PeriodMode = 'all' | 'month' | 'year' | 'custom';
 
-/** 자주 쓰는 ID 항목. 관리자 패널에서 등록 → 이 브라우저의 localStorage 에 저장. */
+/** 자주 쓰는 ID 항목 — 서버(Vercel Blob) 전역 목록. 등록/삭제는 관리자 비밀번호 필요. */
 interface Favorite {
   id: string;
   name: string;
 }
 
-const FAVS_KEY = 'tkwavu_favs';
-
-function loadFavs(): Favorite[] {
-  try {
-    const raw = localStorage.getItem(FAVS_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw) as Favorite[];
-    return Array.isArray(arr) ? arr.filter((f) => f && f.id) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveFavs(favs: Favorite[]): void {
-  localStorage.setItem(FAVS_KEY, JSON.stringify(favs));
-}
+const ADMIN_PW_KEY = 'tkwavu_admin_pw'; // 이 브라우저에 비밀번호 기억(선택)
 
 const WIN_LOSS_COLS = new Set(['result', 'result_for_a']);
 const ROW_CHUNK = 100; // 긴 표는 이 단위로 끊어 보여준다
@@ -102,7 +87,181 @@ function downloadBlob(content: string, mime: string, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-function DataTable({ tab }: { tab: TabData }) {
+/* ── 일별 탭 롤업 (월/분기/반기/연) ─────────────────────────────
+   일별 rows: [Date, my_char, Games, W, L, WinRate(%), RatingDelta, EndRating]
+   를 기간 키로 다시 묶는다. 합산은 W/L/Δ, EndRating 은 기간 내 마지막 날 값. */
+
+type DailyGran = 'day' | 'month' | 'quarter' | 'half' | 'year';
+
+const GRAN_LABEL: Record<DailyGran, string> = {
+  day: '일별',
+  month: '월별',
+  quarter: '분기별',
+  half: '반기별',
+  year: '연별',
+};
+
+function periodKey(date: string, g: DailyGran): string {
+  if (g === 'day') return date;
+  const y = date.slice(0, 4);
+  const m = Number(date.slice(5, 7));
+  if (g === 'month') return date.slice(0, 7);
+  if (g === 'quarter') return `${y}-Q${Math.ceil(m / 3)}`;
+  if (g === 'half') return `${y}-H${m <= 6 ? 1 : 2}`;
+  return y;
+}
+
+/** 일별 데이터가 걸친 범위에 맞는 집계 단위만 제시 (2개 그룹 이상 생길 때만). */
+function granOptions(tab: TabData): DailyGran[] {
+  const dates = tab.rows.map((r) => String(r[0]));
+  const opts: DailyGran[] = ['day'];
+  for (const g of ['month', 'quarter', 'half', 'year'] as DailyGran[]) {
+    if (new Set(dates.map((d) => periodKey(d, g))).size >= 2) opts.push(g);
+  }
+  return opts;
+}
+
+function rollupDaily(tab: TabData, g: DailyGran): TabData {
+  if (g === 'day') return tab;
+  interface Agg {
+    period: string;
+    char: string;
+    w: number;
+    l: number;
+    delta: number;
+    end: number;
+    lastDate: string;
+  }
+  const m = new Map<string, Agg>();
+  for (const r of tab.rows) {
+    const [date, char, , w, l, , delta, end] = r as [
+      string, string, number, number, number, number, number, number,
+    ];
+    const p = periodKey(date, g);
+    const k = `${p}|${char}`;
+    let x = m.get(k);
+    if (!x) m.set(k, (x = { period: p, char, w: 0, l: 0, delta: 0, end: 0, lastDate: '' }));
+    x.w += w;
+    x.l += l;
+    x.delta += delta;
+    if (date > x.lastDate) {
+      x.lastDate = date;
+      x.end = end;
+    }
+  }
+  const rows = [...m.values()].sort(
+    (a, b) =>
+      (a.period < b.period ? 1 : a.period > b.period ? -1 : 0) ||
+      b.w + b.l - (a.w + a.l) ||
+      (a.char.toUpperCase() < b.char.toUpperCase() ? -1 : 1),
+  );
+  return {
+    key: 'daily',
+    label: tab.label,
+    columns: ['Period', 'my_char', 'Games', 'W', 'L', 'WinRate(%)', 'RatingDelta', 'EndRating'],
+    rows: rows.map((x) => {
+      const games = x.w + x.l;
+      return [
+        x.period, x.char, games, x.w, x.l,
+        games ? Math.round((x.w * 10000) / games) / 100 : 0,
+        x.delta, x.end,
+      ];
+    }),
+  };
+}
+
+/**
+ * 비교 표 우위 하이라이트 — 행 안에서 플레이어 간 비교가 성립하는 값만.
+ * 반환: 행(row)을 받아 하이라이트할 컬럼 인덱스 집합을 주는 함수 (해당 없으면 null).
+ * 행 단위 계산이라 검색 필터/더보기로 행 순서가 바뀌어도 안전하다.
+ */
+function makeRowHighlighter(
+  tab: TabData,
+): ((row: (string | number | null)[]) => Set<number>) | null {
+  const cols = tab.columns;
+
+  if (tab.key === 'overview') {
+    // 지표별 방향: high=클수록 우위, low=작을수록 우위. 없으면 하이라이트 안 함.
+    const DIR: Record<string, 'high' | 'low'> = {
+      '경기 승률(%)': 'high',
+      '라운드 승률(%)': 'high',
+      '접전 승률(%)': 'high',
+      '완승 비율(%)': 'high',
+      '완패 비율(%)': 'low',
+      '최고 레이팅': 'high',
+      '최고 텍켄파워': 'high',
+    };
+    return (row) => {
+      const hs = new Set<number>();
+      const dir = DIR[String(row[0])];
+      if (!dir) return hs;
+      const vals = row.slice(1).map(Number);
+      const best = dir === 'high' ? Math.max(...vals) : Math.min(...vals);
+      vals.forEach((v, j) => {
+        if (v === best) hs.add(j + 1);
+      });
+      return hs;
+    };
+  }
+
+  if (tab.key === 'season') {
+    // [Season, 지표, 플레이어...] — 승률 행만
+    return (row) => {
+      const hs = new Set<number>();
+      if (!String(row[1]).includes('승률')) return hs;
+      const vals = row.slice(2).map(Number);
+      const best = Math.max(...vals);
+      if (best <= 0) return hs;
+      vals.forEach((v, j) => {
+        if (v === best) hs.add(j + 2);
+      });
+      return hs;
+    };
+  }
+
+  if (tab.key === 'chars' || tab.key === 'vs_common') {
+    // *_wr(%) 컬럼들끼리 비교
+    const wrCols = cols
+      .map((c, j) => (c.endsWith('_wr(%)') ? j : -1))
+      .filter((j) => j >= 0);
+    if (wrCols.length < 2) return null;
+    return (row) => {
+      const hs = new Set<number>();
+      const vals = wrCols.map((j) => Number(row[j]));
+      const best = Math.max(...vals);
+      if (best <= 0) return hs;
+      wrCols.forEach((j, k) => {
+        if (vals[k] === best) hs.add(j);
+      });
+      return hs;
+    };
+  }
+
+  if (tab.key === 'h2h') {
+    // 맞대결: a_wins vs b_wins 큰 쪽
+    const ai = cols.indexOf('a_wins');
+    const bi = cols.indexOf('b_wins');
+    if (ai < 0 || bi < 0) return null;
+    return (row) => {
+      const hs = new Set<number>();
+      const a = Number(row[ai]);
+      const b = Number(row[bi]);
+      if (a > b) hs.add(ai);
+      else if (b > a) hs.add(bi);
+      return hs;
+    };
+  }
+
+  return null;
+}
+
+function DataTable({
+  tab,
+  rowHl,
+}: {
+  tab: TabData;
+  rowHl?: ((row: (string | number | null)[]) => Set<number>) | null;
+}) {
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(ROW_CHUNK);
 
@@ -151,15 +310,25 @@ function DataTable({ tab }: { tab: TabData }) {
             </tr>
           </thead>
           <tbody>
-            {visible.map((r, i) => (
-              <tr key={i}>
-                {r.map((v, j) => (
-                  <td key={j} className={cellClass(tab.columns[j], v)}>
-                    {v === null ? '' : v}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {visible.map((r, i) => {
+              const hl = rowHl ? rowHl(r) : null;
+              return (
+                <tr key={i}>
+                  {r.map((v, j) => (
+                    <td
+                      key={j}
+                      className={
+                        [cellClass(tab.columns[j], v), hl?.has(j) ? 'hl' : undefined]
+                          .filter(Boolean)
+                          .join(' ') || undefined
+                      }
+                    >
+                      {v === null ? '' : v}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -190,15 +359,20 @@ export default function Home() {
   const [compare, setCompare] = useState<CompareResponse | null>(null);
   const [activeTab, setActiveTab] = useState('');
   const [view, setView] = useState<'chart' | 'table'>('chart');
+  const [dailyGran, setDailyGran] = useState<DailyGran>('day');
 
-  // 자주 쓰는 ID (관리자 패널에서 등록, 이 브라우저에 저장)
+  // 자주 쓰는 ID — 서버 전역 목록 (누구나 보이고, 등록/삭제는 비밀번호 필요)
   const [favs, setFavs] = useState<Favorite[]>([]);
   const [favId, setFavId] = useState('');
   const [favName, setFavName] = useState('');
   const [favBusy, setFavBusy] = useState(false);
   const [favMsg, setFavMsg] = useState('');
+  const [adminPw, setAdminPw] = useState('');
 
-  // 마지막 조회 조건 기억 (재방문 시 편의)
+  // 비교 표 우위 하이라이트 on/off
+  const [hlOn, setHlOn] = useState(true);
+
+  // 마지막 조회 조건 기억 (재방문 시 편의) + 전역 목록 로드
   useEffect(() => {
     try {
       const saved = localStorage.getItem('tkwavu');
@@ -207,10 +381,15 @@ export default function Home() {
         if (s.id) setId(s.id);
         if (s.ids) setIds(s.ids);
       }
+      const pw = localStorage.getItem(ADMIN_PW_KEY);
+      if (pw) setAdminPw(pw);
     } catch {
       /* ignore */
     }
-    setFavs(loadFavs());
+    fetch('/api/favorites')
+      .then((r) => r.json())
+      .then((d: { favorites?: Favorite[] }) => setFavs(d.favorites ?? []))
+      .catch(() => {});
   }, []);
 
   /** 칩 탭 → 모드에 맞게 입력칸에 바로 채운다 (비교 모드는 뒤에 덧붙임). */
@@ -229,11 +408,36 @@ export default function Home() {
     }
   };
 
-  /** 관리자 패널: ID 등록. 이름을 비우면 wavu 에서 닉네임을 받아와 채운다. */
+  /** 관리자 패널: 서버에 등록/삭제. 비밀번호가 맞아야만 반영된다. */
+  const postFav = async (
+    action: 'add' | 'remove',
+    fid: string,
+    name?: string,
+  ): Promise<boolean> => {
+    const res = await fetch('/api/favorites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: adminPw, action, id: fid, name }),
+    });
+    const data = (await res.json()) as { favorites?: Favorite[]; error?: string };
+    if (!res.ok) {
+      setFavMsg(data.error ?? `HTTP ${res.status}`);
+      return false;
+    }
+    setFavs(data.favorites ?? []);
+    localStorage.setItem(ADMIN_PW_KEY, adminPw); // 성공한 비밀번호만 기억
+    return true;
+  };
+
+  /** ID 등록. 이름을 비우면 wavu 에서 닉네임을 받아와 채운다. */
   const addFav = async () => {
     const nid = favId.replace(/[^A-Za-z0-9]/g, '');
     if (!nid) {
       setFavMsg('식별코드를 입력하세요.');
+      return;
+    }
+    if (!adminPw) {
+      setFavMsg('비밀번호를 입력하세요.');
       return;
     }
     setFavBusy(true);
@@ -251,19 +455,21 @@ export default function Home() {
         return;
       }
     }
-    const next = [...favs.filter((f) => f.id !== nid), { id: nid, name }];
-    setFavs(next);
-    saveFavs(next);
-    setFavId('');
-    setFavName('');
+    const ok = await postFav('add', nid, name);
     setFavBusy(false);
-    setFavMsg(`등록됨: ${name} (${nid})`);
+    if (ok) {
+      setFavId('');
+      setFavName('');
+      setFavMsg(`등록됨: ${name} (${nid})`);
+    }
   };
 
-  const removeFav = (fid: string) => {
-    const next = favs.filter((f) => f.id !== fid);
-    setFavs(next);
-    saveFavs(next);
+  const removeFav = async (fid: string) => {
+    if (!adminPw) {
+      setFavMsg('비밀번호를 입력하세요.');
+      return;
+    }
+    await postFav('remove', fid);
   };
 
   /** 기간 모드 → 실제 start/end 쿼리. */
@@ -336,17 +542,24 @@ export default function Home() {
   const tabs = mode === 'single' ? single?.tabs : compare?.tabs;
   const current = tabs?.find((t) => t.key === activeTab) ?? tabs?.[0];
 
+  // 일별 탭: 조회 범위가 넓으면 월/분기/반기/연 집계 단위 제공
+  const dailyOpts = current?.key === 'daily' ? granOptions(current) : null;
+  const effGran: DailyGran =
+    dailyOpts && dailyOpts.includes(dailyGran) ? dailyGran : 'day';
+  const displayTab =
+    current?.key === 'daily' ? rollupDaily(current, effGran) : current;
+
   const baseName =
     mode === 'single'
       ? single?.myName || single?.polarisId || 'tekken'
       : compare?.players.map((p) => p.name).join('_vs_') || 'compare';
 
   const downloadCsv = () => {
-    if (!current) return;
+    if (!displayTab) return;
     downloadBlob(
-      toCsv(current),
+      toCsv(displayTab),
       'text/csv;charset=utf-8',
-      `${baseName}_${current.key}.csv`,
+      `${baseName}_${displayTab.key}.csv`,
     );
   };
   const downloadJson = () => {
@@ -571,6 +784,17 @@ export default function Home() {
             ))}
           </div>
 
+          {mode === 'compare' && (
+            <label className="hl-toggle">
+              <input
+                type="checkbox"
+                checked={hlOn}
+                onChange={(e) => setHlOn(e.target.checked)}
+              />
+              우위 항목 하이라이트
+            </label>
+          )}
+
           {current && CHART_TABS.has(current.key) ? (
             <>
               <div className="mode-switch period">
@@ -586,27 +810,58 @@ export default function Home() {
                 >
                   표
                 </button>
+                {dailyOpts && dailyOpts.length > 1 && (
+                  <>
+                    <span className="gran-sep" />
+                    {dailyOpts.map((g) => (
+                      <button
+                        key={g}
+                        className={effGran === g ? 'on' : ''}
+                        onClick={() => setDailyGran(g)}
+                      >
+                        {GRAN_LABEL[g]}
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
               {view === 'chart' ? (
                 current.key === 'trend' ? (
                   <TrendChart rows={current.rows} />
                 ) : current.key === 'daily' ? (
-                  <DailyChart rows={current.rows} />
+                  <DailyChart rows={displayTab!.rows} />
                 ) : (
                   <SessionChart rows={current.rows} />
                 )
               ) : (
-                <DataTable tab={current} />
+                <DataTable tab={displayTab ?? current} />
               )}
             </>
           ) : (
-            current && <DataTable tab={current} />
+            current && (
+              <DataTable
+                tab={current}
+                rowHl={
+                  mode === 'compare' && hlOn ? makeRowHighlighter(current) : null
+                }
+              />
+            )
           )}
         </>
       )}
 
       <details className="panel admin">
         <summary>⚙️ 관리자 — 자주 쓰는 ID 등록</summary>
+        <div className="row id-row">
+          <input
+            className="id-input"
+            type="password"
+            placeholder="관리자 비밀번호"
+            value={adminPw}
+            onChange={(e) => setAdminPw(e.target.value)}
+            autoComplete="current-password"
+          />
+        </div>
         <div className="row id-row">
           <input
             className="id-input"
@@ -645,8 +900,8 @@ export default function Home() {
           </ul>
         )}
         <p className="hint">
-          등록한 목록은 이 기기(브라우저)에 저장됩니다. 식별코드 입력칸 아래에
-          바로 선택할 수 있는 버튼으로 나타납니다.
+          목록은 서버에 저장되어 모든 방문자에게 보입니다. 등록/삭제는 비밀번호가
+          맞을 때만 반영됩니다.
         </p>
       </details>
 

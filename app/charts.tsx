@@ -337,7 +337,8 @@ export function DailyChart({ rows }: { rows: Row[] }) {
               />
               {i % labelEvery === 0 && (
                 <text x={x(i) + barW / 2} y={H - 8} textAnchor="middle" fontSize="10" fill={INK_MUTED}>
-                  {d.date.slice(5)}
+                  {/* 일별(yyyy-MM-dd)은 월-일만, 월/분기/반기/연 라벨은 그대로 */}
+                  {d.date.length === 10 ? d.date.slice(5) : d.date}
                 </text>
               )}
             </g>

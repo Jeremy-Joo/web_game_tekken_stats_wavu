@@ -223,6 +223,13 @@ button.ghost,
   flex-wrap: wrap;
 }
 
+.gran-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: 0 0.3rem;
+}
+
 .dl-row {
   margin-bottom: 0.8rem;
 }
@@ -332,6 +339,30 @@ tbody tr:hover td {
 td.win {
   color: var(--win);
   font-weight: 600;
+}
+
+/* 비교 표 우위 하이라이트 */
+td.hl {
+  background: rgba(74, 222, 128, 0.13);
+  color: var(--win);
+  font-weight: 700;
+}
+
+.hl-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 0.6rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hl-toggle input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
 }
 
 td.loss {
