@@ -363,42 +363,10 @@ export default function Home() {
   // 비교 표 우위 하이라이트 on/off
   const [hlOn, setHlOn] = useState(true);
 
-  // 닉네임 → 식별코드 검색
-  const [q, setQ] = useState('');
-  const [searching, setSearching] = useState(false);
+  // 통합 입력: 닉네임이 여러 명과 일치할 때 고를 후보 (pendingToken = 어느 입력 항목이었는지)
   const [searchMsg, setSearchMsg] = useState('');
   const [results, setResults] = useState<Favorite[]>([]);
-
-  const doSearch = async () => {
-    const query = q.trim();
-    if (!query) return;
-    setSearching(true);
-    setSearchMsg('');
-    setResults([]);
-    try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-      const data = (await res.json()) as {
-        results?: Favorite[];
-        error?: string;
-      };
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      const found = data.results ?? [];
-      if (found.length === 0) {
-        setSearchMsg(`'${query}' 검색 결과가 없습니다.`);
-      } else if (found.length === 1) {
-        // 한 명이면 바로 식별코드 입력칸에 반영
-        pickFav(found[0]);
-        setQ('');
-        setSearchMsg(`${found[0].name} (${found[0].id}) 입력됨`);
-      } else {
-        setResults(found); // 여러 명이면 칩으로 골라서 반영
-      }
-    } catch (e) {
-      setSearchMsg((e as Error).message);
-    } finally {
-      setSearching(false);
-    }
-  };
+  const [pendingToken, setPendingToken] = useState('');
 
   // 과거 버전이 저장해둔 값 정리 (입력 ID·관리자 비밀번호는 더 이상 저장하지 않는다)
   useEffect(() => {
@@ -410,20 +378,28 @@ export default function Home() {
     }
   }, []);
 
-  /** 칩 탭 → 모드에 맞게 입력칸에 바로 채운다 (비교 모드는 뒤에 덧붙임). */
-  const pickFav = (f: Favorite) => {
-    if (mode === 'single') {
-      setId(f.id);
-    } else {
-      setIds((prev) => {
-        const list = prev
-          .split(/[\s,]+/)
-          .map((s) => s.trim())
-          .filter(Boolean);
-        if (list.includes(f.id)) return prev;
-        return [...list, f.id].join(', ');
-      });
-    }
+  /**
+   * 입력 항목 하나를 식별코드로 해석한다.
+   * 12자리 영숫자(대시 허용)면 식별코드로 보고, 아니면 닉네임으로 wavu 검색.
+   * 검색 결과가 정확히 1명이면 그 식별코드, 여러 명이면 후보를 돌려준다.
+   */
+  const resolveToken = async (
+    tok: string,
+  ): Promise<
+    | { id: string; name?: string }
+    | { choices: Favorite[] }
+    | { error: string }
+  > => {
+    const stripped = tok.replace(/[^A-Za-z0-9]/g, '');
+    if (/^[A-Za-z0-9]{12}$/.test(stripped)) return { id: stripped };
+    const res = await fetch(`/api/search?q=${encodeURIComponent(tok)}`);
+    const data = (await res.json()) as { results?: Favorite[]; error?: string };
+    if (!res.ok) return { error: data.error ?? `HTTP ${res.status}` };
+    const found = data.results ?? [];
+    if (found.length === 0)
+      return { error: `'${tok}' 닉네임 검색 결과가 없습니다.` };
+    if (found.length === 1) return { id: found[0].id, name: found[0].name };
+    return { choices: found };
   };
 
 
@@ -444,41 +420,97 @@ export default function Home() {
     return q;
   }, [periodMode, month, year, start, end]);
 
-  const run = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      if (mode === 'single') {
-        const q = periodQuery();
-        const res = await fetch(
-          `/api/replays/${encodeURIComponent(id.trim())}?${q}`,
-        );
-        const data = (await res.json()) as PlayerResponse;
-        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-        setSingle(data);
-        setCompare(null);
-        setActiveTab(data.tabs[0]?.key ?? '');
-      } else {
-        const list = ids
-          .split(/[\s,]+/)
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .join(',');
-        const q = periodQuery();
-        q.set('ids', list);
-        const res = await fetch(`/api/compare?${q}`);
-        const data = (await res.json()) as CompareResponse;
-        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-        setCompare(data);
-        setSingle(null);
-        setActiveTab(data.tabs[0]?.key ?? '');
+  /**
+   * 조회. 입력칸의 각 항목(식별코드 또는 닉네임)을 resolveToken 으로 해석한 뒤 실행.
+   * 닉네임이 여러 명과 일치하면 칩을 띄우고 멈춘다 — 칩 선택 시 해당 항목만 바꿔 재실행.
+   * setState 반영 전에 재실행할 수 있도록 override 인자를 받는다.
+   */
+  const run = useCallback(
+    async (overrideId?: string, overrideIds?: string) => {
+      const inputId = overrideId ?? id;
+      const inputIds = overrideIds ?? ids;
+      setLoading(true);
+      setError('');
+      setResults([]);
+      setSearchMsg('');
+      try {
+        if (mode === 'single') {
+          const tok = inputId.trim();
+          if (!tok) throw new Error('식별코드 또는 닉네임을 입력하세요.');
+          const r = await resolveToken(tok);
+          if ('error' in r) throw new Error(r.error);
+          if ('choices' in r) {
+            setPendingToken(tok);
+            setResults(r.choices);
+            setSearchMsg(`'${tok}' 검색 결과가 여러 명입니다 — 선택하세요.`);
+            return;
+          }
+          if (r.id !== tok) setId(r.id); // 닉네임 → 찾은 식별코드를 입력칸에 반영
+          const q = periodQuery();
+          const res = await fetch(`/api/replays/${encodeURIComponent(r.id)}?${q}`);
+          const data = (await res.json()) as PlayerResponse;
+          if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+          setSingle(data);
+          setCompare(null);
+          setActiveTab(data.tabs[0]?.key ?? '');
+        } else {
+          // 닉네임에 공백이 올 수 있으므로 쉼표로만 구분한다
+          const tokens = inputIds
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          if (tokens.length < 2)
+            throw new Error('식별코드/닉네임을 쉼표로 구분해 2개 이상 입력하세요.');
+          const resolved: string[] = [];
+          for (const tok of tokens) {
+            const r = await resolveToken(tok);
+            if ('error' in r) throw new Error(r.error);
+            if ('choices' in r) {
+              setPendingToken(tok);
+              setResults(r.choices);
+              setSearchMsg(`'${tok}' 검색 결과가 여러 명입니다 — 선택하세요.`);
+              return;
+            }
+            resolved.push(r.id);
+          }
+          const joined = resolved.join(', ');
+          if (joined !== inputIds.trim()) setIds(joined); // 해석된 식별코드로 입력칸 갱신
+          const q = periodQuery();
+          q.set('ids', resolved.join(','));
+          const res = await fetch(`/api/compare?${q}`);
+          const data = (await res.json()) as CompareResponse;
+          if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+          setCompare(data);
+          setSingle(null);
+          setActiveTab(data.tabs[0]?.key ?? '');
+        }
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mode, id, ids, periodQuery],
+  );
+
+  /** 여러 명 후보 칩 선택 → 해당 항목만 식별코드로 바꿔 즉시 재조회. */
+  const pickResult = (f: Favorite) => {
+    setResults([]);
+    setSearchMsg('');
+    if (mode === 'single') {
+      setId(f.id);
+      run(f.id);
+    } else {
+      const newIds = ids
+        .split(',')
+        .map((s) => (s.trim() === pendingToken ? f.id : s.trim()))
+        .filter(Boolean)
+        .join(', ');
+      setIds(newIds);
+      run(undefined, newIds);
     }
-  }, [mode, id, ids, periodQuery]);
+  };
 
   const xlsxHref = (() => {
     const q = periodQuery();
@@ -570,13 +602,13 @@ export default function Home() {
       <div className="panel">
         {mode === 'single' ? (
           <>
-            <label htmlFor="pid">식별코드 (polaris ID)</label>
+            <label htmlFor="pid">식별코드 또는 닉네임</label>
             <div className="row id-row">
               <input
                 id="pid"
                 className="id-input"
                 type="text"
-                placeholder="예: 53deQ2dmLday"
+                placeholder="예: 53deQ2dmLday 또는 닉네임"
                 value={id}
                 onChange={(e) => setId(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !loading && run()}
@@ -584,14 +616,14 @@ export default function Home() {
                 autoCorrect="off"
                 spellCheck={false}
               />
-              <button onClick={run} disabled={loading}>
+              <button onClick={() => run()} disabled={loading}>
                 {loading ? '수집 중…' : '조회'}
               </button>
             </div>
           </>
         ) : (
           <>
-            <label htmlFor="pids">식별코드 여러 개 (쉼표/공백 구분, 2~4명)</label>
+            <label htmlFor="pids">식별코드/닉네임 여러 개 (쉼표 구분, 2~4명)</label>
             <div className="row id-row">
               <input
                 id="pids"
@@ -604,33 +636,13 @@ export default function Home() {
                 autoCorrect="off"
                 spellCheck={false}
               />
-              <button onClick={run} disabled={loading}>
+              <button onClick={() => run()} disabled={loading}>
                 {loading ? '수집 중…' : '조회'}
               </button>
             </div>
           </>
         )}
 
-        <label htmlFor="nickq" style={{ marginTop: '0.8rem' }}>
-          식별코드를 모르면 — 닉네임으로 검색
-        </label>
-        <div className="row id-row">
-          <input
-            id="nickq"
-            className="id-input"
-            type="text"
-            placeholder="예: JackFather"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !searching && doSearch()}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-          <button className="ghost" onClick={doSearch} disabled={searching}>
-            {searching ? '검색 중…' : '검색'}
-          </button>
-        </div>
         {searchMsg && <p className="hint">{searchMsg}</p>}
         {results.length > 0 && (
           <div className="fav-chips">
@@ -639,11 +651,7 @@ export default function Home() {
                 key={r.id}
                 className="chip"
                 title={r.id}
-                onClick={() => {
-                  pickFav(r);
-                  setResults([]);
-                  setQ('');
-                }}
+                onClick={() => pickResult(r)}
               >
                 {r.name} <span className="chip-id">{r.id}</span>
               </button>
