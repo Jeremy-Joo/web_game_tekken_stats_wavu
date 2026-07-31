@@ -39,6 +39,7 @@ export async function GET(
   const sp = req.nextUrl.searchParams;
   const start = sp.get('start') ?? undefined;
   const end = sp.get('end') ?? undefined;
+  const char = sp.get('char') ?? undefined; // 캐릭터별 상세: 이 캐릭터 경기만 집계
 
   try {
     const replays = await getReplaysCached(id);
@@ -51,7 +52,17 @@ export async function GET(
       );
     }
 
-    const filtered = filterByDate(records, start, end);
+    const dated = filterByDate(records, start, end);
+
+    // 캐릭터 칩용: 기간 필터까지 적용된 시점의 캐릭터별 경기 수 (사용량 내림차순).
+    // char 필터 '이전' 값이어야 칩 목록이 선택과 무관하게 안정적으로 유지된다.
+    const counts = new Map<string, number>();
+    for (const r of dated) counts.set(r.myChar, (counts.get(r.myChar) ?? 0) + 1);
+    const charCounts = [...counts.entries()]
+      .map(([name, games]) => ({ name, games }))
+      .sort((a, b) => b.games - a.games || (a.name < b.name ? -1 : 1));
+
+    const filtered = char ? dated.filter((r) => r.myChar === char) : dated;
     const result = computeFromRecords(filtered, id, myName);
 
     return NextResponse.json({
@@ -59,6 +70,8 @@ export async function GET(
       // computeFromRecords 는 필터된 레코드 기준이라 recordCount 도 필터 후 값이다.
       // '전체 이력 건수'는 따로 실어 UI 가 "618 (전체 7,814)" 를 맞게 보여주게 한다.
       totalCount: records.length,
+      charCounts,
+      selectedChar: char ?? null,
       stats,
       filtered: { start: start ?? null, end: end ?? null, count: filtered.length },
     });

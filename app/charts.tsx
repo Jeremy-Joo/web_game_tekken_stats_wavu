@@ -14,7 +14,23 @@
 //   상태색은 색만으로 의미를 못 지게 범례 라벨과 함께 쓴다.
 // - 축·격자·라벨 텍스트는 데이터색을 입지 않는다(잉크 토큰만).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+
+export type ChartLang = 'ko' | 'en' | 'ja';
+
+// 차트 안에서 쓰는 소량의 문구만 자체 사전으로 (i18n.ts 의존 없이 독립 유지)
+const CL: Record<string, Record<ChartLang, string>> = {
+  win: { ko: '승', en: 'Wins', ja: '勝' },
+  loss: { ko: '패', en: 'Losses', ja: '敗' },
+  up: { ko: '레이팅 상승', en: 'Rating gain', ja: 'レート上昇' },
+  down: { ko: '하락', en: 'loss', ja: '下降' },
+  winrate: { ko: '승률', en: 'Win rate', ja: '勝率' },
+  delta: { ko: '레이팅 Δ', en: 'Rating Δ', ja: 'レートΔ' },
+  session: { ko: '세션', en: 'session', ja: 'セッション' },
+  endRating: { ko: '종료 레이팅', en: 'End rating', ja: '終了レート' },
+  noData: { ko: '그래프로 그릴 데이터가 없습니다.', en: 'No data to chart.', ja: 'グラフ化するデータがありません。' },
+  gamesUnit: { ko: '경기', en: 'games', ja: '試合' },
+};
 
 const SERIES = [
   '#3987e5', '#d95926', '#199e70', '#c98500',
@@ -91,7 +107,7 @@ interface TrendPt {
   dt: string;
 }
 
-export function TrendChart({ rows }: { rows: Row[] }) {
+export function TrendChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLang }) {
   const { ref, x: hoverX, onMove, clear } = useSvgPointer();
 
   const model = useMemo(() => {
@@ -127,7 +143,7 @@ export function TrendChart({ rows }: { rows: Row[] }) {
     return { shown, hidden, x, y, ticks, xTicks, tMin, tMax };
   }, [rows]);
 
-  if (!model) return <p className="hint">그래프로 그릴 데이터가 없습니다.</p>;
+  if (!model) return <p className="hint">{CL.noData[lang]}</p>;
   const { shown, hidden, x, y, ticks, xTicks, tMin, tMax } = model;
 
   const hover = (() => {
@@ -159,7 +175,11 @@ export function TrendChart({ rows }: { rows: Row[] }) {
       <Legend items={shown.map((s, i) => ({ label: s.ch, color: SERIES[i], note: String(s.pts.length) }))} />
       {hidden.length > 0 && (
         <p className="hint">
-          경기 수 상위 {MAX_SERIES}종만 표시 — {hidden.map((h) => h.ch).join(', ')} 은(는) 표에서 확인
+          {lang === 'ko'
+            ? `경기 수 상위 ${MAX_SERIES}종만 표시 — ${hidden.map((h) => h.ch).join(', ')} 은(는) 표에서 확인`
+            : lang === 'ja'
+              ? `試合数上位${MAX_SERIES}キャラのみ表示 — ${hidden.map((h) => h.ch).join(', ')} は表で確認`
+              : `Top ${MAX_SERIES} characters by games — see table for ${hidden.map((h) => h.ch).join(', ')}`}
         </p>
       )}
       <svg
@@ -244,7 +264,7 @@ interface DayAgg {
 
 const DAILY_MAX_BARS = 92; // 약 3달치. 그 이상은 최근 것만 (기간 필터로 좁히면 전부 보임)
 
-export function DailyChart({ rows }: { rows: Row[] }) {
+export function DailyChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLang }) {
   const [hoverI, setHoverI] = useState<number | null>(null);
 
   const model = useMemo(() => {
@@ -271,7 +291,7 @@ export function DailyChart({ rows }: { rows: Row[] }) {
     return { days, truncated: allDays.length - days.length, ticks, hi, x, y, band, barW };
   }, [rows]);
 
-  if (!model) return <p className="hint">그래프로 그릴 데이터가 없습니다.</p>;
+  if (!model) return <p className="hint">{CL.noData[lang]}</p>;
   const { days, truncated, ticks, x, y, band, barW } = model;
   const hover = hoverI !== null ? days[hoverI] : null;
 
@@ -282,12 +302,18 @@ export function DailyChart({ rows }: { rows: Row[] }) {
     <div className="chart-root">
       <Legend
         items={[
-          { label: '승', color: GOOD },
-          { label: '패', color: CRIT },
+          { label: CL.win[lang], color: GOOD },
+          { label: CL.loss[lang], color: CRIT },
         ]}
       />
       {truncated > 0 && (
-        <p className="hint">최근 {days.length}일만 표시 (이전 {truncated}일은 기간을 좁히거나 표에서)</p>
+        <p className="hint">
+          {lang === 'ko'
+            ? `최근 ${days.length}일만 표시 (이전 ${truncated}일은 기간을 좁히거나 표에서)`
+            : lang === 'ja'
+              ? `直近${days.length}日のみ表示 (それ以前の${truncated}日は期間指定か表で)`
+              : `Showing last ${days.length} days (${truncated} earlier days: narrow the period or use the table)`}
+        </p>
       )}
       <svg
         viewBox={`0 0 ${W} ${H}`}
@@ -362,20 +388,20 @@ export function DailyChart({ rows }: { rows: Row[] }) {
           <div className="tip-row">
             <span className="legend-line" style={{ background: GOOD }} />
             <b>{hover.w}</b>
-            <span className="tip-ch">승</span>
+            <span className="tip-ch">{CL.win[lang]}</span>
           </div>
           <div className="tip-row">
             <span className="legend-line" style={{ background: CRIT }} />
             <b>{hover.l}</b>
-            <span className="tip-ch">패</span>
+            <span className="tip-ch">{CL.loss[lang]}</span>
           </div>
           <div className="tip-row">
             <b>{hover.w + hover.l ? Math.round((hover.w * 1000) / (hover.w + hover.l)) / 10 : 0}%</b>
-            <span className="tip-ch">승률</span>
+            <span className="tip-ch">{CL.winrate[lang]}</span>
           </div>
           <div className="tip-row">
             <b>{hover.delta > 0 ? `+${hover.delta}` : hover.delta}</b>
-            <span className="tip-ch">레이팅 Δ</span>
+            <span className="tip-ch">{CL.delta[lang]}</span>
           </div>
         </div>
       )}
@@ -396,7 +422,7 @@ interface SessAgg {
 
 const SESSION_MAX_BARS = 60;
 
-export function SessionChart({ rows }: { rows: Row[] }) {
+export function SessionChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLang }) {
   const [hoverI, setHoverI] = useState<number | null>(null);
 
   const model = useMemo(() => {
@@ -428,7 +454,7 @@ export function SessionChart({ rows }: { rows: Row[] }) {
     return { sess, truncated: allSess.length - sess.length, ticks, x, y, band, barW };
   }, [rows]);
 
-  if (!model) return <p className="hint">그래프로 그릴 데이터가 없습니다.</p>;
+  if (!model) return <p className="hint">{CL.noData[lang]}</p>;
   const { sess, truncated, ticks, x, y, band, barW } = model;
   const hover = hoverI !== null ? sess[hoverI] : null;
   const labelEvery = Math.max(1, Math.ceil(sess.length / 6));
@@ -437,12 +463,18 @@ export function SessionChart({ rows }: { rows: Row[] }) {
     <div className="chart-root">
       <Legend
         items={[
-          { label: '레이팅 상승', color: GOOD },
-          { label: '하락', color: CRIT },
+          { label: CL.up[lang], color: GOOD },
+          { label: CL.down[lang], color: CRIT },
         ]}
       />
       {truncated > 0 && (
-        <p className="hint">최근 {sess.length}세션만 표시 (이전 {truncated}세션은 기간을 좁히거나 표에서)</p>
+        <p className="hint">
+          {lang === 'ko'
+            ? `최근 ${sess.length}세션만 표시 (이전 ${truncated}세션은 기간을 좁히거나 표에서)`
+            : lang === 'ja'
+              ? `直近${sess.length}セッションのみ表示 (以前の${truncated}件は期間指定か表で)`
+              : `Showing last ${sess.length} sessions (${truncated} earlier: narrow the period or use the table)`}
+        </p>
       )}
       <svg
         viewBox={`0 0 ${W} ${H}`}
@@ -506,21 +538,21 @@ export function SessionChart({ rows }: { rows: Row[] }) {
       </svg>
       {hover && (
         <div className="chart-tip">
-          <div className="tip-date">{hover.label} 세션</div>
+          <div className="tip-date">{hover.label} {CL.session[lang]}</div>
           <div className="tip-row">
             <span className="legend-line" style={{ background: hover.delta >= 0 ? GOOD : CRIT }} />
             <b>{hover.delta > 0 ? `+${hover.delta}` : hover.delta}</b>
-            <span className="tip-ch">레이팅 Δ</span>
+            <span className="tip-ch">{CL.delta[lang]}</span>
           </div>
           <div className="tip-row">
             <b>
-              {hover.w}승 {hover.l}패
+              {hover.w}{CL.win[lang]} {hover.l}{CL.loss[lang]}
             </b>
-            <span className="tip-ch">{hover.games}경기</span>
+            <span className="tip-ch">{hover.games}{CL.gamesUnit[lang]}</span>
           </div>
           <div className="tip-row">
             <b>{hover.endRating.toLocaleString()}</b>
-            <span className="tip-ch">종료 레이팅</span>
+            <span className="tip-ch">{CL.endRating[lang]}</span>
           </div>
         </div>
       )}

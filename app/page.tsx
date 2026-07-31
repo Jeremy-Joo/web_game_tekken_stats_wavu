@@ -6,6 +6,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TrendChart, DailyChart, SessionChart } from './charts';
+import {
+  LANGS,
+  LANG_KEY,
+  makeT,
+  TAB_LABELS,
+  cellText,
+  type Lang,
+} from './i18n';
 
 interface TabData {
   key: string;
@@ -22,6 +30,8 @@ interface PlayerResponse {
   firstDt: string | null;
   lastDt: string | null;
   tabs: TabData[];
+  charCounts?: { name: string; games: number }[]; // 사용 캐릭터 (경기 수 내림차순)
+  selectedChar?: string | null;
   stats?: { total: number; kept: number; dropped: number; dupes: number };
   filtered?: { start: string | null; end: string | null; count: number };
   error?: string;
@@ -92,12 +102,12 @@ function downloadBlob(content: string, mime: string, filename: string): void {
 
 type DailyGran = 'day' | 'month' | 'quarter' | 'half' | 'year';
 
-const GRAN_LABEL: Record<DailyGran, string> = {
-  day: '일별',
-  month: '월별',
-  quarter: '분기별',
-  half: '반기별',
-  year: '연별',
+const GRAN_LABEL: Record<DailyGran, Record<Lang, string>> = {
+  day: { ko: '일별', en: 'Daily', ja: '日別' },
+  month: { ko: '월별', en: 'Monthly', ja: '月別' },
+  quarter: { ko: '분기별', en: 'Quarterly', ja: '四半期' },
+  half: { ko: '반기별', en: 'Half-yearly', ja: '半期' },
+  year: { ko: '연별', en: 'Yearly', ja: '年別' },
 };
 
 function periodKey(date: string, g: DailyGran): string {
@@ -257,10 +267,13 @@ function makeRowHighlighter(
 function DataTable({
   tab,
   rowHl,
+  lang = 'ko',
 }: {
   tab: TabData;
   rowHl?: ((row: (string | number | null)[]) => Set<number>) | null;
+  lang?: Lang;
 }) {
+  const tt = makeT(lang);
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(ROW_CHUNK);
 
@@ -292,7 +305,7 @@ function DataTable({
         <div className="table-tools">
           <input
             type="text"
-            placeholder="🔍 검색 (이름·캐릭터·날짜…)"
+            placeholder={tt('searchInTable')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoCapitalize="none"
@@ -300,7 +313,9 @@ function DataTable({
             spellCheck={false}
           />
           <span className="hint">
-            {query ? `${filtered.length}건 일치 / ` : ''}전체 {tab.rows.length}행
+            {query ? `${filtered.length}${tt('matched')}` : ''}
+            {tab.rows.length}
+            {tt('totalRows')}
           </span>
         </div>
       )}
@@ -336,12 +351,14 @@ function DataTable({
                             href={`/?id=${encodeURIComponent(pol)}`}
                             target="_blank"
                             rel="noreferrer"
-                            title={`${pol} 새 창에서 조회`}
+                            title={pol}
                           >
                             {v}
                           </a>
                         ) : v === null ? (
                           ''
+                        ) : typeof v === 'string' ? (
+                          cellText(lang, v)
                         ) : (
                           v
                         )}
@@ -357,11 +374,11 @@ function DataTable({
       {filtered.length > limit && (
         <div className="row">
           <button className="ghost" onClick={() => setLimit((n) => n + ROW_CHUNK * 2)}>
-            더 보기 ({limit} / {filtered.length})
+            {tt('loadMore')} ({limit} / {filtered.length})
           </button>
         </div>
       )}
-      {visible.length === 0 && <p className="hint">표시할 행이 없습니다.</p>}
+      {visible.length === 0 && <p className="hint">{tt('noRows')}</p>}
     </>
   );
 }
@@ -382,6 +399,17 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('');
   const [view, setView] = useState<'chart' | 'table'>('chart');
   const [dailyGran, setDailyGran] = useState<DailyGran>('day');
+  const [charSel, setCharSel] = useState(''); // ''=전체, 그 외=해당 캐릭터만 집계
+  const [lang, setLangState] = useState<Lang>('ko');
+  const t = makeT(lang);
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    try {
+      localStorage.setItem(LANG_KEY, l);
+    } catch {
+      /* ignore */
+    }
+  };
 
   // 비교 표 우위 하이라이트 on/off
   const [hlOn, setHlOn] = useState(true);
@@ -397,14 +425,32 @@ export default function Home() {
   const [addQ, setAddQ] = useState('');
   const [addBusy, setAddBusy] = useState(false);
 
+  // 닉네임 검색 시 과거 닉네임까지 포함할지 (wavu 는 개명 이력도 검색해준다)
+  const [inclHistory, setInclHistory] = useState(false);
+
+  // 방문자 카운터 (세션당 1회만 증가)
+  const [visits, setVisits] = useState<{ total: number; today: number } | null>(null);
+
   // 과거 버전이 저장해둔 값 정리 (입력 ID·관리자 비밀번호는 더 이상 저장하지 않는다)
   useEffect(() => {
     try {
       localStorage.removeItem('tkwavu');
       localStorage.removeItem('tkwavu_admin_pw');
+      const l = localStorage.getItem(LANG_KEY) as Lang | null;
+      if (l && ['ko', 'en', 'ja'].includes(l)) setLangState(l);
     } catch {
       /* ignore */
     }
+    // 방문 집계: 같은 브라우저 세션에서는 한 번만 센다
+    const counted = sessionStorage.getItem('tkwavu_visited');
+    fetch('/api/visit', { method: counted ? 'GET' : 'POST' })
+      .then((r) => r.json())
+      .then((d: { total?: number; today?: number }) => {
+        if (typeof d.total === 'number')
+          setVisits({ total: d.total, today: d.today ?? 0 });
+        sessionStorage.setItem('tkwavu_visited', '1');
+      })
+      .catch(() => {});
   }, []);
 
   /**
@@ -421,7 +467,9 @@ export default function Home() {
   > => {
     const stripped = tok.replace(/[^A-Za-z0-9]/g, '');
     if (/^[A-Za-z0-9]{12}$/.test(stripped)) return { id: stripped };
-    const res = await fetch(`/api/search?q=${encodeURIComponent(tok)}`);
+    const res = await fetch(
+      `/api/search?q=${encodeURIComponent(tok)}${inclHistory ? '&history=1' : ''}`,
+    );
     const data = (await res.json()) as { results?: Favorite[]; error?: string };
     if (!res.ok) return { error: data.error ?? `HTTP ${res.status}` };
     const found = data.results ?? [];
@@ -455,9 +503,10 @@ export default function Home() {
    * setState 반영 전에 재실행할 수 있도록 override 인자를 받는다.
    */
   const run = useCallback(
-    async (overrideId?: string, overrideIds?: string) => {
+    async (overrideId?: string, overrideIds?: string, overrideChar?: string) => {
       const inputId = overrideId ?? id;
       const inputIds = overrideIds ?? ids;
+      const charFilter = overrideChar !== undefined ? overrideChar : charSel;
       setLoading(true);
       setError('');
       setResults([]);
@@ -465,32 +514,32 @@ export default function Home() {
       try {
         if (mode === 'single') {
           const tok = inputId.trim();
-          if (!tok) throw new Error('식별코드 또는 닉네임을 입력하세요.');
+          if (!tok) throw new Error(t('needInput'));
           const r = await resolveToken(tok);
           if ('error' in r) throw new Error(r.error);
           if ('choices' in r) {
             setPendingToken(tok);
             setResultsMode('replace');
             setResults(r.choices);
-            setSearchMsg(`'${tok}' 검색 결과가 여러 명입니다 — 선택하세요.`);
+            setSearchMsg(t('multiFound')(tok));
             return;
           }
           if (r.id !== tok) setId(r.id); // 닉네임 → 찾은 식별코드를 입력칸에 반영
           const q = periodQuery();
+          if (charFilter) q.set('char', charFilter);
           const res = await fetch(`/api/replays/${encodeURIComponent(r.id)}?${q}`);
           const data = (await res.json()) as PlayerResponse;
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
           setSingle(data);
           setCompare(null);
-          setActiveTab(data.tabs[0]?.key ?? '');
+          setActiveTab((prev) => prev || (data.tabs[0]?.key ?? ''));
         } else {
           // 닉네임에 공백이 올 수 있으므로 쉼표로만 구분한다
           const tokens = inputIds
             .split(',')
             .map((s) => s.trim())
             .filter(Boolean);
-          if (tokens.length < 2)
-            throw new Error('식별코드/닉네임을 쉼표로 구분해 2개 이상 입력하세요.');
+          if (tokens.length < 2) throw new Error(t('needTwo'));
           const resolved: string[] = [];
           for (const tok of tokens) {
             const r = await resolveToken(tok);
@@ -499,7 +548,7 @@ export default function Home() {
               setPendingToken(tok);
               setResultsMode('replace');
               setResults(r.choices);
-              setSearchMsg(`'${tok}' 검색 결과가 여러 명입니다 — 선택하세요.`);
+              setSearchMsg(t('multiFound')(tok));
               return;
             }
             resolved.push(r.id);
@@ -522,8 +571,14 @@ export default function Home() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mode, id, ids, periodQuery],
+    [mode, id, ids, charSel, periodQuery, lang, inclHistory],
   );
+
+  /** 캐릭터 칩 선택 → 그 캐릭터 경기만으로 전 탭 재집계 (''=전체). */
+  const pickChar = (c: string) => {
+    setCharSel(c);
+    run(undefined, undefined, c);
+  };
 
   // 다른 창에서 /?id=<식별코드> 로 열렸을 때 자동 조회 (상대전적의 상대 클릭 등)
   const bootRef = useRef(false);
@@ -546,10 +601,10 @@ export default function Home() {
         .map((s) => s.trim())
         .filter(Boolean);
       if (list.includes(fid)) {
-        setSearchMsg(`${name ?? fid} 은(는) 이미 목록에 있습니다.`);
+        setSearchMsg(t('already')(name ?? fid));
         return prev;
       }
-      setSearchMsg(`${name ? `${name} (${fid})` : fid} 추가됨`);
+      setSearchMsg(t('added')(name ? `${name} (${fid})` : fid));
       return [...list, fid].join(', ');
     });
   };
@@ -594,7 +649,7 @@ export default function Home() {
       } else if ('choices' in r) {
         setResultsMode('append');
         setResults(r.choices);
-        setSearchMsg(`'${tok}' 검색 결과 — 탭하면 목록에 추가됩니다.`);
+        setSearchMsg(t('addPick')(tok));
       } else {
         appendToIds(r.id, r.name);
         setAddQ('');
@@ -607,6 +662,7 @@ export default function Home() {
   const xlsxHref = (() => {
     const q = periodQuery();
     if (mode === 'single' && single) {
+      if (charSel) q.set('char', charSel);
       return `/api/xlsx/${encodeURIComponent(single.polarisId)}?${q}`;
     }
     if (mode === 'compare' && compare) {
@@ -667,55 +723,69 @@ export default function Home() {
 
   return (
     <main>
-      <h1>
-        <button className="home-btn" onClick={goHome} title="메인으로">
-          철권8 전적 통계
-        </button>
-      </h1>
-      <p className="sub">
-        wavu wank 랭크전 데이터 · 식별코드만 넣으면 전체 이력을 집계합니다
-      </p>
+      <div className="titlebar">
+        <h1>
+          <button className="home-btn" onClick={goHome} title="Home">
+            {t('title')}
+          </button>
+        </h1>
+        <div className="lang-switch">
+          {LANGS.map((l) => (
+            <button
+              key={l.code}
+              className={lang === l.code ? 'on' : ''}
+              onClick={() => setLang(l.code)}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="sub">{t('sub')}</p>
 
       <div className="mode-switch">
         <button
           className={mode === 'single' ? 'on' : ''}
           onClick={() => setMode('single')}
         >
-          한 명
+          {t('single')}
         </button>
         <button
           className={mode === 'compare' ? 'on' : ''}
           onClick={() => setMode('compare')}
         >
-          여러 명 비교
+          {t('compare')}
         </button>
       </div>
 
       <div className="panel">
         {mode === 'single' ? (
           <>
-            <label htmlFor="pid">식별코드 또는 닉네임</label>
+            <label htmlFor="pid">{t('idOrNick')}</label>
             <div className="row id-row">
               <input
                 id="pid"
                 className="id-input"
                 type="text"
-                placeholder="예: 53deQ2dmLday 또는 닉네임"
+                placeholder={t('idPlaceholder')}
                 value={id}
-                onChange={(e) => setId(e.target.value)}
+                onChange={(e) => {
+                  setId(e.target.value);
+                  setCharSel('');
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && !loading && run()}
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
               />
               <button onClick={() => run()} disabled={loading}>
-                {loading ? '수집 중…' : '조회'}
+                {loading ? t('querying') : t('query')}
               </button>
             </div>
           </>
         ) : (
           <>
-            <label htmlFor="pids">식별코드/닉네임 여러 개 (쉼표 구분, 2~4명)</label>
+            <label htmlFor="pids">{t('idsLabel')}</label>
             <div className="row id-row">
               <input
                 id="pids"
@@ -729,19 +799,19 @@ export default function Home() {
                 spellCheck={false}
               />
               <button onClick={() => run()} disabled={loading}>
-                {loading ? '수집 중…' : '조회'}
+                {loading ? t('querying') : t('query')}
               </button>
             </div>
 
             <label htmlFor="addq" style={{ marginTop: '0.8rem' }}>
-              검색해서 목록에 추가
+              {t('addLabel')}
             </label>
             <div className="row id-row">
               <input
                 id="addq"
                 className="id-input"
                 type="text"
-                placeholder="닉네임 또는 ID"
+                placeholder={t('addPlaceholder')}
                 value={addQ}
                 onChange={(e) => setAddQ(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !addBusy && searchAndAdd()}
@@ -750,11 +820,20 @@ export default function Home() {
                 spellCheck={false}
               />
               <button className="ghost" onClick={searchAndAdd} disabled={addBusy}>
-                {addBusy ? '검색 중…' : '검색·추가'}
+                {addBusy ? t('searching') : t('addBtn')}
               </button>
             </div>
           </>
         )}
+
+        <label className="hl-toggle" style={{ marginTop: '0.6rem' }}>
+          <input
+            type="checkbox"
+            checked={inclHistory}
+            onChange={(e) => setInclHistory(e.target.checked)}
+          />
+          {t('historyOpt')}
+        </label>
 
         {searchMsg && <p className="hint">{searchMsg}</p>}
         {results.length > 0 && (
@@ -772,14 +851,14 @@ export default function Home() {
           </div>
         )}
 
-        <label style={{ marginTop: '0.8rem' }}>조회 기간</label>
+        <label style={{ marginTop: '0.8rem' }}>{t('period')}</label>
         <div className="mode-switch period">
           {(
             [
-              ['all', '전체'],
-              ['month', '월별'],
-              ['year', '연별'],
-              ['custom', '직접입력'],
+              ['all', t('periodAll')],
+              ['month', t('periodMonth')],
+              ['year', t('periodYear')],
+              ['custom', t('periodCustom')],
             ] as [PeriodMode, string][]
           ).map(([k, label]) => (
             <button
@@ -817,7 +896,7 @@ export default function Home() {
         {periodMode === 'custom' && (
           <div className="row">
             <span>
-              <label htmlFor="start">시작일</label>
+              <label htmlFor="start">{t('startDate')}</label>
               <input
                 id="start"
                 type="date"
@@ -826,7 +905,7 @@ export default function Home() {
               />
             </span>
             <span>
-              <label htmlFor="end">종료일</label>
+              <label htmlFor="end">{t('endDate')}</label>
               <input
                 id="end"
                 type="date"
@@ -838,24 +917,42 @@ export default function Home() {
         )}
 
         {error && <p className="error">{error}</p>}
-        <p className="hint">
-          첫 조회는 몇 초 걸릴 수 있습니다 (전체 전적을 한 번에 받아옴 · 10분간
-          캐시).
-        </p>
+        <p className="hint">{t('firstHint')}</p>
       </div>
 
       {single && (
-        <p className="meta">
-          <b>{single.myName || single.polarisId}</b> · {single.filtered?.count}
-          경기
-          {single.filtered?.start || single.filtered?.end
-            ? ` (${single.filtered?.start ?? ''} ~ ${single.filtered?.end ?? ''}, 전체 ${single.totalCount}건)`
-            : ''}
-          {single.firstDt ? ` · ${single.firstDt.slice(0, 10)} ~ ${single.lastDt?.slice(0, 10)}` : ''}
-          {single.stats && single.stats.dropped > 0
-            ? ` · 제외 ${single.stats.dropped}건`
-            : ''}
-        </p>
+        <>
+          <p className="meta">
+            <b>{single.myName || single.polarisId}</b>
+            {single.selectedChar ? <b> — {single.selectedChar}</b> : null} ·{' '}
+            {single.filtered?.count}
+            {t('games')}
+            {single.filtered?.start || single.filtered?.end
+              ? ` (${single.filtered?.start ?? ''} ~ ${single.filtered?.end ?? ''}, ${t('totalSuffix')} ${single.totalCount})`
+              : ''}
+            {single.firstDt ? ` · ${single.firstDt.slice(0, 10)} ~ ${single.lastDt?.slice(0, 10)}` : ''}
+          </p>
+          {single.charCounts && single.charCounts.length > 1 && (
+            <div className="char-chips">
+              <span className="hint" style={{ margin: 0 }}>{t('charLabel')}:</span>
+              <button
+                className={`chip${charSel === '' ? ' on' : ''}`}
+                onClick={() => pickChar('')}
+              >
+                {t('charAll')}
+              </button>
+              {single.charCounts.map((c) => (
+                <button
+                  key={c.name}
+                  className={`chip${charSel === c.name ? ' on' : ''}`}
+                  onClick={() => pickChar(c.name)}
+                >
+                  {c.name} <span className="chip-id">{c.games}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
       {compare && (
         <p className="meta compare-meta">
@@ -873,25 +970,25 @@ export default function Home() {
           <div className="row dl-row">
             {xlsxHref && (
               <a className="btn-link ghost" href={xlsxHref}>
-                📥 엑셀 (전체 탭)
+                {t('xlsxBtn')}
               </a>
             )}
             <button className="ghost" onClick={downloadCsv}>
-              📄 CSV (현재 탭)
+              {t('csvBtn')}
             </button>
             <button className="ghost" onClick={downloadJson}>
-              🧾 JSON (전체)
+              {t('jsonBtn')}
             </button>
           </div>
 
           <div className="tabs">
-            {tabs.map((t) => (
+            {tabs.map((tb) => (
               <button
-                key={t.key}
-                className={t.key === (current?.key ?? '') ? 'on' : ''}
-                onClick={() => setActiveTab(t.key)}
+                key={tb.key}
+                className={tb.key === (current?.key ?? '') ? 'on' : ''}
+                onClick={() => setActiveTab(tb.key)}
               >
-                {t.label}
+                {TAB_LABELS[tb.key]?.[lang] ?? tb.label}
               </button>
             ))}
           </div>
@@ -904,13 +1001,13 @@ export default function Home() {
                   checked={hlOn}
                   onChange={(e) => setHlOn(e.target.checked)}
                 />
-                우위 항목 하이라이트
+                {t('hlToggle')}
               </label>
               <span className="hl-period">
-                기간:{' '}
+                {t('periodPrefix')}:{' '}
                 {compare?.filtered?.start || compare?.filtered?.end
-                  ? `${compare?.filtered?.start ?? '처음'} ~ ${compare?.filtered?.end ?? '오늘'}`
-                  : '전체'}
+                  ? `${compare?.filtered?.start ?? t('begin')} ~ ${compare?.filtered?.end ?? t('today')}`
+                  : t('periodAll')}
               </span>
             </div>
           )}
@@ -922,13 +1019,13 @@ export default function Home() {
                   className={view === 'chart' ? 'on' : ''}
                   onClick={() => setView('chart')}
                 >
-                  그래프
+                  {t('chart')}
                 </button>
                 <button
                   className={view === 'table' ? 'on' : ''}
                   onClick={() => setView('table')}
                 >
-                  표
+                  {t('table')}
                 </button>
                 {dailyOpts && dailyOpts.length > 1 && (
                   <>
@@ -939,7 +1036,7 @@ export default function Home() {
                         className={effGran === g ? 'on' : ''}
                         onClick={() => setDailyGran(g)}
                       >
-                        {GRAN_LABEL[g]}
+                        {GRAN_LABEL[g][lang]}
                       </button>
                     ))}
                   </>
@@ -947,20 +1044,21 @@ export default function Home() {
               </div>
               {view === 'chart' ? (
                 current.key === 'trend' ? (
-                  <TrendChart rows={current.rows} />
+                  <TrendChart rows={current.rows} lang={lang} />
                 ) : current.key === 'daily' ? (
-                  <DailyChart rows={displayTab!.rows} />
+                  <DailyChart rows={displayTab!.rows} lang={lang} />
                 ) : (
-                  <SessionChart rows={current.rows} />
+                  <SessionChart rows={current.rows} lang={lang} />
                 )
               ) : (
-                <DataTable tab={displayTab ?? current} />
+                <DataTable tab={displayTab ?? current} lang={lang} />
               )}
             </>
           ) : (
             current && (
               <DataTable
                 tab={current}
+                lang={lang}
                 rowHl={
                   mode === 'compare' && hlOn ? makeRowHighlighter(current) : null
                 }
@@ -972,13 +1070,20 @@ export default function Home() {
 
 
       <footer>
-        데이터:{' '}
+        {t('footer1')}{' '}
         <a href="https://wank.wavu.wiki" target="_blank" rel="noreferrer">
           wank.wavu.wiki
         </a>{' '}
-        (랭크전만 집계됨) · 이 사이트는 Bandai Namco 와 무관합니다
+        {t('footer2')}
         <br />
         <span className="byline">by Jeremio, Jinho.ju@live.com</span>
+        {visits && (
+          <span className="byline visit-count">
+            {' '}
+            · 👁 {t('visitors')} {visits.total.toLocaleString()} ({t('todayLabel')}{' '}
+            {visits.today.toLocaleString()})
+          </span>
+        )}
       </footer>
     </main>
   );

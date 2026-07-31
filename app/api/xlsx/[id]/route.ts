@@ -87,17 +87,20 @@ export async function GET(
     }
     const replays = await getReplaysCached(id);
     const { records, myName } = normalizeReplays(replays, id);
-    const filtered = filterByDate(records, start, end);
+    const char = sp.get('char') ?? undefined;
+    const dated = filterByDate(records, start, end);
+    const filtered = char ? dated.filter((r) => r.myChar === char) : dated;
     if (!filtered.length) {
       return NextResponse.json({ error: '해당 조건의 경기가 없습니다.' }, { status: 404 });
     }
     const result = computeFromRecords(filtered, id, myName);
     const buf = await tabsToXlsx(result.tabs, {
-      title: `${myName || id} (${id})`,
+      title: `${myName || id} (${id})${char ? ` — ${char}` : ''}`,
       subtitle: period,
     });
     const safe = (myName || id).replace(/[<>:"/\\|?*]/g, '_');
-    return xlsxResponse(buf, `${safe}_${id}_wavu_${stamp()}.xlsx`);
+    const charTag = char ? `_${char.replace(/[<>:"/\\|?*]/g, '_')}` : '';
+    return xlsxResponse(buf, `${safe}_${id}${charTag}_wavu_${stamp()}.xlsx`);
   } catch (e) {
     if (e instanceof WavuError) {
       const status = e.kind === 'not_found' ? 404 : e.kind === 'blocked' ? 503 : 502;

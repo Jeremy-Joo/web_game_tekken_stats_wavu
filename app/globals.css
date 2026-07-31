@@ -40,6 +40,35 @@ h1 {
   margin: 0 0 0.35rem;
 }
 
+.titlebar {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.lang-switch {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.lang-switch button {
+  min-height: 28px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.lang-switch button.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* 제목 = 메인으로 버튼 (링크처럼 동작하되 모양은 제목 그대로) */
 .home-btn {
   all: unset;
@@ -146,6 +175,21 @@ select {
   color: var(--muted);
   font-size: 0.72rem;
   margin-left: 0.25rem;
+}
+
+.chip.on {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* 캐릭터별 상세 칩 (경기 수 순) */
+.char-chips {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0 0 0.8rem;
 }
 
 button,

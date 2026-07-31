@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
 
   const sec = html.slice(secIdx);
   const seen = new Set<string>();
-  const results: { id: string; name: string }[] = [];
+  const all: { id: string; name: string }[] = [];
   for (const m of sec.matchAll(
     /href="\/player\/([A-Za-z0-9]+)"[^>]*>\s*([^<]+?)\s*</g,
   )) {
@@ -65,9 +65,20 @@ export async function GET(req: NextRequest) {
     const name = m[2].trim();
     if (!name || seen.has(id)) continue;
     seen.add(id);
-    results.push({ id, name });
-    if (results.length >= MAX_RESULTS) break;
+    all.push({ id, name });
   }
 
-  return NextResponse.json({ query: q, results });
+  // wavu 검색은 '과거 닉네임'이 일치해도 현재 이름으로 보여준다.
+  // 그래서 'chif' 검색에 ROBS 같은 무관해 보이는 이름이 섞인다.
+  // 기본값: 현재 이름에 검색어가 들어간 결과만. (하나도 없으면 원본 그대로 —
+  //         옛 닉네임으로만 찾아지는 경우를 살리기 위해)
+  // ?history=1: 필터 없이 wavu 결과 전체 (과거 닉네임 포함 검색 옵션).
+  const includeHistory = req.nextUrl.searchParams.get('history') === '1';
+  const ql = q.toLowerCase();
+  const matched = all.filter((r) => r.name.toLowerCase().includes(ql));
+  const results = (
+    includeHistory ? all : matched.length > 0 ? matched : all
+  ).slice(0, MAX_RESULTS);
+
+  return NextResponse.json({ query: q, results, history: includeHistory });
 }
