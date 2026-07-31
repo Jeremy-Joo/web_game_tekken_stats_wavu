@@ -15,7 +15,8 @@ interface TabData {
 interface PlayerResponse {
   polarisId: string;
   myName: string;
-  recordCount: number;
+  recordCount: number; // 필터 적용 후
+  totalCount: number; // 전체 이력
   firstDt: string | null;
   lastDt: string | null;
   tabs: TabData[];
@@ -271,7 +272,7 @@ export default function Home() {
           <b>{single.myName || single.polarisId}</b> · {single.filtered?.count}
           경기
           {single.filtered?.start || single.filtered?.end
-            ? ` (${single.filtered?.start ?? ''} ~ ${single.filtered?.end ?? ''}, 전체 ${single.recordCount}건)`
+            ? ` (${single.filtered?.start ?? ''} ~ ${single.filtered?.end ?? ''}, 전체 ${single.totalCount}건)`
             : ''}
           {single.firstDt ? ` · ${single.firstDt.slice(0, 10)} ~ ${single.lastDt?.slice(0, 10)}` : ''}
           {single.stats && single.stats.dropped > 0

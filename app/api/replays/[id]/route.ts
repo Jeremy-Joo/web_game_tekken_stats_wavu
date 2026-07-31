@@ -56,6 +56,9 @@ export async function GET(
 
     return NextResponse.json({
       ...result,
+      // computeFromRecords 는 필터된 레코드 기준이라 recordCount 도 필터 후 값이다.
+      // '전체 이력 건수'는 따로 실어 UI 가 "618 (전체 7,814)" 를 맞게 보여주게 한다.
+      totalCount: records.length,
       stats,
       filtered: { start: start ?? null, end: end ?? null, count: filtered.length },
     });
