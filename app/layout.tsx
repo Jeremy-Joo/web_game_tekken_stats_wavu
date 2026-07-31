@@ -27,6 +27,16 @@ export const metadata: Metadata = {
     type: 'website',
   },
   robots: { index: true, follow: true },
+  // 검색엔진 소유권 확인 — 값은 코드가 아니라 Vercel 환경변수로 관리한다.
+  // (GSC/네이버에서 받은 content 값을 GOOGLE_SITE_VERIFICATION / NAVER_SITE_VERIFICATION 에 넣으면 됨)
+  verification: {
+    ...(process.env.GOOGLE_SITE_VERIFICATION
+      ? { google: process.env.GOOGLE_SITE_VERIFICATION }
+      : {}),
+    ...(process.env.NAVER_SITE_VERIFICATION
+      ? { other: { 'naver-site-verification': process.env.NAVER_SITE_VERIFICATION } }
+      : {}),
+  },
 };
 
 export const viewport: Viewport = {

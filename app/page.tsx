@@ -1126,6 +1126,16 @@ export default function Home() {
         </a>{' '}
         {t('footer2')}
         <br />
+        🏆{' '}
+        <a
+          href="https://season-end-web.vercel.app/tekken-tier"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Tekken Tier Percent
+        </a>{' '}
+        — {lang === 'ko' ? '시즌별 티어 분포 (상위 %)' : lang === 'ja' ? 'シーズン別ティア分布 (上位%)' : 'rank distribution by season (top %)'}
+        <br />
         <span className="byline">by Jeremio, Jinho.ju@live.com</span>
         {visits && (
           <span className="byline visit-count">
