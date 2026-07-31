@@ -12,7 +12,9 @@ import { WAVU_BASE } from '@/lib/wavu/client';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const MAX_RESULTS = 20;
+// wavu 검색 자체가 최대 50건을 돌려준다(실측 — limit/page 파라미터 없음).
+// 그 이하로 자르면 사용자 눈에 '누락'으로 보이므로 wavu 상한을 그대로 따른다.
+const MAX_RESULTS = 50;
 
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get('q') ?? '').trim();
