@@ -108,7 +108,7 @@ function downloadBlob(content: string, mime: string, filename: string): void {
    일별 rows: [Date, my_char, Games, W, L, WinRate(%), RatingDelta, EndRating]
    를 기간 키로 다시 묶는다. 합산은 W/L/Δ, EndRating 은 기간 내 마지막 날 값. */
 
-type DailyGran = 'day' | 'month' | 'quarter' | 'half' | 'year';
+type DailyGran = 'day' | 'month' | 'quarter' | 'half' | 'year' | 'season';
 
 const DAILY_STYLE_LABEL: Record<DailyStyle, Record<Lang, string>> = {
   updown: { ko: '승▲ 패▼', en: 'W▲ L▼', ja: '勝▲ 敗▼' },
@@ -123,10 +123,17 @@ const GRAN_LABEL: Record<DailyGran, Record<Lang, string>> = {
   quarter: { ko: '분기별', en: 'Quarterly', ja: '四半期' },
   half: { ko: '반기별', en: 'Half-yearly', ja: '半期' },
   year: { ko: '연별', en: 'Yearly', ja: '年別' },
+  season: { ko: '시즌별', en: 'By season', ja: 'シーズン別' },
 };
 
 function periodKey(date: string, g: DailyGran): string {
   if (g === 'day') return date;
+  if (g === 'season') {
+    // 시즌 경계는 SEASON_RANGE(실측)와 동일 기준
+    if (date <= SEASON_RANGE.s1.end!) return 'S1';
+    if (date <= SEASON_RANGE.s2.end!) return 'S2';
+    return 'S3';
+  }
   const y = date.slice(0, 4);
   const m = Number(date.slice(5, 7));
   if (g === 'month') return date.slice(0, 7);
@@ -139,7 +146,7 @@ function periodKey(date: string, g: DailyGran): string {
 function granOptions(tab: TabData): DailyGran[] {
   const dates = tab.rows.map((r) => String(r[0]));
   const opts: DailyGran[] = ['day'];
-  for (const g of ['month', 'quarter', 'half', 'year'] as DailyGran[]) {
+  for (const g of ['month', 'quarter', 'half', 'year', 'season'] as DailyGran[]) {
     if (new Set(dates.map((d) => periodKey(d, g))).size >= 2) opts.push(g);
   }
   return opts;
