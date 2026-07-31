@@ -4,7 +4,7 @@
 // 표 렌더는 서버가 준 TabData 를 그대로 그린다(집계는 전부 서버).
 // 레이팅 추이 탭만 클라이언트에서 SVG 그래프를 추가로 그린다.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TrendChart, DailyChart, SessionChart } from './charts';
 
 interface TabData {
@@ -281,6 +281,11 @@ function DataTable({
   const visible = filtered.slice(0, limit);
   const searchable = tab.rows.length > 30;
 
+  // 상대 식별코드가 있는 표(상대전적·공통 상대)는 이름/ID 클릭 → 새 창에서 그 플레이어 조회
+  const polIdx = tab.columns.indexOf('opp_polaris');
+  const isLinkCol = (j: number) =>
+    polIdx >= 0 && (j === polIdx || tab.columns[j] === 'opp_name');
+
   return (
     <>
       {searchable && (
@@ -313,18 +318,36 @@ function DataTable({
               const hl = rowHl ? rowHl(r) : null;
               return (
                 <tr key={i}>
-                  {r.map((v, j) => (
-                    <td
-                      key={j}
-                      className={
-                        [cellClass(tab.columns[j], v), hl?.has(j) ? 'hl' : undefined]
-                          .filter(Boolean)
-                          .join(' ') || undefined
-                      }
-                    >
-                      {v === null ? '' : v}
-                    </td>
-                  ))}
+                  {r.map((v, j) => {
+                    const pol = polIdx >= 0 ? String(r[polIdx] ?? '') : '';
+                    const linked = v !== null && pol && isLinkCol(j);
+                    return (
+                      <td
+                        key={j}
+                        className={
+                          [cellClass(tab.columns[j], v), hl?.has(j) ? 'hl' : undefined]
+                            .filter(Boolean)
+                            .join(' ') || undefined
+                        }
+                      >
+                        {linked ? (
+                          <a
+                            className="plink"
+                            href={`/?id=${encodeURIComponent(pol)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={`${pol} 새 창에서 조회`}
+                          >
+                            {v}
+                          </a>
+                        ) : v === null ? (
+                          ''
+                        ) : (
+                          v
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}
@@ -501,6 +524,19 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [mode, id, ids, periodQuery],
   );
+
+  // 다른 창에서 /?id=<식별코드> 로 열렸을 때 자동 조회 (상대전적의 상대 클릭 등)
+  const bootRef = useRef(false);
+  useEffect(() => {
+    if (bootRef.current) return;
+    bootRef.current = true;
+    const qid = new URLSearchParams(window.location.search).get('id');
+    if (qid) {
+      setId(qid);
+      run(qid);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** 비교 목록에 식별코드 추가 (중복 제외). */
   const appendToIds = (fid: string, name?: string) => {

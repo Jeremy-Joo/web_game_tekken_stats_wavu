@@ -343,6 +343,16 @@ td.win {
   font-weight: 600;
 }
 
+/* 표 안의 플레이어 링크 (상대전적 이름/ID → 새 창 조회) */
+td a.plink {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+td a.plink:hover {
+  text-decoration: underline;
+}
+
 /* 비교 표 우위 하이라이트 */
 td.hl {
   background: rgba(74, 222, 128, 0.13);
