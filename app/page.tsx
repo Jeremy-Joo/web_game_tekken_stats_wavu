@@ -36,6 +36,29 @@ interface CompareResponse {
 type Mode = 'single' | 'compare';
 type PeriodMode = 'all' | 'month' | 'year' | 'custom';
 
+/** 자주 쓰는 ID 항목. 관리자 패널에서 등록 → 이 브라우저의 localStorage 에 저장. */
+interface Favorite {
+  id: string;
+  name: string;
+}
+
+const FAVS_KEY = 'tkwavu_favs';
+
+function loadFavs(): Favorite[] {
+  try {
+    const raw = localStorage.getItem(FAVS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as Favorite[];
+    return Array.isArray(arr) ? arr.filter((f) => f && f.id) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveFavs(favs: Favorite[]): void {
+  localStorage.setItem(FAVS_KEY, JSON.stringify(favs));
+}
+
 const WIN_LOSS_COLS = new Set(['result', 'result_for_a']);
 const ROW_CHUNK = 100; // 긴 표는 이 단위로 끊어 보여준다
 const CHART_TABS = new Set(['trend', 'daily', 'sessions']); // 그래프/표 토글 지원 탭
@@ -168,6 +191,13 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('');
   const [view, setView] = useState<'chart' | 'table'>('chart');
 
+  // 자주 쓰는 ID (관리자 패널에서 등록, 이 브라우저에 저장)
+  const [favs, setFavs] = useState<Favorite[]>([]);
+  const [favId, setFavId] = useState('');
+  const [favName, setFavName] = useState('');
+  const [favBusy, setFavBusy] = useState(false);
+  const [favMsg, setFavMsg] = useState('');
+
   // 마지막 조회 조건 기억 (재방문 시 편의)
   useEffect(() => {
     try {
@@ -180,7 +210,61 @@ export default function Home() {
     } catch {
       /* ignore */
     }
+    setFavs(loadFavs());
   }, []);
+
+  /** 칩 탭 → 모드에 맞게 입력칸에 바로 채운다 (비교 모드는 뒤에 덧붙임). */
+  const pickFav = (f: Favorite) => {
+    if (mode === 'single') {
+      setId(f.id);
+    } else {
+      setIds((prev) => {
+        const list = prev
+          .split(/[\s,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (list.includes(f.id)) return prev;
+        return [...list, f.id].join(', ');
+      });
+    }
+  };
+
+  /** 관리자 패널: ID 등록. 이름을 비우면 wavu 에서 닉네임을 받아와 채운다. */
+  const addFav = async () => {
+    const nid = favId.replace(/[^A-Za-z0-9]/g, '');
+    if (!nid) {
+      setFavMsg('식별코드를 입력하세요.');
+      return;
+    }
+    setFavBusy(true);
+    setFavMsg('');
+    let name = favName.trim();
+    if (!name) {
+      try {
+        const res = await fetch(`/api/replays/${encodeURIComponent(nid)}`);
+        const data = (await res.json()) as PlayerResponse;
+        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+        name = data.myName || nid;
+      } catch (e) {
+        setFavBusy(false);
+        setFavMsg(`이름 조회 실패: ${(e as Error).message} — 표시 이름을 직접 넣고 다시 등록하세요.`);
+        return;
+      }
+    }
+    const next = [...favs.filter((f) => f.id !== nid), { id: nid, name }];
+    setFavs(next);
+    saveFavs(next);
+    setFavId('');
+    setFavName('');
+    setFavBusy(false);
+    setFavMsg(`등록됨: ${name} (${nid})`);
+  };
+
+  const removeFav = (fid: string) => {
+    const next = favs.filter((f) => f.id !== fid);
+    setFavs(next);
+    saveFavs(next);
+  };
 
   /** 기간 모드 → 실제 start/end 쿼리. */
   const periodQuery = useCallback((): URLSearchParams => {
@@ -308,9 +392,10 @@ export default function Home() {
         {mode === 'single' ? (
           <>
             <label htmlFor="pid">식별코드 (polaris ID)</label>
-            <div className="row">
+            <div className="row id-row">
               <input
                 id="pid"
+                className="id-input"
                 type="text"
                 placeholder="예: 5m6Lj5Jb6MfQ"
                 value={id}
@@ -320,12 +405,15 @@ export default function Home() {
                 autoCorrect="off"
                 spellCheck={false}
               />
+              <button onClick={run} disabled={loading}>
+                {loading ? '수집 중…' : '조회'}
+              </button>
             </div>
           </>
         ) : (
           <>
             <label htmlFor="pids">식별코드 여러 개 (쉼표/공백 구분, 2~4명)</label>
-            <div className="row">
+            <div className="row id-row">
               <input
                 id="pids"
                 type="text"
@@ -337,8 +425,26 @@ export default function Home() {
                 autoCorrect="off"
                 spellCheck={false}
               />
+              <button onClick={run} disabled={loading}>
+                {loading ? '수집 중…' : '조회'}
+              </button>
             </div>
           </>
+        )}
+
+        {favs.length > 0 && (
+          <div className="fav-chips">
+            {favs.map((f) => (
+              <button
+                key={f.id}
+                className="chip"
+                title={f.id}
+                onClick={() => pickFav(f)}
+              >
+                {f.name}
+              </button>
+            ))}
+          </div>
         )}
 
         <label style={{ marginTop: '0.8rem' }}>조회 기간</label>
@@ -406,11 +512,6 @@ export default function Home() {
           </div>
         )}
 
-        <div className="row">
-          <button onClick={run} disabled={loading}>
-            {loading ? '수집 중…' : '조회'}
-          </button>
-        </div>
         {error && <p className="error">{error}</p>}
         <p className="hint">
           첫 조회는 몇 초 걸릴 수 있습니다 (전체 전적을 한 번에 받아옴 · 10분간
@@ -503,6 +604,51 @@ export default function Home() {
           )}
         </>
       )}
+
+      <details className="panel admin">
+        <summary>⚙️ 관리자 — 자주 쓰는 ID 등록</summary>
+        <div className="row id-row">
+          <input
+            className="id-input"
+            type="text"
+            placeholder="식별코드"
+            value={favId}
+            onChange={(e) => setFavId(e.target.value)}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+          <input
+            className="id-input"
+            type="text"
+            placeholder="표시 이름 (비우면 자동)"
+            value={favName}
+            onChange={(e) => setFavName(e.target.value)}
+          />
+          <button onClick={addFav} disabled={favBusy}>
+            {favBusy ? '조회 중…' : '등록'}
+          </button>
+        </div>
+        {favMsg && <p className="hint">{favMsg}</p>}
+        {favs.length > 0 && (
+          <ul className="fav-list">
+            {favs.map((f) => (
+              <li key={f.id}>
+                <span>
+                  <b>{f.name}</b> <span className="fav-id">{f.id}</span>
+                </span>
+                <button className="ghost small" onClick={() => removeFav(f.id)}>
+                  삭제
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="hint">
+          등록한 목록은 이 기기(브라우저)에 저장됩니다. 식별코드 입력칸 아래에
+          바로 선택할 수 있는 버튼으로 나타납니다.
+        </p>
+      </details>
 
       <footer>
         데이터:{' '}
