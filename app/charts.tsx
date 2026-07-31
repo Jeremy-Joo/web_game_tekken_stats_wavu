@@ -321,7 +321,10 @@ export function DailyChart({
 
     const plotW = W - PAD.l - PAD.r;
     const band = plotW / days.length;
-    const barW = Math.min(10, Math.max(1.2, band - 1.2)); // 얇은 막대
+    // 밀도에 맞는 막대 폭: 일별처럼 빽빽하면 ≤10px 로 얇게,
+    // 시즌/연별처럼 막대가 몇 개뿐이면 ≤24px 까지 허용해 비어 보이지 않게.
+    const maxBarW = days.length <= 12 ? 24 : 10;
+    const barW = Math.min(maxBarW, Math.max(1.2, band - 1.2));
     const x = (i: number) => PAD.l + i * band + (band - barW) / 2;
     const y = (v: number) => H - PAD.b - ((v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
     return { days, truncated: allDays.length - days.length, ticks, x, y, band, barW };
