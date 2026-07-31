@@ -454,6 +454,20 @@ export default function Home() {
   // 닉네임 검색 시 과거 닉네임까지 포함할지 (wavu 는 개명 이력도 검색해준다)
   const [inclHistory, setInclHistory] = useState(false);
 
+  // 최근 조회한 플레이어 (이 브라우저에만 저장, 최대 8명)
+  const [recent, setRecent] = useState<Favorite[]>([]);
+  const pushRecent = (items: Favorite[]) => {
+    setRecent((prev) => {
+      const merged = [...items, ...prev.filter((r) => !items.some((i) => i.id === r.id))].slice(0, 8);
+      try {
+        localStorage.setItem('tkwavu_recent', JSON.stringify(merged));
+      } catch {
+        /* ignore */
+      }
+      return merged;
+    });
+  };
+
   // 방문자 카운터 (세션당 1회만 증가)
   const [visits, setVisits] = useState<{ total: number; today: number } | null>(null);
 
@@ -464,6 +478,11 @@ export default function Home() {
       localStorage.removeItem('tkwavu_admin_pw');
       const l = localStorage.getItem(LANG_KEY) as Lang | null;
       if (l && ['ko', 'en', 'ja'].includes(l)) setLangState(l);
+      const rc = localStorage.getItem('tkwavu_recent');
+      if (rc) {
+        const arr = JSON.parse(rc) as Favorite[];
+        if (Array.isArray(arr)) setRecent(arr.filter((f) => f && f.id).slice(0, 8));
+      }
     } catch {
       /* ignore */
     }
@@ -562,7 +581,11 @@ export default function Home() {
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
           setSingle(data);
           setCompare(null);
-          setActiveTab((prev) => prev || (data.tabs[0]?.key ?? ''));
+          // 공유 URL 로 복원된 탭은 유지하되, 이 결과에 없는 탭이면 첫 탭으로
+          setActiveTab((prev) =>
+            data.tabs.some((tb) => tb.key === prev) ? prev : (data.tabs[0]?.key ?? ''),
+          );
+          pushRecent([{ id: data.polarisId, name: data.myName || data.polarisId }]);
         } else {
           // 닉네임에 공백이 올 수 있으므로 쉼표로만 구분한다
           const tokens = inputIds
@@ -592,7 +615,11 @@ export default function Home() {
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
           setCompare(data);
           setSingle(null);
-          setActiveTab(data.tabs[0]?.key ?? '');
+          // 단일 모드와 동일하게 — 공유 URL 의 tab= 이 조회 완료로 덮이지 않게 보존
+          setActiveTab((prev) =>
+            data.tabs.some((tb) => tb.key === prev) ? prev : (data.tabs[0]?.key ?? ''),
+          );
+          pushRecent(data.players.map((pl) => ({ id: pl.polarisId, name: pl.name })));
         }
       } catch (e) {
         setError((e as Error).message);
@@ -610,18 +637,68 @@ export default function Home() {
     run(undefined, undefined, c);
   };
 
-  // 다른 창에서 /?id=<식별코드> 로 열렸을 때 자동 조회 (상대전적의 상대 클릭 등)
+  // ── 공유 URL: 조회 상태(모드·기간·캐릭터·탭)를 주소에 싣고, 열릴 때 복원한다 ──
+  // 복원은 2단계: (1) 파라미터 → 상태 반영, (2) 상태가 커밋된 다음 렌더에서 run().
+  // (같은 이펙트에서 바로 run() 하면 periodQuery 가 이전 상태를 캡처하기 때문)
   const bootRef = useRef(false);
+  const [bootRun, setBootRun] = useState(false);
   useEffect(() => {
     if (bootRef.current) return;
     bootRef.current = true;
-    const qid = new URLSearchParams(window.location.search).get('id');
-    if (qid) {
+    const sp = new URLSearchParams(window.location.search);
+    const qid = sp.get('id');
+    const qids = sp.get('ids');
+    if (!qid && !qids) return;
+    if (qids) {
+      setMode('compare');
+      setIds(qids.split(',').join(', '));
+    } else if (qid) {
       setId(qid);
-      run(qid);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const pm = sp.get('pm') as PeriodMode | null;
+    if (pm && ['all', 'month', 'year', 'custom', 's1', 's2', 's3'].includes(pm)) {
+      setPeriodMode(pm);
+      if (pm === 'month' && sp.get('mo')) setMonth(sp.get('mo')!);
+      if (pm === 'year' && sp.get('yr')) setYear(sp.get('yr')!);
+      if (pm === 'custom') {
+        if (sp.get('st')) setStart(sp.get('st')!);
+        if (sp.get('en')) setEnd(sp.get('en')!);
+      }
+    }
+    if (sp.get('ch')) setCharSel(sp.get('ch')!);
+    if (sp.get('tab')) setActiveTab(sp.get('tab')!);
+    setBootRun(true);
   }, []);
+
+  useEffect(() => {
+    if (!bootRun) return;
+    setBootRun(false);
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bootRun]);
+
+  // 조회 결과가 있는 동안 상태 변화를 주소창에 반영 (replaceState — 히스토리 오염 없음)
+  useEffect(() => {
+    // 현재 모드의 결과가 있을 때만 쓴다 — 결과 표시 중 모드만 토글하면
+    // (mode 는 바뀌었는데 그 모드의 결과는 없음) URL 의 id/ids 가 지워지는 것을 방지
+    if (mode === 'single' ? !single : !compare) return;
+    const sp = new URLSearchParams();
+    if (mode === 'single' && single) sp.set('id', single.polarisId);
+    if (mode === 'compare' && compare)
+      sp.set('ids', compare.players.map((p) => p.polarisId).join(','));
+    if (periodMode !== 'all') {
+      sp.set('pm', periodMode);
+      if (periodMode === 'month') sp.set('mo', month);
+      if (periodMode === 'year') sp.set('yr', year);
+      if (periodMode === 'custom') {
+        if (start) sp.set('st', start);
+        if (end) sp.set('en', end);
+      }
+    }
+    if (mode === 'single' && charSel) sp.set('ch', charSel);
+    if (activeTab) sp.set('tab', activeTab);
+    window.history.replaceState(null, '', `/?${sp.toString()}`);
+  }, [single, compare, mode, activeTab, charSel, periodMode, month, year, start, end]);
 
   /** 비교 목록에 식별코드 추가 (중복 제외). */
   const appendToIds = (fid: string, name?: string) => {
@@ -644,6 +721,16 @@ export default function Home() {
    * - replace: 조회 중 모호했던 항목을 바꿔 즉시 재조회
    * - append: 비교 목록에 덧붙이기만 (계속 검색해서 더 추가할 수 있게 조회는 안 함)
    */
+  /** 최근 조회 칩 → 모드에 맞게 입력칸 채우기 (단일=교체, 비교=덧붙임). */
+  const fillFromChip = (f: Favorite) => {
+    if (mode === 'single') {
+      setId(f.id);
+      setCharSel('');
+    } else {
+      appendToIds(f.id, f.name);
+    }
+  };
+
   const pickResult = (f: Favorite) => {
     setResults([]);
     setSearchMsg('');
@@ -711,6 +798,31 @@ export default function Home() {
     dailyOpts && dailyOpts.includes(dailyGran) ? dailyGran : 'day';
   const displayTab =
     current?.key === 'daily' ? rollupDaily(current, effGran) : current;
+
+  // 오늘의 요약 (단일 조회): 일별 탭에서 오늘(KST) 행 합산 + 전적 목록 첫 행에서 현재 레이팅
+  const summary = useMemo(() => {
+    if (!single) return null;
+    const daily = single.tabs.find((tb) => tb.key === 'daily');
+    const matches = single.tabs.find((tb) => tb.key === 'matches');
+    const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    let w = 0;
+    let l = 0;
+    let delta = 0;
+    for (const r of daily?.rows ?? []) {
+      if (r[0] === today) {
+        w += Number(r[3]);
+        l += Number(r[4]);
+        delta += Number(r[6]);
+      }
+    }
+    const lastRow = matches?.rows[0];
+    return {
+      w, l, delta,
+      games: w + l,
+      rating: lastRow ? Number(lastRow[4]) : null,
+      lastDt: lastRow ? String(lastRow[0]).slice(0, 10) : null,
+    };
+  }, [single]);
 
   const baseName =
     mode === 'single'
@@ -880,6 +992,35 @@ export default function Home() {
           {t('historyOpt')}
         </label>
 
+        {recent.length > 0 && (
+          <div className="fav-chips recent-chips">
+            <span className="hint" style={{ margin: 0 }}>{t('recent')}:</span>
+            {recent.map((r) => (
+              <button
+                key={r.id}
+                className="chip"
+                title={r.id}
+                onClick={() => fillFromChip(r)}
+              >
+                {r.name}
+              </button>
+            ))}
+            <button
+              className="ghost small"
+              onClick={() => {
+                setRecent([]);
+                try {
+                  localStorage.removeItem('tkwavu_recent');
+                } catch {
+                  /* ignore */
+                }
+              }}
+            >
+              {t('clearBtn')}
+            </button>
+          </div>
+        )}
+
         {searchMsg && <p className="hint">{searchMsg}</p>}
         {results.length > 0 && (
           <div className="fav-chips">
@@ -986,6 +1127,44 @@ export default function Home() {
               : ''}
             {single.firstDt ? ` · ${single.firstDt.slice(0, 10)} ~ ${single.lastDt?.slice(0, 10)}` : ''}
           </p>
+          {summary && (
+            <div className="sum-card">
+              <div className="sum-block">
+                <span className="sum-label">{t('sumToday')}</span>
+                {summary.games > 0 ? (
+                  <span className="sum-value">
+                    <b className="sw">{summary.w}{t('winChar')}</b>{' '}
+                    <b className="sl">{summary.l}{t('lossChar')}</b>{' '}
+                    <span className="sum-sub">
+                      {Math.round((summary.w * 1000) / summary.games) / 10}%
+                    </span>
+                  </span>
+                ) : (
+                  <span className="sum-value sum-muted">{t('sumNoToday')}</span>
+                )}
+              </div>
+              {summary.games > 0 && (
+                <div className="sum-block">
+                  <span className="sum-label">Δ</span>
+                  <span className={`sum-value ${summary.delta >= 0 ? 'sw' : 'sl'}`}>
+                    {summary.delta > 0 ? `+${summary.delta}` : summary.delta}
+                  </span>
+                </div>
+              )}
+              {summary.rating !== null && summary.rating > 0 && (
+                <div className="sum-block">
+                  <span className="sum-label">{t('sumRating')}</span>
+                  <span className="sum-value">{summary.rating.toLocaleString()}</span>
+                </div>
+              )}
+              {summary.games === 0 && summary.lastDt && (
+                <div className="sum-block">
+                  <span className="sum-label">{t('sumLastDay')}</span>
+                  <span className="sum-value sum-date">{summary.lastDt}</span>
+                </div>
+              )}
+            </div>
+          )}
           {single.charCounts && single.charCounts.length > 1 && (
             <div className="char-chips">
               <span className="hint" style={{ margin: 0 }}>{t('charLabel')}:</span>
@@ -1124,13 +1303,22 @@ export default function Home() {
             </>
           ) : (
             current && (
-              <DataTable
-                tab={current}
-                lang={lang}
-                rowHl={
-                  mode === 'compare' && hlOn ? makeRowHighlighter(current) : null
-                }
-              />
+              <>
+                {current.key === 'matches' &&
+                  single?.filtered &&
+                  single.filtered.count > current.rows.length && (
+                    <p className="hint">
+                      {t('trendLimit')(current.rows.length, single.filtered.count)}
+                    </p>
+                  )}
+                <DataTable
+                  tab={current}
+                  lang={lang}
+                  rowHl={
+                    mode === 'compare' && hlOn ? makeRowHighlighter(current) : null
+                  }
+                />
+              </>
             )
           )}
         </>

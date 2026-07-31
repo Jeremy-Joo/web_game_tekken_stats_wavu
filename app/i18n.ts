@@ -76,6 +76,14 @@ const D = {
   totalRows: { ko: '행', en: ' rows', ja: '行' },
   loadMore: { ko: '더 보기', en: 'Load more', ja: 'もっと見る' },
   noRows: { ko: '표시할 행이 없습니다.', en: 'No rows to display.', ja: '表示する行がありません。' },
+  recent: { ko: '최근 조회', en: 'Recent', ja: '最近の照会' },
+  clearBtn: { ko: '지우기', en: 'Clear', ja: 'クリア' },
+  sumToday: { ko: '오늘', en: 'Today', ja: '今日' },
+  sumNoToday: { ko: '경기 없음', en: 'No games', ja: '試合なし' },
+  sumLastDay: { ko: '마지막 경기', en: 'Last played', ja: '最終対戦' },
+  sumRating: { ko: '현재 레이팅', en: 'Rating', ja: '現在レート' },
+  winChar: { ko: '승', en: 'W', ja: '勝' },
+  lossChar: { ko: '패', en: 'L', ja: '敗' },
   visitors: { ko: '방문', en: 'Visits', ja: '訪問' },
   todayLabel: { ko: '오늘', en: 'today', ja: '今日' },
   footer1: { ko: '데이터:', en: 'Data:', ja: 'データ:' },
@@ -130,6 +138,7 @@ export function makeT(lang: Lang) {
 /** 탭 키 → 언어별 라벨. 서버가 준 한국어 라벨은 ko 외 언어에서 이걸로 대체. */
 export const TAB_LABELS: Record<string, Entry> = {
   total: { ko: '캐릭터', en: 'Characters', ja: 'キャラ' },
+  matches: { ko: '전적 목록', en: 'Matches', ja: '対戦履歴' },
   season: { ko: '시즌', en: 'Seasons', ja: 'シーズン' },
   pivot: { ko: '상대 캐릭', en: 'Vs characters', ja: '相手キャラ' },
   strong: { ko: '강점 매치업', en: 'Strong matchups', ja: '得意マッチ' },
@@ -196,6 +205,7 @@ export const COL_I18N: Record<string, Entry> = {
   Season: { ko: '시즌', en: 'Season', ja: 'シーズン' },
   dt: { ko: '일시', en: 'Time', ja: '日時' },
   my_rating: { ko: '내 레이팅', en: 'My rating', ja: '自レート' },
+  opp_rating: { ko: '상대 레이팅', en: 'Opp rating', ja: '相手レート' },
   result: { ko: '결과', en: 'Result', ja: '結果' },
   // 라운드 탭
   RoundsWon: { ko: '라운드 승', en: 'Rounds won', ja: 'R勝' },

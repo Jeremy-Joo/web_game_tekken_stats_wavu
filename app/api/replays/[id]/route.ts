@@ -63,7 +63,8 @@ export async function GET(
       .sort((a, b) => b.games - a.games || (a.name < b.name ? -1 : 1));
 
     const filtered = char ? dated.filter((r) => r.myChar === char) : dated;
-    const result = computeFromRecords(filtered, id, myName);
+    // 전적 목록은 최근 1,000경기까지만 JSON 에 싣는다 (전체는 엑셀 다운로드로)
+    const result = computeFromRecords(filtered, id, myName, { matchesLimit: 1000 });
 
     return NextResponse.json({
       ...result,

@@ -183,6 +183,65 @@ select {
   font-weight: 700;
 }
 
+/* 오늘의 요약 카드 */
+.sum-card {
+  display: flex;
+  gap: 1.4rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  margin: 0 0 0.8rem;
+}
+
+.sum-block {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.sum-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.sum-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sum-value .sum-sub {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.sum-value.sum-date {
+  font-size: 1rem;
+}
+
+.sum-muted {
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.sw {
+  color: var(--win);
+}
+
+.sl {
+  color: var(--loss);
+}
+
+/* 최근 조회 칩 줄 */
+.recent-chips {
+  align-items: center;
+}
+
 /* 캐릭터별 상세 칩 (경기 수 순) */
 .char-chips {
   display: flex;
