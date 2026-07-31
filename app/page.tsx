@@ -373,15 +373,39 @@ export default function Home() {
   // 비교 표 우위 하이라이트 on/off
   const [hlOn, setHlOn] = useState(true);
 
-  // 마지막 조회 조건 기억 (재방문 시 편의) + 전역 목록 로드
+  // 닉네임 → 식별코드 검색
+  const [q, setQ] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchMsg, setSearchMsg] = useState('');
+  const [results, setResults] = useState<Favorite[]>([]);
+
+  const doSearch = async () => {
+    const query = q.trim();
+    if (!query) return;
+    setSearching(true);
+    setSearchMsg('');
+    setResults([]);
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      const data = (await res.json()) as {
+        results?: Favorite[];
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setResults(data.results ?? []);
+      if (!data.results?.length) setSearchMsg(`'${query}' 검색 결과가 없습니다.`);
+    } catch (e) {
+      setSearchMsg((e as Error).message);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // 관리자 비밀번호 기억 + 전역 목록 로드.
+  // (입력한 식별코드는 저장하지 않는다 — 새로 열면 빈 칸에서 시작)
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('tkwavu');
-      if (saved) {
-        const s = JSON.parse(saved) as { id?: string; ids?: string };
-        if (s.id) setId(s.id);
-        if (s.ids) setIds(s.ids);
-      }
+      localStorage.removeItem('tkwavu'); // 과거 버전이 저장해둔 ID 정리
       const pw = localStorage.getItem(ADMIN_PW_KEY);
       if (pw) setAdminPw(pw);
     } catch {
@@ -504,7 +528,6 @@ export default function Home() {
         setSingle(data);
         setCompare(null);
         setActiveTab(data.tabs[0]?.key ?? '');
-        localStorage.setItem('tkwavu', JSON.stringify({ id: id.trim(), ids }));
       } else {
         const list = ids
           .split(/[\s,]+/)
@@ -519,7 +542,6 @@ export default function Home() {
         setCompare(data);
         setSingle(null);
         setActiveTab(data.tabs[0]?.key ?? '');
-        localStorage.setItem('tkwavu', JSON.stringify({ id, ids }));
       }
     } catch (e) {
       setError((e as Error).message);
@@ -669,6 +691,46 @@ export default function Home() {
                 onClick={() => pickFav(f)}
               >
                 {f.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <label htmlFor="nickq" style={{ marginTop: '0.8rem' }}>
+          식별코드를 모르면 — 닉네임으로 검색
+        </label>
+        <div className="row id-row">
+          <input
+            id="nickq"
+            className="id-input"
+            type="text"
+            placeholder="예: JackFather"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !searching && doSearch()}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+          <button className="ghost" onClick={doSearch} disabled={searching}>
+            {searching ? '검색 중…' : '검색'}
+          </button>
+        </div>
+        {searchMsg && <p className="hint">{searchMsg}</p>}
+        {results.length > 0 && (
+          <div className="fav-chips">
+            {results.map((r) => (
+              <button
+                key={r.id}
+                className="chip"
+                title={r.id}
+                onClick={() => {
+                  pickFav(r);
+                  setResults([]);
+                  setQ('');
+                }}
+              >
+                {r.name} <span className="chip-id">{r.id}</span>
               </button>
             ))}
           </div>
