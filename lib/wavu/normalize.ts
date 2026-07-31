@@ -31,6 +31,7 @@ export function normalizeReplays(
 ): NormalizeResult {
   const records: MatchRecord[] = [];
   const seen = new Set<string>();
+  const pendingRating = new Set<string>(); // rating_before=null(TBD) 인 경기의 battleId
   let dropped = 0;
   let dupes = 0;
 
@@ -68,7 +69,8 @@ export function normalizeReplays(
 
     const iWon = (b.winner === 1) === meP1;
 
-    const myBefore = b[`${me}_rating_before`] ?? 0;
+    const myBeforeRaw = b[`${me}_rating_before`];
+    const myBefore = myBeforeRaw ?? 0;
     const myChange = b[`${me}_rating_change`] ?? 0;
     const opBefore = b[`${op}_rating_before`] ?? 0;
     const opChange = b[`${op}_rating_change`] ?? 0;
@@ -78,9 +80,12 @@ export function normalizeReplays(
       myName = b[`${me}_name`] ?? myName;
     }
 
+    const battleId = b.battle_id ?? `${b.battle_at}:${b[`${op}_polaris_id`] ?? ''}`;
+    if (myBeforeRaw == null) pendingRating.add(battleId);
+
     records.push({
       dt: kstFromEpoch(b.battle_at),
-      battleId: b.battle_id ?? `${b.battle_at}:${b[`${op}_polaris_id`] ?? ''}`,
+      battleId,
 
       player: b[`${me}_name`] ?? '',
       myPolaris: polarisId,
@@ -110,6 +115,20 @@ export function normalizeReplays(
   }
 
   records.sort((a, b) => a.dt.getTime() - b.dt.getTime());
+
+  // 방금 끝난 경기는 wavu 가 아직 레이팅을 계산 안 해 rating_before 가 null 로 온다
+  // (사이트에는 'TBD' 로 표시). 0 으로 두면 그래프가 0 으로 꺼지고 EndRating 이
+  // 0 이 되므로, 같은 캐릭터의 직전 레이팅을 이어받는다(변동은 0 유지).
+  if (pendingRating.size > 0) {
+    const lastByChar = new Map<string, number>();
+    for (const r of records) {
+      if (pendingRating.has(r.battleId)) {
+        r.myRating = lastByChar.get(r.myChar) ?? r.myRating;
+      } else {
+        lastByChar.set(r.myChar, r.myRating);
+      }
+    }
+  }
 
   return {
     records,
