@@ -169,3 +169,79 @@ export function cellText(lang: Lang, v: string): string {
   if (lang === 'ko') return v;
   return CELL_I18N[v]?.[lang] ?? v;
 }
+
+/**
+ * 표 컬럼 헤더 표시명. 데이터/CSV 구조의 키는 영문 원명을 유지하고
+ * 화면에 보일 때만 이 표로 바꾼다 (한국어 모드도 번역 대상).
+ */
+export const COL_I18N: Record<string, Entry> = {
+  my_char: { ko: '내 캐릭터', en: 'My char', ja: '自キャラ' },
+  opp_char: { ko: '상대 캐릭터', en: 'Vs char', ja: '相手キャラ' },
+  opp_name: { ko: '상대 이름', en: 'Opponent', ja: '相手名' },
+  opp_polaris: { ko: '상대 식별코드', en: 'Opp ID', ja: '相手ID' },
+  main_char: { ko: '주 캐릭터', en: 'Main char', ja: 'メインキャラ' },
+  Total: { ko: '경기 수', en: 'Games', ja: '試合数' },
+  Games: { ko: '경기 수', en: 'Games', ja: '試合数' },
+  W: { ko: '승', en: 'W', ja: '勝' },
+  L: { ko: '패', en: 'L', ja: '敗' },
+  'WinRate(%)': { ko: '승률(%)', en: 'Win rate(%)', ja: '勝率(%)' },
+  LastPlayed: { ko: '마지막 대전', en: 'Last played', ja: '最終対戦' },
+  Date: { ko: '날짜', en: 'Date', ja: '日付' },
+  Period: { ko: '기간', en: 'Period', ja: '期間' },
+  RatingDelta: { ko: '레이팅 증감', en: 'Rating Δ', ja: 'レート増減' },
+  EndRating: { ko: '종료 레이팅', en: 'End rating', ja: '終了レート' },
+  Session: { ko: '세션', en: 'Session', ja: 'セッション' },
+  Start: { ko: '시작', en: 'Start', ja: '開始' },
+  End: { ko: '종료', en: 'End', ja: '終了' },
+  Season: { ko: '시즌', en: 'Season', ja: 'シーズン' },
+  dt: { ko: '일시', en: 'Time', ja: '日時' },
+  my_rating: { ko: '내 레이팅', en: 'My rating', ja: '自レート' },
+  result: { ko: '결과', en: 'Result', ja: '結果' },
+  // 라운드 탭
+  RoundsWon: { ko: '라운드 승', en: 'Rounds won', ja: 'R勝' },
+  RoundsLost: { ko: '라운드 패', en: 'Rounds lost', ja: 'R敗' },
+  'RoundWR(%)': { ko: '라운드 승률(%)', en: 'Round WR(%)', ja: 'R勝率(%)' },
+  AvgRoundsWon: { ko: '경기당 라운드 승', en: 'Avg R won', ja: '平均R勝' },
+  AvgRoundsLost: { ko: '경기당 라운드 패', en: 'Avg R lost', ja: '平均R敗' },
+  CloseGames: { ko: '접전 경기', en: 'Close games', ja: '接戦数' },
+  'Close(%)': { ko: '접전 비율(%)', en: 'Close(%)', ja: '接戦率(%)' },
+  CloseWins: { ko: '접전 승', en: 'Close wins', ja: '接戦勝' },
+  'CloseWin(%)': { ko: '접전 승 비율(%)', en: 'Close win(%)', ja: '接戦勝率(%)' },
+  CloseLosses: { ko: '접전 패', en: 'Close losses', ja: '接戦敗' },
+  'CloseLoss(%)': { ko: '접전 패 비율(%)', en: 'Close loss(%)', ja: '接戦敗率(%)' },
+  Shutouts_Dealt: { ko: '완승 (3-0)', en: 'Shutout wins', ja: 'ストレート勝ち' },
+  'ShutoutWin(%)': { ko: '완승 비율(%)', en: 'Shutout win(%)', ja: 'スト勝率(%)' },
+  Shutouts_Received: { ko: '완패 (0-3)', en: 'Shutout losses', ja: 'ストレート負け' },
+  'ShutoutLoss(%)': { ko: '완패 비율(%)', en: 'Shutout loss(%)', ja: 'スト負率(%)' },
+  // 비교 탭
+  지표: { ko: '지표', en: 'Metric', ja: '指標' },
+  player_a: { ko: '플레이어 A', en: 'Player A', ja: 'プレイヤーA' },
+  player_b: { ko: '플레이어 B', en: 'Player B', ja: 'プレイヤーB' },
+  games: { ko: '경기 수', en: 'Games', ja: '試合数' },
+  a_wins: { ko: 'A 승', en: 'A wins', ja: 'A勝' },
+  b_wins: { ko: 'B 승', en: 'B wins', ja: 'B勝' },
+  'a_winrate(%)': { ko: 'A 승률(%)', en: 'A win rate(%)', ja: 'A勝率(%)' },
+  last_played: { ko: '마지막 대전', en: 'Last played', ja: '最終対戦' },
+  a_char: { ko: 'A 캐릭터', en: 'A char', ja: 'Aキャラ' },
+  b_char: { ko: 'B 캐릭터', en: 'B char', ja: 'Bキャラ' },
+  score: { ko: '스코어', en: 'Score', ja: 'スコア' },
+  result_for_a: { ko: 'A 결과', en: 'Result (A)', ja: 'A結果' },
+};
+
+/**
+ * 컬럼 헤더 표시명. 고정 매핑에 없으면 비교 탭의 동적 컬럼
+ * `<이름>_games` / `<이름>_wr(%)` 패턴을 처리하고, 그 외(캐릭터명 등)는 원문 유지.
+ */
+export function colText(lang: Lang, col: string): string {
+  const hit = COL_I18N[col];
+  if (hit) return hit[lang];
+  if (col.endsWith('_games')) {
+    const name = col.slice(0, -'_games'.length);
+    return lang === 'en' ? `${name} games` : lang === 'ja' ? `${name} 試合` : `${name} 경기`;
+  }
+  if (col.endsWith('_wr(%)')) {
+    const name = col.slice(0, -'_wr(%)'.length);
+    return lang === 'en' ? `${name} WR(%)` : lang === 'ja' ? `${name} 勝率(%)` : `${name} 승률(%)`;
+  }
+  return col;
+}

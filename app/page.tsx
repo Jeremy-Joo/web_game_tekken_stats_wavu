@@ -12,6 +12,7 @@ import {
   makeT,
   TAB_LABELS,
   cellText,
+  colText,
   type Lang,
 } from './i18n';
 
@@ -85,12 +86,12 @@ function monthRange(ym: string): [string, string] {
 }
 
 /** CSV 문자열 생성 (BOM 포함 → 엑셀에서 한글 정상). */
-function toCsv(tab: TabData): string {
+function toCsv(tab: TabData, lang: Lang): string {
   const esc = (v: string | number | null): string => {
     const s = v === null ? '' : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const lines = [tab.columns.map(esc).join(',')];
+  const lines = [tab.columns.map((c) => esc(colText(lang, c))).join(',')];
   for (const r of tab.rows) lines.push(r.map(esc).join(','));
   return '﻿' + lines.join('\r\n');
 }
@@ -346,7 +347,9 @@ function DataTable({
           <thead>
             <tr>
               {tab.columns.map((c) => (
-                <th key={c}>{c}</th>
+                <th key={c} title={c !== colText(lang, c) ? c : undefined}>
+                  {colText(lang, c)}
+                </th>
               ))}
             </tr>
           </thead>
@@ -717,7 +720,7 @@ export default function Home() {
   const downloadCsv = () => {
     if (!displayTab) return;
     downloadBlob(
-      toCsv(displayTab),
+      toCsv(displayTab, lang),
       'text/csv;charset=utf-8',
       `${baseName}_${displayTab.key}.csv`,
     );
