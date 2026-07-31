@@ -2,8 +2,10 @@
 
 // 단일 화면: 식별코드(1명 or 여러 명) + 기간 → /api/replays | /api/compare → 탭 + 표.
 // 표 렌더는 서버가 준 TabData 를 그대로 그린다(집계는 전부 서버).
+// 레이팅 추이 탭만 클라이언트에서 SVG 그래프를 추가로 그린다.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { TrendChart, DailyChart, SessionChart } from './charts';
 
 interface TabData {
   key: string;
@@ -32,8 +34,11 @@ interface CompareResponse {
 }
 
 type Mode = 'single' | 'compare';
+type PeriodMode = 'all' | 'month' | 'year' | 'custom';
 
 const WIN_LOSS_COLS = new Set(['result', 'result_for_a']);
+const ROW_CHUNK = 100; // 긴 표는 이 단위로 끊어 보여준다
+const CHART_TABS = new Set(['trend', 'daily', 'sessions']); // 그래프/표 토글 지원 탭
 
 function cellClass(col: string, v: string | number | null): string | undefined {
   if (!WIN_LOSS_COLS.has(col)) return undefined;
@@ -42,20 +47,76 @@ function cellClass(col: string, v: string | number | null): string | undefined {
   return undefined;
 }
 
+/** 현재 KST 기준 'YYYY-MM'. */
+function currentMonth(): string {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+}
+
+/** 'YYYY-MM' → [1일, 말일]. */
+function monthRange(ym: string): [string, string] {
+  const [y, m] = ym.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return [`${ym}-01`, `${ym}-${String(last).padStart(2, '0')}`];
+}
+
+/** CSV 문자열 생성 (BOM 포함 → 엑셀에서 한글 정상). */
+function toCsv(tab: TabData): string {
+  const esc = (v: string | number | null): string => {
+    const s = v === null ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [tab.columns.map(esc).join(',')];
+  for (const r of tab.rows) lines.push(r.map(esc).join(','));
+  return '﻿' + lines.join('\r\n');
+}
+
+function downloadBlob(content: string, mime: string, filename: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type: mime }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function DataTable({ tab }: { tab: TabData }) {
-  // 레이팅 추이(와이드 표)는 행이 수천 개일 수 있어 최근 500행만 그린다.
-  // 전체가 필요하면 엑셀로 받는 쪽이 낫다.
-  const LIMIT = 500;
-  const rows =
-    tab.key === 'trend' && tab.rows.length > LIMIT
-      ? tab.rows.slice(-LIMIT)
-      : tab.rows;
+  const [query, setQuery] = useState('');
+  const [limit, setLimit] = useState(ROW_CHUNK);
+
+  // 탭이 바뀌면 검색/표시 개수 초기화
+  useEffect(() => {
+    setQuery('');
+    setLimit(ROW_CHUNK);
+  }, [tab.key]);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return tab.rows;
+    const q = query.trim().toLowerCase();
+    return tab.rows.filter((r) =>
+      r.some((v) => v !== null && String(v).toLowerCase().includes(q)),
+    );
+  }, [tab.rows, query]);
+
+  const visible = filtered.slice(0, limit);
+  const searchable = tab.rows.length > 30;
+
   return (
     <>
-      {tab.key === 'trend' && tab.rows.length > rows.length && (
-        <p className="hint">
-          최근 {LIMIT}경기만 표시 (전체 {tab.rows.length}건은 엑셀 다운로드로)
-        </p>
+      {searchable && (
+        <div className="table-tools">
+          <input
+            type="text"
+            placeholder="🔍 검색 (이름·캐릭터·날짜…)"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+          <span className="hint">
+            {query ? `${filtered.length}건 일치 / ` : ''}전체 {tab.rows.length}행
+          </span>
+        </div>
       )}
       <div className="table-wrap">
         <table>
@@ -67,7 +128,7 @@ function DataTable({ tab }: { tab: TabData }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
+            {visible.map((r, i) => (
               <tr key={i}>
                 {r.map((v, j) => (
                   <td key={j} className={cellClass(tab.columns[j], v)}>
@@ -79,7 +140,14 @@ function DataTable({ tab }: { tab: TabData }) {
           </tbody>
         </table>
       </div>
-      {rows.length === 0 && <p className="hint">표시할 행이 없습니다.</p>}
+      {filtered.length > limit && (
+        <div className="row">
+          <button className="ghost" onClick={() => setLimit((n) => n + ROW_CHUNK * 2)}>
+            더 보기 ({limit} / {filtered.length})
+          </button>
+        </div>
+      )}
+      {visible.length === 0 && <p className="hint">표시할 행이 없습니다.</p>}
     </>
   );
 }
@@ -88,6 +156,9 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>('single');
   const [id, setId] = useState('');
   const [ids, setIds] = useState(''); // 비교 모드: 쉼표/공백 구분
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('all');
+  const [month, setMonth] = useState(currentMonth());
+  const [year, setYear] = useState(String(new Date().getFullYear()));
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [loading, setLoading] = useState(false);
@@ -95,6 +166,7 @@ export default function Home() {
   const [single, setSingle] = useState<PlayerResponse | null>(null);
   const [compare, setCompare] = useState<CompareResponse | null>(null);
   const [activeTab, setActiveTab] = useState('');
+  const [view, setView] = useState<'chart' | 'table'>('chart');
 
   // 마지막 조회 조건 기억 (재방문 시 편의)
   useEffect(() => {
@@ -110,19 +182,29 @@ export default function Home() {
     }
   }, []);
 
-  const period = useCallback(() => {
+  /** 기간 모드 → 실제 start/end 쿼리. */
+  const periodQuery = useCallback((): URLSearchParams => {
     const q = new URLSearchParams();
-    if (start) q.set('start', start);
-    if (end) q.set('end', end);
+    if (periodMode === 'month' && month) {
+      const [s, e] = monthRange(month);
+      q.set('start', s);
+      q.set('end', e);
+    } else if (periodMode === 'year' && year) {
+      q.set('start', `${year}-01-01`);
+      q.set('end', `${year}-12-31`);
+    } else if (periodMode === 'custom') {
+      if (start) q.set('start', start);
+      if (end) q.set('end', end);
+    }
     return q;
-  }, [start, end]);
+  }, [periodMode, month, year, start, end]);
 
   const run = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       if (mode === 'single') {
-        const q = period();
+        const q = periodQuery();
         const res = await fetch(
           `/api/replays/${encodeURIComponent(id.trim())}?${q}`,
         );
@@ -138,7 +220,7 @@ export default function Home() {
           .map((s) => s.trim())
           .filter(Boolean)
           .join(',');
-        const q = period();
+        const q = periodQuery();
         q.set('ids', list);
         const res = await fetch(`/api/compare?${q}`);
         const data = (await res.json()) as CompareResponse;
@@ -153,10 +235,10 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [mode, id, ids, period]);
+  }, [mode, id, ids, periodQuery]);
 
   const xlsxHref = (() => {
-    const q = period();
+    const q = periodQuery();
     if (mode === 'single' && single) {
       return `/api/xlsx/${encodeURIComponent(single.polarisId)}?${q}`;
     }
@@ -169,6 +251,36 @@ export default function Home() {
 
   const tabs = mode === 'single' ? single?.tabs : compare?.tabs;
   const current = tabs?.find((t) => t.key === activeTab) ?? tabs?.[0];
+
+  const baseName =
+    mode === 'single'
+      ? single?.myName || single?.polarisId || 'tekken'
+      : compare?.players.map((p) => p.name).join('_vs_') || 'compare';
+
+  const downloadCsv = () => {
+    if (!current) return;
+    downloadBlob(
+      toCsv(current),
+      'text/csv;charset=utf-8',
+      `${baseName}_${current.key}.csv`,
+    );
+  };
+  const downloadJson = () => {
+    if (!tabs) return;
+    const payload = mode === 'single' ? single : compare;
+    downloadBlob(
+      JSON.stringify(payload, null, 1),
+      'application/json',
+      `${baseName}_stats.json`,
+    );
+  };
+
+  const yearOptions = (() => {
+    const now = new Date().getFullYear();
+    const ys: string[] = [];
+    for (let y = now; y >= 2024; y--) ys.push(String(y)); // 철권8 데이터는 2024-03부터
+    return ys;
+  })();
 
   return (
     <main>
@@ -229,41 +341,80 @@ export default function Home() {
           </>
         )}
 
-        <div className="row">
-          <span>
-            <label htmlFor="start">시작일</label>
-            <input
-              id="start"
-              type="date"
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-            />
-          </span>
-          <span>
-            <label htmlFor="end">종료일</label>
-            <input
-              id="end"
-              type="date"
-              value={end}
-              onChange={(e) => setEnd(e.target.value)}
-            />
-          </span>
+        <label style={{ marginTop: '0.8rem' }}>조회 기간</label>
+        <div className="mode-switch period">
+          {(
+            [
+              ['all', '전체'],
+              ['month', '월별'],
+              ['year', '연별'],
+              ['custom', '직접입력'],
+            ] as [PeriodMode, string][]
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              className={periodMode === k ? 'on' : ''}
+              onClick={() => setPeriodMode(k)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
+
+        {periodMode === 'month' && (
+          <div className="row">
+            <input
+              type="month"
+              value={month}
+              min="2024-03"
+              max={currentMonth()}
+              onChange={(e) => setMonth(e.target.value)}
+            />
+          </div>
+        )}
+        {periodMode === 'year' && (
+          <div className="row">
+            <select value={year} onChange={(e) => setYear(e.target.value)}>
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}년
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {periodMode === 'custom' && (
+          <div className="row">
+            <span>
+              <label htmlFor="start">시작일</label>
+              <input
+                id="start"
+                type="date"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
+            </span>
+            <span>
+              <label htmlFor="end">종료일</label>
+              <input
+                id="end"
+                type="date"
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+              />
+            </span>
+          </div>
+        )}
 
         <div className="row">
           <button onClick={run} disabled={loading}>
             {loading ? '수집 중…' : '조회'}
           </button>
-          {xlsxHref && (
-            <a className="btn-link ghost" href={xlsxHref}>
-              📥 엑셀 다운로드
-            </a>
-          )}
         </div>
         {error && <p className="error">{error}</p>}
         <p className="hint">
-          기간을 비우면 전체 이력. 첫 조회는 몇 초 걸릴 수 있습니다 (전체 전적을
-          한 번에 받아옴 · 10분간 캐시).
+          첫 조회는 몇 초 걸릴 수 있습니다 (전체 전적을 한 번에 받아옴 · 10분간
+          캐시).
         </p>
       </div>
 
@@ -293,6 +444,20 @@ export default function Home() {
 
       {tabs && (
         <>
+          <div className="row dl-row">
+            {xlsxHref && (
+              <a className="btn-link ghost" href={xlsxHref}>
+                📥 엑셀 (전체 탭)
+              </a>
+            )}
+            <button className="ghost" onClick={downloadCsv}>
+              📄 CSV (현재 탭)
+            </button>
+            <button className="ghost" onClick={downloadJson}>
+              🧾 JSON (전체)
+            </button>
+          </div>
+
           <div className="tabs">
             {tabs.map((t) => (
               <button
@@ -304,7 +469,38 @@ export default function Home() {
               </button>
             ))}
           </div>
-          {current && <DataTable tab={current} />}
+
+          {current && CHART_TABS.has(current.key) ? (
+            <>
+              <div className="mode-switch period">
+                <button
+                  className={view === 'chart' ? 'on' : ''}
+                  onClick={() => setView('chart')}
+                >
+                  그래프
+                </button>
+                <button
+                  className={view === 'table' ? 'on' : ''}
+                  onClick={() => setView('table')}
+                >
+                  표
+                </button>
+              </div>
+              {view === 'chart' ? (
+                current.key === 'trend' ? (
+                  <TrendChart rows={current.rows} />
+                ) : current.key === 'daily' ? (
+                  <DailyChart rows={current.rows} />
+                ) : (
+                  <SessionChart rows={current.rows} />
+                )
+              ) : (
+                <DataTable tab={current} />
+              )}
+            </>
+          ) : (
+            current && <DataTable tab={current} />
+          )}
         </>
       )}
 

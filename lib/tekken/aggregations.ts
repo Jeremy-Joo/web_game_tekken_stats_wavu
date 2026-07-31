@@ -143,6 +143,24 @@ export function buildWeak(
   return t;
 }
 
+/**
+ * 강점 매치업 — 약점의 대칭. 표본 충분 + 승률 높은 상대 캐릭터, 강한 순 정렬.
+ * 경계(정확히 50%)는 강점 쪽에 넣어 5경기 이상인 매치업이 약점/강점 중
+ * 정확히 한쪽에만 나타나게 한다.
+ */
+export function buildStrong(
+  df: MatchRecord[],
+  minG = WEAK_MIN_GAMES,
+  minWr = WEAK_MAX_WR,
+): Table {
+  const rows = groupByOpp(df)
+    .filter((x) => x.games >= minG && wr(x.w, x.games) >= minWr)
+    .sort((a, b) => wr(b.w, b.games) - wr(a.w, a.games) || b.games - a.games);
+  const t = new Table('opp_char', 'Games', 'W', 'L', 'WinRate(%)');
+  for (const x of rows) t.add(x.opp, x.games, x.w, x.l, wr(x.w, x.games));
+  return t;
+}
+
 function roundRow(sub: MatchRecord[], label: string) {
   const games = sub.length;
   let rw = 0,

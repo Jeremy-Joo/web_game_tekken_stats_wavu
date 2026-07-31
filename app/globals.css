@@ -62,7 +62,9 @@ label {
 }
 
 input[type='text'],
-input[type='date'] {
+input[type='date'],
+input[type='month'],
+select {
   background: #0c0e12;
   color: var(--text);
   border: 1px solid var(--border);
@@ -135,6 +137,15 @@ button.ghost,
   background: var(--accent);
   color: #0b1020;
   border-color: var(--accent);
+}
+
+.mode-switch.period {
+  margin: 0.3rem 0 0.4rem;
+  flex-wrap: wrap;
+}
+
+.dl-row {
+  margin-bottom: 0.8rem;
 }
 
 .error {
@@ -253,6 +264,99 @@ td.loss {
   color: var(--muted);
   font-size: 0.8rem;
   margin-top: 0.5rem;
+}
+
+/* ── 표 도구 (검색) ── */
+.table-tools {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.table-tools input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.table-tools .hint {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+/* ── 차트 ── */
+.chart-root {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem;
+}
+
+.trend-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y; /* 세로 스크롤은 살리고 가로 hover 만 잡는다 */
+}
+
+.chart-legend {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text);
+}
+
+.legend-line {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.legend-n {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.chart-tip {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  font-size: 0.85rem;
+  min-height: 1.6rem;
+}
+
+.tip-date {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.tip-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tip-row b {
+  font-variant-numeric: tabular-nums;
+}
+
+.tip-ch {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 footer {
