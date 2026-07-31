@@ -45,7 +45,15 @@ interface CompareResponse {
 }
 
 type Mode = 'single' | 'compare';
-type PeriodMode = 'all' | 'month' | 'year' | 'custom';
+type PeriodMode = 'all' | 'month' | 'year' | 'custom' | 's1' | 's2' | 's3';
+
+// 철권8 시즌 경계 — 실데이터의 game_version 전환 시점(플레이어 4명 교차 검증)으로 도출.
+// S1 은 게임 발매일부터. S3 종료일은 아직 없다(현재 시즌).
+const SEASON_RANGE: Record<'s1' | 's2' | 's3', { start: string; end?: string }> = {
+  s1: { start: '2024-01-26', end: '2025-03-31' },
+  s2: { start: '2025-04-01', end: '2026-03-17' },
+  s3: { start: '2026-03-18' },
+};
 
 /** 닉네임 검색 결과 항목. */
 interface Favorite {
@@ -501,6 +509,10 @@ export default function Home() {
     } else if (periodMode === 'custom') {
       if (start) q.set('start', start);
       if (end) q.set('end', end);
+    } else if (periodMode === 's1' || periodMode === 's2' || periodMode === 's3') {
+      const r = SEASON_RANGE[periodMode];
+      q.set('start', r.start);
+      if (r.end) q.set('end', r.end);
     }
     return q;
   }, [periodMode, month, year, start, end]);
@@ -867,6 +879,9 @@ export default function Home() {
               ['month', t('periodMonth')],
               ['year', t('periodYear')],
               ['custom', t('periodCustom')],
+              ['s1', 'S1'],
+              ['s2', 'S2'],
+              ['s3', 'S3'],
             ] as [PeriodMode, string][]
           ).map(([k, label]) => (
             <button
@@ -900,6 +915,12 @@ export default function Home() {
               ))}
             </select>
           </div>
+        )}
+        {(periodMode === 's1' || periodMode === 's2' || periodMode === 's3') && (
+          <p className="hint" style={{ marginTop: '0.2rem' }}>
+            {SEASON_RANGE[periodMode].start} ~{' '}
+            {SEASON_RANGE[periodMode].end ?? t('today')}
+          </p>
         )}
         {periodMode === 'custom' && (
           <div className="row">
