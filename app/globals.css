@@ -40,6 +40,18 @@ h1 {
   margin: 0 0 0.35rem;
 }
 
+/* 제목 = 메인으로 버튼 (링크처럼 동작하되 모양은 제목 그대로) */
+.home-btn {
+  all: unset;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.home-btn:hover {
+  color: var(--accent);
+}
+
 .sub {
   color: var(--muted);
   margin: 0 0 1.25rem;

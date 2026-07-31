@@ -580,9 +580,22 @@ export default function Home() {
     return ys;
   })();
 
+  /** 메인(초기 화면)으로 — 결과를 닫고 맨 위로. 입력값과 즐겨찾기는 유지. */
+  const goHome = () => {
+    setSingle(null);
+    setCompare(null);
+    setError('');
+    setActiveTab('');
+    window.scrollTo({ top: 0 });
+  };
+
   return (
     <main>
-      <h1>철권8 전적 통계</h1>
+      <h1>
+        <button className="home-btn" onClick={goHome} title="메인으로">
+          철권8 전적 통계
+        </button>
+      </h1>
       <p className="sub">
         wavu wank 랭크전 데이터 · 식별코드만 넣으면 전체 이력을 집계합니다
       </p>
