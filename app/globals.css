@@ -230,17 +230,27 @@ button.ghost,
   align-items: center;
 }
 
-/* 모드 버튼 줄 우측의 외부 링크 */
+/* 모드 버튼 줄 우측의 외부 링크 — 버튼 모양으로 확실히 보이게 */
 .tier-link {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 36px;
+  padding: 0.35rem 0.9rem;
   color: var(--accent);
+  background: rgba(110, 168, 254, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
   font-size: 0.85rem;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .tier-link:hover {
-  text-decoration: underline;
+  background: var(--accent);
+  color: #0b1020;
 }
 
 .mode-switch button {
