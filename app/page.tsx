@@ -30,6 +30,7 @@ interface PlayerResponse {
 interface CompareResponse {
   players: { polarisId: string; name: string; count: number }[];
   tabs: TabData[];
+  filtered?: { start: string | null; end: string | null };
   error?: string;
 }
 
@@ -753,6 +754,13 @@ export default function Home() {
               <b>{p.name}</b> ({p.count})
             </span>
           ))}
+          {(compare.filtered?.start || compare.filtered?.end) && (
+            <span>
+              {' '}
+              · 기간 {compare.filtered?.start ?? '처음'} ~{' '}
+              {compare.filtered?.end ?? '오늘'}
+            </span>
+          )}
         </p>
       )}
 
