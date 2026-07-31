@@ -392,8 +392,17 @@ export default function Home() {
         error?: string;
       };
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      setResults(data.results ?? []);
-      if (!data.results?.length) setSearchMsg(`'${query}' 검색 결과가 없습니다.`);
+      const found = data.results ?? [];
+      if (found.length === 0) {
+        setSearchMsg(`'${query}' 검색 결과가 없습니다.`);
+      } else if (found.length === 1) {
+        // 한 명이면 바로 식별코드 입력칸에 반영
+        pickFav(found[0]);
+        setQ('');
+        setSearchMsg(`${found[0].name} (${found[0].id}) 입력됨`);
+      } else {
+        setResults(found); // 여러 명이면 칩으로 골라서 반영
+      }
     } catch (e) {
       setSearchMsg((e as Error).message);
     } finally {
