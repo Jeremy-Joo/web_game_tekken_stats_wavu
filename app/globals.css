@@ -382,13 +382,26 @@ td.hl {
   font-weight: 700;
 }
 
+.hl-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.hl-period {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 .hl-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   color: var(--muted);
   font-size: 0.85rem;
-  margin: 0 0 0.6rem;
   cursor: pointer;
   user-select: none;
 }

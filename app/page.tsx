@@ -767,13 +767,6 @@ export default function Home() {
               <b>{p.name}</b> <span className="cnt">({p.count})</span>
             </span>
           ))}
-          {(compare.filtered?.start || compare.filtered?.end) && (
-            <span className="cnt">
-              {' '}
-              · 기간 {compare.filtered?.start ?? '처음'} ~{' '}
-              {compare.filtered?.end ?? '오늘'}
-            </span>
-          )}
         </p>
       )}
 
@@ -806,14 +799,22 @@ export default function Home() {
           </div>
 
           {mode === 'compare' && (
-            <label className="hl-toggle">
-              <input
-                type="checkbox"
-                checked={hlOn}
-                onChange={(e) => setHlOn(e.target.checked)}
-              />
-              우위 항목 하이라이트
-            </label>
+            <div className="hl-row">
+              <label className="hl-toggle">
+                <input
+                  type="checkbox"
+                  checked={hlOn}
+                  onChange={(e) => setHlOn(e.target.checked)}
+                />
+                우위 항목 하이라이트
+              </label>
+              <span className="hl-period">
+                기간:{' '}
+                {compare?.filtered?.start || compare?.filtered?.end
+                  ? `${compare?.filtered?.start ?? '처음'} ~ ${compare?.filtered?.end ?? '오늘'}`
+                  : '전체'}
+              </span>
+            </div>
           )}
 
           {current && CHART_TABS.has(current.key) ? (
