@@ -17,7 +17,12 @@ import {
 } from './i18n';
 import { looksLikeId, toPolarisId } from '@/lib/wavu/token';
 import { COMPARE_MIN_GAMES } from '@/lib/tekken/compare';
-import { pickJoke } from './jokes';
+import {
+  pickJoke,
+  pickCondition,
+  type Condition,
+  type ConditionFacts,
+} from './jokes';
 
 interface TabData {
   key: string;
@@ -1205,6 +1210,60 @@ export default function Home() {
     };
   }, [single]);
 
+  /**
+   * 요약 카드 아래 한 줄 — **마지막 세션**을 기준으로 지금 컨디션을 말한다.
+   *
+   * 세션 탭은 (세션 × 캐릭터)로 쪼개져 있어서 같은 세션 라벨의 행을 다 합쳐야
+   * 그 세션의 진짜 성적이 된다. 최신 세션이 첫 행이다(서버가 최신 우선 정렬).
+   */
+  const condition = useMemo(() => {
+    if (!single || !summary) return null;
+    const sess = single.tabs.find((tb) => tb.key === 'sessions');
+    const first = sess?.rows[0];
+    if (!first) return null;
+
+    const label = String(first[0]);
+    let games = 0;
+    let wins = 0;
+    let losses = 0;
+    let delta = 0;
+    for (const r of sess!.rows) {
+      if (String(r[0]) !== label) continue; // 같은 세션의 캐릭터별 행들
+      games += Number(r[4]);
+      wins += Number(r[5]);
+      losses += Number(r[6]);
+      delta += Number(r[8]);
+    }
+
+    // 마지막 경기로부터 며칠 지났나 (KST 날짜끼리)
+    const todayKst = new Date(Date.now() + 9 * 3600 * 1000);
+    const last = summary.lastDt ? new Date(`${summary.lastDt}T00:00:00Z`) : null;
+    const days = last
+      ? Math.max(
+          0,
+          Math.floor(
+            (Date.parse(todayKst.toISOString().slice(0, 10)) - last.getTime()) / 86400000,
+          ),
+        )
+      : 0;
+
+    const kind: Condition =
+      summary.games > 0 ? 'today'
+      : days >= 7 ? 'rusty'
+      : delta > 0 ? 'endedWell'
+      : delta < 0 ? 'endedBadly'
+      : 'endedFlat';
+
+    const facts: ConditionFacts =
+      kind === 'today'
+        ? { days, games: summary.games, wins: summary.w, losses: summary.l, delta: summary.delta }
+        : { days, games, wins, losses, delta };
+
+    // 씨앗: 조회가 같으면 문구도 같게. 세션 성적이 바뀌면 문구도 바뀐다.
+    const seed = single.recordCount + games * 3 + Math.abs(delta) + days * 11;
+    return pickCondition(kind, lang, seed, facts);
+  }, [single, summary, lang]);
+
   const baseName =
     mode === 'single'
       ? single?.myName || single?.polarisId || 'tekken'
@@ -1669,6 +1728,8 @@ export default function Home() {
               )}
             </div>
           )}
+          {/* 마지막 세션 기준 컨디션 한 줄 */}
+          {condition && <p className="condition">{condition}</p>}
           {single.charCounts && single.charCounts.length > 1 && (
             <div className="char-chips">
               <span className="hint" style={{ margin: 0 }}>{t('charLabel')}:</span>
