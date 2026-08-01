@@ -373,7 +373,7 @@ function DataTable({
                         {linked ? (
                           <a
                             className="plink"
-                            href={`/?id=${encodeURIComponent(pol)}`}
+                            href={`/player/${encodeURIComponent(pol)}`}
                             target="_blank"
                             rel="noreferrer"
                             title={pol}
@@ -646,7 +646,9 @@ export default function Home() {
     if (bootRef.current) return;
     bootRef.current = true;
     const sp = new URLSearchParams(window.location.search);
-    const qid = sp.get('id');
+    // /player/<식별코드> 로 들어온 경우 경로에서 읽는다 (쿼리 ?id= 도 계속 지원)
+    const m = window.location.pathname.match(/^\/player\/([^/?#]+)/);
+    const qid = m ? decodeURIComponent(m[1]).replace(/[^A-Za-z0-9]/g, '') : sp.get('id');
     const qids = sp.get('ids');
     if (!qid && !qids) return;
     if (qids) {
@@ -683,8 +685,10 @@ export default function Home() {
     // (mode 는 바뀌었는데 그 모드의 결과는 없음) URL 의 id/ids 가 지워지는 것을 방지
     if (mode === 'single' ? !single : !compare) return;
     const sp = new URLSearchParams();
-    if (mode === 'single' && single) sp.set('id', single.polarisId);
-    if (mode === 'compare' && compare)
+    // 단일은 /player/<식별코드> 를 기본 주소로 쓴다 (wavu·tknow 와 같은 형식).
+    // 비교는 대상이 여럿이라 쿼리로 유지한다.
+    const single1 = mode === 'single' && single;
+    if (!single1 && mode === 'compare' && compare)
       sp.set('ids', compare.players.map((p) => p.polarisId).join(','));
     if (periodMode !== 'all') {
       sp.set('pm', periodMode);
@@ -697,7 +701,11 @@ export default function Home() {
     }
     if (mode === 'single' && charSel) sp.set('ch', charSel);
     if (activeTab) sp.set('tab', activeTab);
-    window.history.replaceState(null, '', `/?${sp.toString()}`);
+    const qs = sp.toString();
+    const path = single1
+      ? `/player/${encodeURIComponent(single.polarisId)}`
+      : '/';
+    window.history.replaceState(null, '', qs ? `${path}?${qs}` : path);
   }, [single, compare, mode, activeTab, charSel, periodMode, month, year, start, end]);
 
   /** 비교 목록에 식별코드 추가 (중복 제외). */
