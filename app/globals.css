@@ -347,6 +347,18 @@ button.ghost,
   background: rgba(110, 168, 254, 0.06);
 }
 
+.advice-mood {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.mood-hot { color: var(--win); }
+.mood-steady { color: var(--text); }
+.mood-cooling { color: #e0a640; }
+.mood-cold { color: var(--loss); }
+
 .advice-main {
   margin: 0;
   font-size: 0.95rem;
@@ -770,4 +782,12 @@ footer {
 
 footer a {
   color: var(--accent);
+}
+
+/* 푸터 농담 — 서명줄(.byline)보다 한 단계 더 흐리게 */
+.footer-joke {
+  display: inline-block;
+  margin-top: 0.25rem;
+  opacity: 0.45;
+  font-size: 0.95em;
 }

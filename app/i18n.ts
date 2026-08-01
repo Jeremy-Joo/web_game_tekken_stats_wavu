@@ -123,6 +123,42 @@ const D = {
     ja: '推奨試合数を出すにはデータが足りません。',
   },
   adviceBaseline: { ko: '내 평균', en: 'your average', ja: '自分の平均' },
+  // 농담 한 줄. 수위는 숫자(최근 폼·연패)로 고른다 — 근거 없이 놀리지 않는다.
+  moodHot: {
+    ko: (pp: number) => `🔥 최근 20경기가 평균보다 ${pp}%p 높습니다. 지금이 그 날입니다 — 랭크 올리세요.`,
+    en: (pp: number) => `🔥 Last 20 games are ${pp}%p above your average. This is the day — go climb.`,
+    ja: (pp: number) => `🔥 直近20試合が平均より${pp}%p 高いです。今日がその日です — ランクを上げましょう。`,
+  },
+  moodSteady: {
+    ko: '📊 기복 없이 평소만큼 하고 있습니다. 재미없지만 그게 제일 어려운 겁니다.',
+    en: '📊 Right at your usual level. Boring — and the hardest thing to do.',
+    ja: '📊 いつも通りの安定感です。地味ですが、それが一番難しい。',
+  },
+  moodCooling: {
+    ko: (pp: number, streak: number) =>
+      streak >= 3
+        ? `🥶 ${streak}연패 중입니다. 다음 판이 복수전이 될지 4연패가 될지는 아무도 모릅니다.`
+        : `🥶 최근 폼이 평균보다 ${Math.abs(pp)}%p 낮습니다. 한 판만 더는 대체로 거짓말입니다.`,
+    en: (pp: number, streak: number) =>
+      streak >= 3
+        ? `🥶 ${streak} losses in a row. Nobody knows if the next one is revenge or number ${streak + 1}.`
+        : `🥶 Recent form is ${Math.abs(pp)}%p below average. "One more game" is usually a lie.`,
+    ja: (pp: number, streak: number) =>
+      streak >= 3
+        ? `🥶 ${streak}連敗中です。次が復讐か${streak + 1}連敗かは誰にも分かりません。`
+        : `🥶 直近の調子が平均より${Math.abs(pp)}%p 低いです。「あと1戦」はだいたい嘘です。`,
+  },
+  moodCold: {
+    ko: (pp: number, streak: number) =>
+      `💀 최근 폼이 평균보다 ${Math.abs(pp)}%p 낮고${streak >= 5 ? ` ${streak}연패 중입니다` : '습니다'}. ` +
+      `오늘은 철권이 문제가 아닙니다. 컨트롤러를 내려놓고 다른 게임을 켜세요 — 농사 짓는 게임 같은 거요.`,
+    en: (pp: number, streak: number) =>
+      `💀 Form is ${Math.abs(pp)}%p below average${streak >= 5 ? ` with ${streak} straight losses` : ''}. ` +
+      `Tekken isn't the problem today. Put the pad down and boot up something with farming in it.`,
+    ja: (pp: number, streak: number) =>
+      `💀 直近の調子が平均より${Math.abs(pp)}%p 低く${streak >= 5 ? `、${streak}連敗中です` : 'なっています'}。` +
+      `今日は鉄拳が問題ではありません。パッドを置いて、農業ゲームでも起動しましょう。`,
+  },
   adviceCaveat: {
     ko: '※ 상관관계일 뿐입니다 — 잘 풀린 날일수록 오래 하게 되므로 뒷구간 표본은 유리한 쪽으로 치우칩니다.',
     en: '※ Correlation only — good days last longer, so later buckets are biased toward good sessions.',
@@ -158,6 +194,13 @@ const D = {
   visitors: { ko: '방문', en: 'Visits', ja: '訪問' },
   todayLabel: { ko: '오늘', en: 'today', ja: '今日' },
   footer1: { ko: '데이터:', en: 'Data:', ja: 'データ:' },
+  // 푸터 농담 — 실행 난이도로 악명 높은 캐릭터들에 대한 과장된 농담이다.
+  // 한국어 원문이 본체라 번역은 뜻만 옮긴다.
+  footerJoke: {
+    ko: '술 담배 해도 풍신류 화랑 스티브 하지마라, 그럴거면 차라리 마약을 해라',
+    en: 'Drink and smoke if you must — just don\'t pick Mishima, Hwoarang, or Steve.',
+    ja: '酒もタバコもいい、でも風神流・ファラン・スティーブだけはやめとけ。',
+  },
   footer2: {
     ko: '(랭크전만 집계됨) · 이 사이트는 Bandai Namco 와 무관합니다',
     en: '(ranked matches only) · This site is not affiliated with Bandai Namco',

@@ -43,6 +43,9 @@ interface PlayerResponse {
     goodUpTo: number | null;
     stopAfter: number | null;
     reliable: boolean;
+    recentDeltaPp: number;
+    losingStreak: number;
+    mood: 'hot' | 'steady' | 'cooling' | 'cold';
   } | null;
   filtered?: {
     start: string | null;
@@ -1882,6 +1885,22 @@ export default function Home() {
                     단정하지 않는다 — 표본이 얇거나 꺾이는 지점이 없으면 그렇게 말한다. */}
                 {current.key === 'flow' && single?.advice && (
                   <div className="advice">
+                    {/* 농담 한 줄 — 수위는 실제 숫자(최근 폼·연패)로 고른다 */}
+                    <p className={`advice-mood mood-${single.advice.mood}`}>
+                      {single.advice.mood === 'hot'
+                        ? t('moodHot')(single.advice.recentDeltaPp)
+                        : single.advice.mood === 'steady'
+                          ? t('moodSteady')
+                          : single.advice.mood === 'cooling'
+                            ? t('moodCooling')(
+                                single.advice.recentDeltaPp,
+                                single.advice.losingStreak,
+                              )
+                            : t('moodCold')(
+                                single.advice.recentDeltaPp,
+                                single.advice.losingStreak,
+                              )}
+                    </p>
                     {single.advice.reliable ? (
                       <>
                         <p className="advice-main">
@@ -1965,6 +1984,8 @@ export default function Home() {
             {visits.today.toLocaleString()})
           </span>
         )}
+        <br />
+        <span className="footer-joke">{t('footerJoke')}</span>
       </footer>
     </main>
   );

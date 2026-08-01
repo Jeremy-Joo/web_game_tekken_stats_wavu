@@ -41,7 +41,19 @@ export interface SessionAdvice {
   stopAfter: number | null;
   /** 판단에 쓸 만한 표본이 있었는가. false 면 화면에서 단정하지 말 것. */
   reliable: boolean;
+  /**
+   * 최근 폼이 자기 평균에서 얼마나 벗어났나(%p). 양수면 물이 올랐다는 뜻.
+   * 화면에서 농담 수위를 고르는 데 쓴다 — 숫자에 근거하지 않은 농담은 하지 않는다.
+   */
+  recentDeltaPp: number;
+  /** 현재 연패 수 (연승 중이면 0). */
+  losingStreak: number;
+  /** 농담 수위: 좋음 → 보통 → 하락 → 심각. */
+  mood: 'hot' | 'steady' | 'cooling' | 'cold';
 }
+
+/** 최근 폼을 잴 표본 크기. 너무 작으면 그날 운에 흔들린다. */
+const RECENT_N = 20;
 
 export function sessionAdvice(
   records: MatchRecord[],
@@ -100,6 +112,24 @@ export function sessionAdvice(
     goodUpTo = b.to;
   }
 
+  // ── 최근 폼과 연패 (농담 수위를 고르는 근거) ──
+  const recent = ordered.slice(-RECENT_N);
+  const recentWr = wr(recent.filter((r) => r.result === 'W').length, recent.length);
+  const recentDeltaPp = roundTo(recentWr - baselineWinRate, 1);
+
+  let losingStreak = 0;
+  for (let i = ordered.length - 1; i >= 0; i--) {
+    if (ordered[i].result === 'L') losingStreak++;
+    else break;
+  }
+
+  // 최근 폼이 주(主), 연패는 보(補). 연패는 짧아도 체감이 커서 한 단계 끌어내린다.
+  const mood: SessionAdvice['mood'] =
+    recentDeltaPp >= 7 ? 'hot'
+    : recentDeltaPp <= -12 || losingStreak >= 5 ? 'cold'
+    : recentDeltaPp <= -5 || losingStreak >= 3 ? 'cooling'
+    : 'steady';
+
   return {
     baselineWinRate,
     bands,
@@ -107,5 +137,8 @@ export function sessionAdvice(
     stopAfter,
     // 구간 셋은 있어야 '추세'라고 부를 수 있다
     reliable: usable.length >= 3,
+    recentDeltaPp,
+    losingStreak,
+    mood,
   };
 }
