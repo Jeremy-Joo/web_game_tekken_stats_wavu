@@ -3,22 +3,38 @@
 // (id 자리에 'compare' 예약어).
 
 import { NextRequest, NextResponse } from 'next/server';
-import { unstable_cache } from 'next/cache';
-import { fetchReplays, normalizePolarisId, WavuError } from '@/lib/wavu/client';
+import { normalizePolarisId, WavuError } from '@/lib/wavu/client';
+import { getReplays } from '@/lib/wavu/cache';
 import { normalizeReplays, filterByDate } from '@/lib/wavu/normalize';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { computeCompare, type ComparePlayer } from '@/lib/tekken/compare';
 import { tabsToXlsx } from '@/lib/tekken/xlsx';
+import type { MatchRecord } from '@/lib/tekken/models';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const CACHE_SECONDS = 600;
+// ── 최소한의 남용 방지 ──────────────────────────────────────────────
+// 이 라우트가 사이트에서 가장 비싸다 — 30,233경기 기준 27.6초, 워크북 5.5MB.
+// 무제한으로 열려 있으면 무작위 호출만으로 wavu 수집이 계속 돌고,
+// 차단당하는 쪽은 우리가 아니라 wavu 다.
+//
+// 정직하게: 이 카운터는 **인스턴스별 메모리**라 정확하지 않다.
+// Vercel 은 요청을 여러 인스턴스에 나눠주므로 실제 허용치는 이 값보다 클 수 있고,
+// 인스턴스가 재시작되면 초기화된다. 정확한 제한이 필요해지면 KV 로 옮긴다.
+// 그래도 '한 명이 한 인스턴스를 계속 두드리는' 흔한 경우는 여기서 걸린다.
+const RATE_WINDOW_MS = 5 * 60_000;
+const RATE_MAX = 6;
+const hits = new Map<string, number[]>();
 
-const getReplaysCached = (id: string) =>
-  unstable_cache(() => fetchReplays(id), ['wavu-replays', id], {
-    revalidate: CACHE_SECONDS,
-  })();
+function rateLimited(ip: string): boolean {
+  const now = Date.now();
+  const recent = (hits.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
+  recent.push(now);
+  hits.set(ip, recent);
+  if (hits.size > 5000) hits.clear(); // 메모리 상한 — 정밀도보다 안전이 우선
+  return recent.length > RATE_MAX;
+}
 
 function stamp(): string {
   // KST 기준 파일명 타임스탬프 (WPF 의 yyyy_MMdd_HHmmss 관례)
@@ -42,11 +58,28 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown';
+  if (rateLimited(ip)) {
+    return NextResponse.json(
+      { error: '엑셀 다운로드 요청이 너무 잦습니다. 잠시 후 다시 시도하세요.' },
+      { status: 429, headers: { 'Retry-After': '60' } },
+    );
+  }
+
   const { id: rawId } = await params;
   const sp = req.nextUrl.searchParams;
   const start = sp.get('start') ?? undefined;
   const end = sp.get('end') ?? undefined;
-  const period = start || end ? `${start ?? ''}~${end ?? ''}` : undefined;
+  const season = sp.get('season') ?? undefined;
+  const period = season
+    ? season
+    : start || end
+      ? `${start ?? ''}~${end ?? ''}`
+      : undefined;
+  /** 화면과 같은 기준으로 거른다 — 시즌은 날짜가 아니라 season 키로. */
+  const applyPeriod = (rs: MatchRecord[]) =>
+    season ? rs.filter((r) => r.season === season) : filterByDate(rs, start, end);
 
   try {
     if (rawId === 'compare') {
@@ -64,12 +97,12 @@ export async function GET(
       const players: ComparePlayer[] = [];
       for (const id of ids) {
         // wavu 지침대로 순차 수집
-        const replays = await getReplaysCached(id);
+        const { replays } = await getReplays(id);
         const { records, myName } = normalizeReplays(replays, id);
         players.push({
           polarisId: id,
           name: myName || id,
-          records: filterByDate(records, start, end),
+          records: applyPeriod(records),
         });
       }
       const tabs = computeCompare(players);
@@ -85,15 +118,17 @@ export async function GET(
     if (!id) {
       return NextResponse.json({ error: '식별코드가 비었습니다.' }, { status: 400 });
     }
-    const replays = await getReplaysCached(id);
+    const { replays } = await getReplays(id);
     const { records, myName } = normalizeReplays(replays, id);
     const char = sp.get('char') ?? undefined;
-    const dated = filterByDate(records, start, end);
+    const dated = applyPeriod(records);
     const filtered = char ? dated.filter((r) => r.myChar === char) : dated;
     if (!filtered.length) {
       return NextResponse.json({ error: '해당 조건의 경기가 없습니다.' }, { status: 404 });
     }
-    const result = computeFromRecords(filtered, id, myName);
+    // 엑셀은 레이팅 추이를 캐릭터별 컬럼으로 펼친다 — 시트에서 바로 차트를 만들 수 있게.
+    // (JSON 응답은 좁은 포맷이다. compute.ts 의 wideTrend 주석 참조)
+    const result = computeFromRecords(filtered, id, myName, { wideTrend: true });
     const buf = await tabsToXlsx(result.tabs, {
       title: `${myName || id} (${id})${char ? ` — ${char}` : ''}`,
       subtitle: period,

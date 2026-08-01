@@ -5,22 +5,17 @@
 // Promise.all 로 바꾸지 말 것 — 동시 요청이 차단을 부를 수 있다.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { unstable_cache } from 'next/cache';
-import { fetchReplays, normalizePolarisId, WavuError } from '@/lib/wavu/client';
+import { normalizePolarisId, WavuError } from '@/lib/wavu/client';
+import { getReplays } from '@/lib/wavu/cache';
 import { normalizeReplays, filterByDate } from '@/lib/wavu/normalize';
 import { computeCompare, type ComparePlayer } from '@/lib/tekken/compare';
+import { seasonSpans, mergeSeasonSpans, type SeasonSpan } from '@/lib/tekken/seasons';
 
 export const runtime = 'nodejs';
 // 순차 수집이라 인원수만큼 시간이 는다. 4명 × 수 초 대비.
 export const maxDuration = 60;
 
-const CACHE_SECONDS = 600;
 const MAX_PLAYERS = 4;
-
-const getReplaysCached = (id: string) =>
-  unstable_cache(() => fetchReplays(id), ['wavu-replays', id], {
-    revalidate: CACHE_SECONDS,
-  })();
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
@@ -31,6 +26,7 @@ export async function GET(req: NextRequest) {
   const uniq = [...new Set(ids)];
   const start = sp.get('start') ?? undefined;
   const end = sp.get('end') ?? undefined;
+  const season = sp.get('season') ?? undefined; // 날짜가 아닌 season 키로 거른다
 
   if (uniq.length < 2) {
     return NextResponse.json(
@@ -46,16 +42,22 @@ export async function GET(req: NextRequest) {
   }
 
   const players: ComparePlayer[] = [];
+  const spans: SeasonSpan[][] = []; // 시즌 버튼용 — 사람별 요약만 모은다(레코드 아님)
+  let anyStale = false;
   try {
     for (const id of uniq) {
       // 의도적 순차 — 주석 참조
-      const replays = await getReplaysCached(id);
+      const { replays, stale } = await getReplays(id);
+      if (stale) anyStale = true;
       const { records, myName } = normalizeReplays(replays, id);
       players.push({
         polarisId: id,
         name: myName || id,
-        records: filterByDate(records, start, end),
+        records: season
+          ? records.filter((r) => r.season === season)
+          : filterByDate(records, start, end),
       });
+      spans.push(seasonSpans(records));
     }
   } catch (e) {
     if (e instanceof WavuError) {
@@ -85,6 +87,8 @@ export async function GET(req: NextRequest) {
       count: p.records.length,
     })),
     tabs: computeCompare(players),
-    filtered: { start: start ?? null, end: end ?? null },
+    seasons: mergeSeasonSpans(spans),
+    filtered: { start: start ?? null, end: end ?? null, season: season ?? null },
+    cache: { stale: anyStale },
   });
 }

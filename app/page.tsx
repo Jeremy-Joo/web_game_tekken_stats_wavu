@@ -15,6 +15,8 @@ import {
   colText,
   type Lang,
 } from './i18n';
+import { looksLikeId, toPolarisId } from '@/lib/wavu/token';
+import { COMPARE_MIN_GAMES } from '@/lib/tekken/compare';
 
 interface TabData {
   key: string;
@@ -34,27 +36,46 @@ interface PlayerResponse {
   charCounts?: { name: string; games: number }[]; // 사용 캐릭터 (경기 수 내림차순)
   selectedChar?: string | null;
   stats?: { total: number; kept: number; dropped: number; dupes: number };
-  filtered?: { start: string | null; end: string | null; count: number };
+  seasons?: SeasonInfo[]; // 이 플레이어가 실제로 뛴 시즌들 (전체 이력 기준)
+  filtered?: {
+    start: string | null;
+    end: string | null;
+    season?: string | null;
+    count: number;
+  };
+  /** stale=true 면 wavu 수집 실패로 지난 사본을 보는 중. */
+  cache?: { fetchedAt?: number; stale?: boolean };
   error?: string;
 }
 
 interface CompareResponse {
   players: { polarisId: string; name: string; count: number }[];
   tabs: TabData[];
-  filtered?: { start: string | null; end: string | null };
+  seasons?: SeasonInfo[];
+  filtered?: { start: string | null; end: string | null; season?: string | null };
+  cache?: { stale?: boolean };
   error?: string;
 }
 
 type Mode = 'single' | 'compare';
-type PeriodMode = 'all' | 'month' | 'year' | 'custom' | 's1' | 's2' | 's3';
+type PeriodMode = 'all' | 'month' | 'year' | 'custom' | 'season';
 
-// 철권8 시즌 경계 — 실데이터의 game_version 전환 시점(플레이어 4명 교차 검증)으로 도출.
-// S1 은 게임 발매일부터. S3 종료일은 아직 없다(현재 시즌).
-const SEASON_RANGE: Record<'s1' | 's2' | 's3', { start: string; end?: string }> = {
-  s1: { start: '2024-01-26', end: '2025-03-31' },
-  s2: { start: '2025-04-01', end: '2026-03-17' },
-  s3: { start: '2026-03-18' },
-};
+/** 서버가 데이터에서 뽑아준 시즌 구간 (lib/tekken/seasons.ts). */
+interface SeasonInfo {
+  key: string; // 'S1' | 'S2' | ...
+  start: string; // 'yyyy-MM-dd'
+  end: string;
+  games: number;
+}
+
+// 조회 **전에만** 쓰는 시즌 버튼 목록 — 표시용 기본값이다.
+//
+// 예전에는 여기에 시즌 경계 날짜를 적어두고 그 날짜로 필터링했다. 그러면 S4 가 열려도
+// 아무도 손대지 않는 한 S4 는 영영 안 나타나고, 시즌 탭(game_version 기준)과 답이 갈렸다.
+// 지금은 필터가 날짜가 아니라 season 키로 나가고(서버가 game_version 으로 판정),
+// 버튼도 조회 직후 서버가 준 실제 목록으로 갈아끼운다.
+// 그래서 새 시즌은 **첫 조회 즉시** 나타난다 — 이 상수를 고칠 필요가 없다.
+const FALLBACK_SEASONS = ['S1', 'S2', 'S3'];
 
 /** 닉네임 검색 결과 항목. */
 interface Favorite {
@@ -127,13 +148,12 @@ const GRAN_LABEL: Record<DailyGran, Record<Lang, string>> = {
   season: { ko: '시즌별', en: 'By season', ja: 'シーズン別' },
 };
 
-function periodKey(date: string, g: DailyGran): string {
+function periodKey(date: string, g: DailyGran, seasons: SeasonInfo[]): string {
   if (g === 'day') return date;
   if (g === 'season') {
-    // 시즌 경계는 SEASON_RANGE(실측)와 동일 기준
-    if (date <= SEASON_RANGE.s1.end!) return 'S1';
-    if (date <= SEASON_RANGE.s2.end!) return 'S2';
-    return 'S3';
+    // 경계는 서버가 데이터에서 뽑아준 구간을 그대로 쓴다 — 날짜 하드코딩 없음.
+    for (const s of seasons) if (date >= s.start && date <= s.end) return s.key;
+    return '?';
   }
   const y = date.slice(0, 4);
   const m = Number(date.slice(5, 7));
@@ -144,16 +164,80 @@ function periodKey(date: string, g: DailyGran): string {
 }
 
 /** 일별 데이터가 걸친 범위에 맞는 집계 단위만 제시 (2개 그룹 이상 생길 때만). */
-function granOptions(tab: TabData): DailyGran[] {
+function granOptions(tab: TabData, seasons: SeasonInfo[]): DailyGran[] {
   const dates = tab.rows.map((r) => String(r[0]));
   const opts: DailyGran[] = ['day'];
   for (const g of ['month', 'quarter', 'half', 'year', 'season'] as DailyGran[]) {
-    if (new Set(dates.map((d) => periodKey(d, g))).size >= 2) opts.push(g);
+    if (new Set(dates.map((d) => periodKey(d, g, seasons))).size >= 2) opts.push(g);
   }
   return opts;
 }
 
-function rollupDaily(tab: TabData, g: DailyGran): TabData {
+/* ── 상대전적 탭 보기 옵션 ────────────────────────────────────────
+   전부 나열하면 1,000행이 넘고(실측 7,828경기 → 1,009명), 2~3판 만난 상대가
+   섞여 승률이 100%/0% 로 튄다. '몇 판 이상 만난 상대만' + '강점/약점 순'으로
+   좁혀야 실제로 읽을 수 있다. 한 명 모드의 강점/약점 매치업과 같은 취지다. */
+
+type H2hView = 'all' | 'strong' | 'weak';
+const H2H_MINS = [0, 10, 50, 100];
+/** '마지막으로 만난 날'이 최근 N일 안인 상대만. 0 = 전체. */
+const H2H_DAYS = [0, 30, 90, 365];
+
+const H2H_VIEW_LABEL: Record<H2hView, Record<Lang, string>> = {
+  all: { ko: '전체', en: 'All', ja: '全体' },
+  strong: { ko: '강점 (승률 높은 순)', en: 'Strong (best WR)', ja: '得意 (勝率順)' },
+  weak: { ko: '약점 (승률 낮은 순)', en: 'Weak (worst WR)', ja: '苦手 (勝率順)' },
+};
+
+const H2H_DAY_LABEL = (d: number, lang: Lang): string => {
+  if (d === 0) return { ko: '전체', en: 'All', ja: '全体' }[lang];
+  if (d === 365) return { ko: '1년', en: '1 year', ja: '1年' }[lang];
+  return { ko: `${d}일`, en: `${d} days`, ja: `${d}日` }[lang];
+};
+
+/** 이 탭에 쓸 수 있는 최소 경기수 선택지 (행이 남는 값만). 비교 모드 맞대결 탭이면 null. */
+function h2hMinOptions(tab: TabData): number[] | null {
+  const gi = tab.columns.indexOf('Games');
+  if (gi < 0 || tab.columns.indexOf('WinRate(%)') < 0) return null;
+  return H2H_MINS.filter((m) => m === 0 || tab.rows.some((r) => Number(r[gi]) >= m));
+}
+
+/**
+ * 상대전적 좁히기.
+ *
+ * `days` 는 **'그 상대를 마지막으로 만난 날'** 기준이다 — "최근 3개월 안에 붙어본 상대 중
+ * 내가 약한 사람"을 뽑는 용도. 승/패 수 자체는 조회 기간 전체의 누적이다.
+ * '그 기간 동안의 전적'이 필요하면 위쪽 조회 기간(월별/시즌/직접입력)을 쓰면 된다 —
+ * 그건 서버가 다시 집계하므로 정확하다.
+ */
+function filterH2h(tab: TabData, min: number, days: number, view: H2hView): TabData {
+  const gi = tab.columns.indexOf('Games');
+  const wi = tab.columns.indexOf('WinRate(%)');
+  const li = tab.columns.indexOf('LastPlayed');
+  if (gi < 0 || wi < 0) return tab;
+
+  let rows = min > 0 ? tab.rows.filter((r) => Number(r[gi]) >= min) : tab.rows;
+  if (days > 0 && li >= 0) {
+    // KST 기준 날짜 문자열끼리 비교 (LastPlayed 도 KST 'yyyy-MM-dd HH:mm:ss')
+    const cutoff = new Date(Date.now() + 9 * 3600_000 - days * 86400_000)
+      .toISOString()
+      .slice(0, 10);
+    rows = rows.filter((r) => String(r[li]).slice(0, 10) >= cutoff);
+  }
+  const g = (r: (string | number | null)[]) => Number(r[gi]);
+  const w = (r: (string | number | null)[]) => Number(r[wi]);
+
+  // 경계(정확히 50%)는 강점 쪽에 넣는다 — aggregations.buildStrong 과 같은 규칙이라
+  // 같은 상대가 강점/약점에 동시에 나타나지 않는다.
+  if (view === 'strong')
+    rows = rows.filter((r) => w(r) >= 50).sort((a, b) => w(b) - w(a) || g(b) - g(a));
+  else if (view === 'weak')
+    rows = rows.filter((r) => w(r) < 50).sort((a, b) => w(a) - w(b) || g(b) - g(a));
+
+  return { ...tab, rows };
+}
+
+function rollupDaily(tab: TabData, g: DailyGran, seasons: SeasonInfo[]): TabData {
   if (g === 'day') return tab;
   interface Agg {
     period: string;
@@ -169,7 +253,7 @@ function rollupDaily(tab: TabData, g: DailyGran): TabData {
     const [date, char, , w, l, , delta, end] = r as [
       string, string, number, number, number, number, number, number,
     ];
-    const p = periodKey(date, g);
+    const p = periodKey(date, g, seasons);
     const k = `${p}|${char}`;
     let x = m.get(k);
     if (!x) m.set(k, (x = { period: p, char, w: 0, l: 0, delta: 0, end: 0, lastDate: '' }));
@@ -291,10 +375,13 @@ function DataTable({
   tab,
   rowHl,
   lang = 'ko',
+  onCompare,
 }: {
   tab: TabData;
   rowHl?: ((row: (string | number | null)[]) => Set<number>) | null;
   lang?: Lang;
+  /** 주어지면 상대 이름/식별코드 클릭이 '나와 비교'가 된다 (한 명 모드 전용). */
+  onCompare?: (oppPolaris: string) => void;
 }) {
   const tt = makeT(lang);
   const [query, setQuery] = useState('');
@@ -371,15 +458,43 @@ function DataTable({
                         }
                       >
                         {linked ? (
-                          <a
-                            className="plink"
-                            href={`/player/${encodeURIComponent(pol)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            title={pol}
-                          >
-                            {v}
-                          </a>
+                          <span className="plink-cell">
+                            {/* 기본 동작 = 나와 비교. 상대전적에서 제일 자주 하는 다음 행동이다.
+                                onCompare 가 없는 화면(이미 비교 모드 등)에서는 예전처럼
+                                그 플레이어 조회로 떨어진다. */}
+                            {onCompare ? (
+                              <button
+                                type="button"
+                                className="plink"
+                                title={`${pol} — ${tt('compareWithMe')}`}
+                                onClick={() => onCompare(pol)}
+                              >
+                                {v}
+                              </button>
+                            ) : (
+                              <a
+                                className="plink"
+                                href={`/player/${encodeURIComponent(pol)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={pol}
+                              >
+                                {v}
+                              </a>
+                            )}
+                            {/* 그 사람 전적만 따로 보고 싶을 때 — 새 창 */}
+                            {onCompare && (
+                              <a
+                                className="plink-out"
+                                href={`/player/${encodeURIComponent(pol)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={tt('openPlayer')}
+                              >
+                                ↗
+                              </a>
+                            )}
+                          </span>
                         ) : v === null ? (
                           ''
                         ) : typeof v === 'string' ? (
@@ -413,6 +528,14 @@ export default function Home() {
   const [id, setId] = useState('');
   const [ids, setIds] = useState(''); // 비교 모드: 쉼표/공백 구분
   const [periodMode, setPeriodMode] = useState<PeriodMode>('all');
+  const [seasonSel, setSeasonSel] = useState(''); // 'S1' | 'S2' | ... (periodMode==='season')
+  const [xlsxBusy, setXlsxBusy] = useState(false);
+  const [xlsxMsg, setXlsxMsg] = useState('');
+  const [h2hMin, setH2hMin] = useState(0); // 상대전적: 최소 경기수
+  const [h2hDays, setH2hDays] = useState(0); // 상대전적: 최근 N일 안에 만난 상대만
+  const [h2hView, setH2hView] = useState<H2hView>('all');
+  // 비교 표에서 표본 미달(5경기 미만) 행 숨기기 — 3판 100% 가 39판 55% 위에 뜨는 걸 막는다
+  const [hideThin, setHideThin] = useState(true);
   const [month, setMonth] = useState(currentMonth());
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [start, setStart] = useState('');
@@ -500,18 +623,23 @@ export default function Home() {
 
   /**
    * 입력 항목 하나를 식별코드로 해석한다.
-   * 12자리 영숫자(대시 허용)면 식별코드로 보고, 아니면 닉네임으로 wavu 검색.
+   * 식별코드 표기(looksLikeId)면 그대로 쓰고, 아니면 닉네임으로 wavu 검색.
    * 검색 결과가 정확히 1명이면 그 식별코드, 여러 명이면 후보를 돌려준다.
+   *
+   * 표기만 보고 고른 것은 `guess: true` 로 표시한다 — 12자 영숫자 닉네임은
+   * 여전히 식별코드와 구분이 안 되므로, 호출부가 빗나갔을 때 되돌릴 수 있어야 한다.
+   * `forceSearch` 는 그 되돌리기용(표기 판정을 건너뛰고 닉네임으로만 해석).
    */
   const resolveToken = async (
     tok: string,
+    opts?: { forceSearch?: boolean },
   ): Promise<
-    | { id: string; name?: string }
+    | { id: string; name?: string; guess?: boolean }
     | { choices: Favorite[] }
     | { error: string }
   > => {
-    const stripped = tok.replace(/[^A-Za-z0-9]/g, '');
-    if (/^[A-Za-z0-9]{12}$/.test(stripped)) return { id: stripped };
+    if (!opts?.forceSearch && looksLikeId(tok))
+      return { id: toPolarisId(tok), guess: true };
     const res = await fetch(
       `/api/search?q=${encodeURIComponent(tok)}${inclHistory ? '&history=1' : ''}`,
     );
@@ -538,13 +666,12 @@ export default function Home() {
     } else if (periodMode === 'custom') {
       if (start) q.set('start', start);
       if (end) q.set('end', end);
-    } else if (periodMode === 's1' || periodMode === 's2' || periodMode === 's3') {
-      const r = SEASON_RANGE[periodMode];
-      q.set('start', r.start);
-      if (r.end) q.set('end', r.end);
+    } else if (periodMode === 'season' && seasonSel) {
+      // 날짜가 아니라 시즌 키로 보낸다 — 서버가 game_version 으로 판정한다.
+      q.set('season', seasonSel);
     }
     return q;
-  }, [periodMode, month, year, start, end]);
+  }, [periodMode, month, year, start, end, seasonSel]);
 
   /**
    * 조회. 입력칸의 각 항목(식별코드 또는 닉네임)을 resolveToken 으로 해석한 뒤 실행.
@@ -552,16 +679,23 @@ export default function Home() {
    * setState 반영 전에 재실행할 수 있도록 override 인자를 받는다.
    */
   const run = useCallback(
-    async (overrideId?: string, overrideIds?: string, overrideChar?: string) => {
+    async (
+      overrideId?: string,
+      overrideIds?: string,
+      overrideChar?: string,
+      /** 모드까지 바꾸면서 바로 실행할 때 (setMode 는 다음 렌더에나 반영되므로 필요). */
+      overrideMode?: Mode,
+    ) => {
       const inputId = overrideId ?? id;
       const inputIds = overrideIds ?? ids;
       const charFilter = overrideChar !== undefined ? overrideChar : charSel;
+      const runMode = overrideMode ?? mode;
       setLoading(true);
       setError('');
       setResults([]);
       setSearchMsg('');
       try {
-        if (mode === 'single') {
+        if (runMode === 'single') {
           const tok = inputId.trim();
           if (!tok) throw new Error(t('needInput'));
           const r = await resolveToken(tok);
@@ -576,7 +710,26 @@ export default function Home() {
           if (r.id !== tok) setId(r.id); // 닉네임 → 찾은 식별코드를 입력칸에 반영
           const q = periodQuery();
           if (charFilter) q.set('char', charFilter);
-          const res = await fetch(`/api/replays/${encodeURIComponent(r.id)}?${q}`);
+          let res = await fetch(`/api/replays/${encodeURIComponent(r.id)}?${q}`);
+
+          // 표기만 보고 식별코드로 넘겼는데 없는 코드였다면 닉네임으로 다시 해석한다.
+          // 12자 영숫자 닉네임은 표기가 식별코드와 완전히 겹쳐 사전 판별이 불가능하다.
+          // 판정이 빗나가도 조회가 404 로 끝나지 않게 하는 안전망.
+          if (res.status === 404 && r.guess) {
+            const alt = await resolveToken(tok, { forceSearch: true });
+            if ('choices' in alt) {
+              setPendingToken(tok);
+              setResultsMode('replace');
+              setResults(alt.choices);
+              setSearchMsg(t('multiFound')(tok));
+              return;
+            }
+            // 양쪽 다 실패 — 한쪽 메시지만 보이면 원인을 오해하므로 둘 다 밝힌다
+            if ('error' in alt) throw new Error(t('noMatch')(tok));
+            setId(alt.id);
+            res = await fetch(`/api/replays/${encodeURIComponent(alt.id)}?${q}`);
+          }
+
           const data = (await res.json()) as PlayerResponse;
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
           setSingle(data);
@@ -637,6 +790,25 @@ export default function Home() {
     run(undefined, undefined, c);
   };
 
+  /**
+   * 상대전적에서 상대를 눌렀을 때 — **나 vs 그 상대**로 바로 비교 조회.
+   *
+   * 상대전적 표에서 "이 사람한테 왜 지지?"가 다음 질문이라, 식별코드를 복사해
+   * 비교 모드에 붙여넣는 과정을 없앤다. 기간 필터는 그대로 유지된다.
+   * setMode 는 다음 렌더에나 반영되므로 run 에 모드를 함께 넘긴다.
+   */
+  const compareWithMe = (oppPolaris: string) => {
+    const me = single?.polarisId;
+    if (!me || !oppPolaris || me === oppPolaris) return;
+    const joined = `${me}, ${oppPolaris}`;
+    setMode('compare');
+    setIds(joined);
+    setCharSel('');
+    setActiveTab(''); // 비교는 탭 구성이 달라 첫 탭부터 연다
+    window.scrollTo({ top: 0 });
+    run(undefined, joined, undefined, 'compare');
+  };
+
   // ── 공유 URL: 조회 상태(모드·기간·캐릭터·탭)를 주소에 싣고, 열릴 때 복원한다 ──
   // 복원은 2단계: (1) 파라미터 → 상태 반영, (2) 상태가 커밋된 다음 렌더에서 run().
   // (같은 이펙트에서 바로 run() 하면 periodQuery 가 이전 상태를 캡처하기 때문)
@@ -657,14 +829,22 @@ export default function Home() {
     } else if (qid) {
       setId(qid);
     }
-    const pm = sp.get('pm') as PeriodMode | null;
-    if (pm && ['all', 'month', 'year', 'custom', 's1', 's2', 's3'].includes(pm)) {
-      setPeriodMode(pm);
-      if (pm === 'month' && sp.get('mo')) setMonth(sp.get('mo')!);
-      if (pm === 'year' && sp.get('yr')) setYear(sp.get('yr')!);
-      if (pm === 'custom') {
-        if (sp.get('st')) setStart(sp.get('st')!);
-        if (sp.get('en')) setEnd(sp.get('en')!);
+    const pmRaw = sp.get('pm');
+    // 예전 공유 링크는 시즌을 pm=s1|s2|s3 로 실었다. 계속 열리게 받아준다.
+    if (pmRaw && /^s\d+$/i.test(pmRaw)) {
+      setPeriodMode('season');
+      setSeasonSel(pmRaw.toUpperCase());
+    } else {
+      const pm = pmRaw as PeriodMode | null;
+      if (pm && ['all', 'month', 'year', 'custom', 'season'].includes(pm)) {
+        setPeriodMode(pm);
+        if (pm === 'month' && sp.get('mo')) setMonth(sp.get('mo')!);
+        if (pm === 'year' && sp.get('yr')) setYear(sp.get('yr')!);
+        if (pm === 'season' && sp.get('sn')) setSeasonSel(sp.get('sn')!);
+        if (pm === 'custom') {
+          if (sp.get('st')) setStart(sp.get('st')!);
+          if (sp.get('en')) setEnd(sp.get('en')!);
+        }
       }
     }
     if (sp.get('ch')) setCharSel(sp.get('ch')!);
@@ -694,6 +874,7 @@ export default function Home() {
       sp.set('pm', periodMode);
       if (periodMode === 'month') sp.set('mo', month);
       if (periodMode === 'year') sp.set('yr', year);
+      if (periodMode === 'season') sp.set('sn', seasonSel);
       if (periodMode === 'custom') {
         if (start) sp.set('st', start);
         if (end) sp.set('en', end);
@@ -706,7 +887,7 @@ export default function Home() {
       ? `/player/${encodeURIComponent(single.polarisId)}`
       : '/';
     window.history.replaceState(null, '', qs ? `${path}?${qs}` : path);
-  }, [single, compare, mode, activeTab, charSel, periodMode, month, year, start, end]);
+  }, [single, compare, mode, activeTab, charSel, periodMode, month, year, start, end, seasonSel]);
 
   /** 비교 목록에 식별코드 추가 (중복 제외). */
   const appendToIds = (fid: string, name?: string) => {
@@ -800,12 +981,62 @@ export default function Home() {
   const tabs = mode === 'single' ? single?.tabs : compare?.tabs;
   const current = tabs?.find((t) => t.key === activeTab) ?? tabs?.[0];
 
+  // wavu 가 막혀 지난 사본을 보고 있는가. null 이면 정상(신선한 데이터).
+  const staleMinutes = (() => {
+    const c = mode === 'single' ? single?.cache : compare?.cache;
+    if (!c?.stale) return null;
+    const at = (c as { fetchedAt?: number }).fetchedAt;
+    return at ? Math.max(1, Math.round((Date.now() - at) / 60000)) : 10;
+  })();
+
+  // 엑셀 예상 소요 — 실측(30,233경기 ≈ 27.6초)에서 뽑은 대략치. 정확할 필요는 없고
+  // "금방 끝날 일이 아니다"를 미리 알리는 게 목적이다.
+  const xlsxGames =
+    mode === 'single'
+      ? (single?.recordCount ?? 0)
+      : (compare?.players.reduce((s, p) => s + p.count, 0) ?? 0);
+  const xlsxEtaSec = Math.round(xlsxGames / 1100);
+
+  // 시즌 목록 — 조회 결과가 있으면 그것이 정답(데이터에서 파생), 없으면 표시용 기본값.
+  const seasons: SeasonInfo[] =
+    (mode === 'single' ? single?.seasons : compare?.seasons) ?? [];
+  const seasonList = seasons.length ? seasons.map((s) => s.key) : FALLBACK_SEASONS;
+
   // 일별 탭: 조회 범위가 넓으면 월/분기/반기/연 집계 단위 제공
-  const dailyOpts = current?.key === 'daily' ? granOptions(current) : null;
+  const dailyOpts = current?.key === 'daily' ? granOptions(current, seasons) : null;
   const effGran: DailyGran =
     dailyOpts && dailyOpts.includes(dailyGran) ? dailyGran : 'day';
+
+  // 상대전적 탭: 최소 경기수 + 강점/약점 보기
+  const h2hOpts = current?.key === 'h2h' ? h2hMinOptions(current) : null;
+  const effH2hMin = h2hOpts && h2hOpts.includes(h2hMin) ? h2hMin : 0;
+
   const displayTab =
-    current?.key === 'daily' ? rollupDaily(current, effGran) : current;
+    current?.key === 'daily'
+      ? rollupDaily(current, effGran, seasons)
+      : current?.key === 'h2h' && h2hOpts
+        ? filterH2h(current, effH2hMin, h2hDays, h2hView)
+        : current;
+
+  // 비교 표(캐릭터·상대 캐릭·공통 상대)에서 표본이 얇은 행을 걸러낼 수 있는가.
+  // 실측: 39행 중 3행이 5경기 미만이었고 그중 둘이 '3전 100%' 였다.
+  const thinCols = displayTab
+    ? displayTab.columns
+        .map((c, i) => (c.endsWith('_games') ? i : -1))
+        .filter((i) => i >= 0)
+    : [];
+  const thinnable = mode === 'compare' && thinCols.length >= 2;
+  const shownTab =
+    thinnable && hideThin && displayTab
+      ? {
+          ...displayTab,
+          // 아무도 기준을 못 채운 행만 숨긴다. 한쪽만 많이 한 매치업은
+          // '상대는 안 한다'는 정보 자체가 비교거리라 남긴다.
+          rows: displayTab.rows.filter((r) =>
+            thinCols.some((i) => Number(r[i]) >= COMPARE_MIN_GAMES),
+          ),
+        }
+      : displayTab;
 
   // 오늘의 요약 (단일 조회): 일별 탭에서 오늘(KST) 행 합산 + 전적 목록 첫 행에서 현재 레이팅
   const summary = useMemo(() => {
@@ -853,6 +1084,39 @@ export default function Home() {
       'application/json',
       `${baseName}_stats.json`,
     );
+  };
+
+  /**
+   * 엑셀 다운로드.
+   *
+   * 예전에는 <a href> 였다. 그러면 30,233경기(실측 27.6초) 같은 경우 클릭 후
+   * 30초 가까이 **아무 표시도 없이** 브라우저만 멈춰 있고, 서버가 429/504 를 줘도
+   * 오류 JSON 이 파일로 저장돼 버렸다. fetch 로 바꿔 상태와 오류를 화면에 낸다.
+   */
+  const downloadXlsx = async () => {
+    if (!xlsxHref || xlsxBusy) return;
+    setXlsxBusy(true);
+    setXlsxMsg('');
+    try {
+      const res = await fetch(xlsxHref);
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(d.error ?? `HTTP ${res.status}`);
+      }
+      // 서버가 RFC 5987 로 실어 보낸 한글 파일명을 그대로 쓴다
+      const cd = res.headers.get('content-disposition') ?? '';
+      const m = cd.match(/filename\*=UTF-8''([^;]+)/);
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = m ? decodeURIComponent(m[1]) : `${baseName}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setXlsxMsg((e as Error).message);
+    } finally {
+      setXlsxBusy(false);
+    }
   };
 
   const yearOptions = (() => {
@@ -920,6 +1184,21 @@ export default function Home() {
           }
         >
           🏆 Tekken Tier Percent
+        </a>
+        <a
+          className="tier-link"
+          href="https://tekken8-tube.vercel.app/"
+          target="_blank"
+          rel="noreferrer"
+          title={
+            lang === 'ko'
+              ? '캐릭터별 콤보·확정반격 영상 모음 (매시간 갱신)'
+              : lang === 'ja'
+                ? 'キャラ別コンボ・確定反撃動画まとめ (毎時更新)'
+                : 'Combo and punish video guides by character (hourly)'
+          }
+        >
+          🎬 Tekken 8 Tube
         </a>
       </div>
 
@@ -1053,9 +1332,6 @@ export default function Home() {
               ['month', t('periodMonth')],
               ['year', t('periodYear')],
               ['custom', t('periodCustom')],
-              ['s1', 'S1'],
-              ['s2', 'S2'],
-              ['s3', 'S3'],
             ] as [PeriodMode, string][]
           ).map(([k, label]) => (
             <button
@@ -1064,6 +1340,20 @@ export default function Home() {
               onClick={() => setPeriodMode(k)}
             >
               {label}
+            </button>
+          ))}
+          {/* 시즌 버튼은 조회 결과가 알려준 실제 시즌으로 만든다.
+              조회 전에는 표시용 기본 목록. 새 시즌이 열리면 첫 조회 즉시 나타난다. */}
+          {seasonList.map((s) => (
+            <button
+              key={s}
+              className={periodMode === 'season' && seasonSel === s ? 'on' : ''}
+              onClick={() => {
+                setPeriodMode('season');
+                setSeasonSel(s);
+              }}
+            >
+              {s}
             </button>
           ))}
         </div>
@@ -1090,10 +1380,14 @@ export default function Home() {
             </select>
           </div>
         )}
-        {(periodMode === 's1' || periodMode === 's2' || periodMode === 's3') && (
+        {periodMode === 'season' && seasonSel && (
           <p className="hint" style={{ marginTop: '0.2rem' }}>
-            {SEASON_RANGE[periodMode].start} ~{' '}
-            {SEASON_RANGE[periodMode].end ?? t('today')}
+            {(() => {
+              const s = seasons.find((x) => x.key === seasonSel);
+              return s
+                ? `${s.start} ~ ${s.end} (${s.games.toLocaleString()}${t('games')})`
+                : seasonSel;
+            })()}
           </p>
         )}
         {periodMode === 'custom' && (
@@ -1120,6 +1414,10 @@ export default function Home() {
         )}
 
         {error && <p className="error">{error}</p>}
+        {/* wavu 수집 실패 → 지난 사본으로 버티는 중. 예전에는 이때 사이트가 통째로 멈췄다. */}
+        {staleMinutes !== null && (
+          <p className="warn">{t('staleWarn')(staleMinutes)}</p>
+        )}
         <p className="hint">{t('firstHint')}</p>
       </div>
 
@@ -1210,9 +1508,9 @@ export default function Home() {
         <>
           <div className="row dl-row">
             {xlsxHref && (
-              <a className="btn-link ghost" href={xlsxHref}>
-                {t('xlsxBtn')}
-              </a>
+              <button className="ghost" onClick={downloadXlsx} disabled={xlsxBusy}>
+                {xlsxBusy ? t('xlsxBusy') : t('xlsxBtn')}
+              </button>
             )}
             <button className="ghost" onClick={downloadCsv}>
               {t('csvBtn')}
@@ -1221,6 +1519,11 @@ export default function Home() {
               {t('jsonBtn')}
             </button>
           </div>
+          {/* 오래 걸릴 조회에만 예상 시간을 미리 알린다 (실측 기반 근사) */}
+          {xlsxHref && !xlsxBusy && xlsxEtaSec >= 5 && (
+            <p className="hint">{t('xlsxEta')(xlsxEtaSec)}</p>
+          )}
+          {xlsxMsg && <p className="error">{xlsxMsg}</p>}
 
           <div className="tabs">
             {tabs.map((tb) => (
@@ -1319,11 +1622,68 @@ export default function Home() {
                       {t('trendLimit')(current.rows.length, single.filtered.count)}
                     </p>
                   )}
+
+                {/* 상대전적: 몇 판 이상 만난 상대만 + 강점/약점 순 */}
+                {h2hOpts && (
+                  <>
+                    <div className="mode-switch period">
+                      <span className="ctl-label">{t('minGames')}</span>
+                      {h2hOpts.map((m) => (
+                        <button
+                          key={m}
+                          className={effH2hMin === m ? 'on' : ''}
+                          onClick={() => setH2hMin(m)}
+                        >
+                          {m === 0 ? t('periodAll') : `${m}+`}
+                        </button>
+                      ))}
+                      <span className="gran-sep" />
+                      <span className="ctl-label">{t('metSince')}</span>
+                      {H2H_DAYS.map((d) => (
+                        <button
+                          key={d}
+                          className={h2hDays === d ? 'on' : ''}
+                          onClick={() => setH2hDays(d)}
+                        >
+                          {H2H_DAY_LABEL(d, lang)}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mode-switch period">
+                      {(['all', 'strong', 'weak'] as H2hView[]).map((v) => (
+                        <button
+                          key={v}
+                          className={h2hView === v ? 'on' : ''}
+                          onClick={() => setH2hView(v)}
+                        >
+                          {H2H_VIEW_LABEL[v][lang]}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* 비교 표: 표본이 얇은 행 숨기기 */}
+                {thinnable && (
+                  <label className="hl-toggle">
+                    <input
+                      type="checkbox"
+                      checked={hideThin}
+                      onChange={(e) => setHideThin(e.target.checked)}
+                    />
+                    {t('hideThin')(COMPARE_MIN_GAMES)}
+                  </label>
+                )}
+
                 <DataTable
-                  tab={current}
+                  tab={shownTab ?? current}
                   lang={lang}
                   rowHl={
                     mode === 'compare' && hlOn ? makeRowHighlighter(current) : null
+                  }
+                  // 한 명 모드의 상대전적에서만 '나와 비교'가 성립한다
+                  onCompare={
+                    mode === 'single' && single ? compareWithMe : undefined
                   }
                 />
               </>

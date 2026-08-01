@@ -11,6 +11,12 @@ import {
   buildDaily,
   buildSessions,
   buildRatingTrend,
+  widenTrend,
+  buildVsRating,
+  buildRankStats,
+  buildTimePatterns,
+  buildFlow,
+  buildStage,
   summaryBy,
 } from './aggregations';
 import type { MatchRecord } from './models';
@@ -66,7 +72,13 @@ export function computeFromRecords(
   records: MatchRecord[],
   polarisId: string,
   myName: string,
-  opts?: { matchesLimit?: number },
+  /**
+   * matchesLimit — 전적 목록 행 상한 (JSON 응답 크기 제한용).
+   * wideTrend  — 레이팅 추이를 캐릭터별 컬럼으로 펼친다. **엑셀에서만 켤 것.**
+   *              JSON 응답에서 켜면 셀 수가 경기수 × 캐릭터수 로 곱해진다
+   *              (aggregations.buildRatingTrend 주석 참조).
+   */
+  opts?: { matchesLimit?: number; wideTrend?: boolean },
 ): PlayerResult {
   const ordered = [...records].sort((a, b) => a.dt.getTime() - b.dt.getTime());
   const first = ordered[0] ?? null;
@@ -75,7 +87,7 @@ export function computeFromRecords(
     a.toUpperCase() < b.toUpperCase() ? -1 : 1,
   );
 
-  const { table: trend } = buildRatingTrend(records);
+  const { table: trend, chars: trendChars } = buildRatingTrend(records);
 
   const tabs: TabData[] = [
     tab('total', '캐릭터', buildTotal(records)),
@@ -85,10 +97,15 @@ export function computeFromRecords(
     tab('strong', '강점 매치업', buildStrong(records)),
     tab('weak', '약점 매치업', buildWeak(records)),
     tab('round', '라운드', buildRound(records)),
+    tab('vs_rating', '레이팅대', buildVsRating(records)),
+    tab('flow', '흐름', buildFlow(records)),
+    tab('time', '시간대', buildTimePatterns(records)),
+    tab('rank', '단', buildRankStats(records)),
     tab('h2h', '상대전적', buildH2h(records)),
     tab('daily', '일별', buildDaily(records)),
     tab('sessions', '세션', buildSessions(records)),
-    tab('trend', '레이팅 추이', trend),
+    tab('trend', '레이팅 추이', opts?.wideTrend ? widenTrend(trend, trendChars) : trend),
+    tab('stage', '스테이지', buildStage(records)),
   ];
 
   return {

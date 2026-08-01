@@ -409,20 +409,287 @@ export function buildSessions(
 }
 
 /**
- * 레이팅 추이 — py build_rating_trend 포팅. 시간순(오래된→최신).
- * 기본 4열 뒤에 캐릭터명 컬럼이 붙고, 각 행은 자기 캐릭터 컬럼에만 값이 있다.
- * (차트를 '캐릭터마다 한 선'으로 그리기 위한 와이드 포맷)
+ * 레이팅 추이 — 시간순(오래된→최신). **경기당 4칸의 좁은 포맷.**
+ *
+ * 예전에는 여기서 캐릭터마다 컬럼을 만들어 자기 칸에만 값을 넣는 와이드 포맷을 냈다
+ * (py build_rating_trend 와 같은 형태). 그 비용은 `경기수 × 캐릭터수` 로 **곱해진다** —
+ * 실측(30,233경기 · 39캐릭): 130만 셀 중 88.4%가 null, 응답 하나에 6.83MB.
+ *
+ * 그런데 그래프(TrendChart)는 처음부터 앞 3칸만 읽고 캐릭터 컬럼은 건드리지 않는다.
+ * '이 점이 어느 캐릭터 것인가'는 my_char 이 이미 답하고, 선 나누기는 그리는 쪽이 한다.
+ * 즉 그 컬럼들은 전송만 되고 아무도 안 쓰는 값이었다.
+ *
+ * 엑셀은 사정이 다르다 — 시트에서 캐릭터별 계열로 차트를 그리려면 와이드가 필요하고,
+ * 파일은 네트워크로 흐르지도 않는다. 그래서 xlsx 경로만 widenTrend() 로 펼친다.
  */
 export function buildRatingTrend(df: MatchRecord[]): { table: Table; chars: string[] } {
   const ordered = [...df].sort((a, b) => a.dt.getTime() - b.dt.getTime());
   const chars = [...new Set(ordered.map((r) => r.myChar))].sort(cmpOIC);
-  const t = new Table('dt', 'my_rating', 'my_char', 'result', ...chars);
-  for (const r of ordered) {
-    const row: (string | number | null)[] = [formatDt(r.dt), r.myRating, r.myChar, r.result];
-    for (const c of chars) row.push(c === r.myChar ? r.myRating : null);
-    t.rows.push(row);
-  }
+  const t = new Table('dt', 'my_rating', 'my_char', 'result');
+  for (const r of ordered) t.add(formatDt(r.dt), r.myRating, r.myChar, r.result);
   return { table: t, chars };
+}
+
+/**
+ * 좁은 trend → 캐릭터별 컬럼을 펼친 와이드 표. **엑셀 전용.**
+ * py/WPF 결과물과 같은 형태를 유지해 시트에서 바로 차트를 만들 수 있게 한다.
+ */
+export function widenTrend(narrow: Table, chars: string[]): Table {
+  const ci = narrow.columns.indexOf('my_char');
+  const ri = narrow.columns.indexOf('my_rating');
+  const t = new Table(...narrow.columns, ...chars);
+  for (const row of narrow.rows) {
+    const ch = row[ci];
+    const rating = row[ri];
+    t.rows.push([...row, ...chars.map((c) => (c === ch ? rating : null))]);
+  }
+  return t;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   아래 다섯은 이미 수집·정규화까지 해놓고 쓰지 않던 필드를 살린 것이다.
+   (myRank/oppRank/stageId/oppRating 은 집계에서 한 번도 안 쓰였다)
+   추가 수집 없이 만들어지므로 wavu 요청은 늘지 않는다.
+   ══════════════════════════════════════════════════════════════════ */
+
+/** 경기 **직전** 레이팅 = 경기 후 값 - 변동. 상대와의 실력차는 이 값으로 봐야 맞다. */
+const ratingBefore = (r: MatchRecord) => r.myRating - r.myDelta;
+const oppRatingBefore = (r: MatchRecord) => r.oppRating - r.oppDelta;
+
+// 레이팅차 구간 — 상대가 나보다 얼마나 위/아래였나. 경계는 표시 순서를 겸한다.
+const DIFF_BANDS: { label: string; lo: number; hi: number }[] = [
+  { label: '-300 이하 (내가 훨씬 위)', lo: -Infinity, hi: -300 },
+  { label: '-300 ~ -150', lo: -300, hi: -150 },
+  { label: '-150 ~ -50', lo: -150, hi: -50 },
+  { label: '-50 ~ +50 (비슷)', lo: -50, hi: 50 },
+  { label: '+50 ~ +150', lo: 50, hi: 150 },
+  { label: '+150 ~ +300', lo: 150, hi: 300 },
+  { label: '+300 이상 (상대가 훨씬 위)', lo: 300, hi: Infinity },
+];
+
+/**
+ * 상대 레이팅대별 성적.
+ *
+ * 전체 승률 하나만 보면 55%가 '만만한 상대만 이겨서'인지 '강자도 잡아서'인지 알 수 없다.
+ * 레이팅차로 갈라 보면 그게 드러난다. 레이팅은 경기 **직전** 값을 쓴다.
+ */
+export function buildVsRating(df: MatchRecord[]): Table {
+  const t = new Table(
+    'RatingGap', 'Games', 'W', 'L', 'WinRate(%)', 'AvgRatingDelta', 'Share(%)',
+  );
+  const agg = DIFF_BANDS.map((b) => ({ b, w: 0, l: 0, delta: 0 }));
+  let counted = 0;
+
+  for (const r of df) {
+    const my = ratingBefore(r);
+    const op = oppRatingBefore(r);
+    // 레이팅이 아직 안 붙은 경기(둘 중 하나가 0)는 실력차를 말할 수 없다 — 뺀다.
+    if (my <= 0 || op <= 0) continue;
+    const diff = op - my;
+    const g = agg.find((x) => diff >= x.b.lo && diff < x.b.hi);
+    if (!g) continue;
+    if (r.result === 'W') g.w++;
+    else g.l++;
+    g.delta += r.myDelta;
+    counted++;
+  }
+
+  for (const x of agg) {
+    const games = x.w + x.l;
+    if (games === 0) continue; // 빈 구간은 행을 만들지 않는다
+    t.add(x.b.label, games, x.w, x.l, wr(x.w, games), avg(x.delta, games), pct(games, counted));
+  }
+  return t;
+}
+
+/**
+ * 단(段)별 성적.
+ *
+ * wavu 가 단 이름을 노출하지 않아 숫자 그대로 둔다 (lib/wavu/chars.ts 와 같은 방침 —
+ * 추측한 이름을 붙였다가 틀리면 숫자보다 나쁘다). 숫자만으로도 '어느 단에서
+ * 얼마나 오래 머물렀나 / 그 단에서 승률이 어땠나'는 읽을 수 있다.
+ */
+export function buildRankStats(df: MatchRecord[]): Table {
+  interface RankAgg {
+    rank: number;
+    w: number;
+    l: number;
+    first: Date;
+    last: Date;
+    chars: Map<string, number>;
+  }
+  const m = new Map<number, RankAgg>();
+  for (const r of df) {
+    if (r.myRank == null) continue;
+    let g = m.get(r.myRank);
+    if (!g) {
+      g = { rank: r.myRank, w: 0, l: 0, first: r.dt, last: r.dt, chars: new Map() };
+      m.set(r.myRank, g);
+    }
+    if (r.result === 'W') g.w++;
+    else g.l++;
+    if (r.dt < g.first) g.first = r.dt;
+    if (r.dt > g.last) g.last = r.dt;
+    g.chars.set(r.myChar, (g.chars.get(r.myChar) ?? 0) + 1);
+  }
+
+  const t = new Table('Rank', 'Games', 'W', 'L', 'WinRate(%)', 'main_char', 'FirstSeen', 'LastSeen');
+  for (const g of [...m.values()].sort((a, b) => b.rank - a.rank)) {
+    const games = g.w + g.l;
+    let top = '?';
+    let best = -1;
+    for (const [c, n] of g.chars)
+      if (n > best) {
+        best = n;
+        top = c;
+      }
+    t.add(g.rank, games, g.w, g.l, wr(g.w, games), top, dateKey(g.first), dateKey(g.last));
+  }
+  return t;
+}
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+/**
+ * 시간대·요일 패턴. 두 표를 한 탭에 담는다 (탭이 무한정 늘지 않게).
+ * `dt` 는 KST 벽시계를 UTC 필드에 담고 있으므로 getUTC* 로 읽는다(models.ts 규약).
+ */
+export function buildTimePatterns(df: MatchRecord[]): Table {
+  const t = new Table('Unit', 'Bucket', 'Games', 'W', 'L', 'WinRate(%)', 'AvgRatingDelta');
+
+  const push = (unit: string, label: string, rows: MatchRecord[]) => {
+    if (rows.length === 0) return;
+    let w = 0,
+      delta = 0;
+    for (const r of rows) {
+      if (r.result === 'W') w++;
+      delta += r.myDelta;
+    }
+    t.add(unit, label, rows.length, w, rows.length - w, wr(w, rows.length), avg(delta, rows.length));
+  };
+
+  const byHour = new Map<number, MatchRecord[]>();
+  const byDow = new Map<number, MatchRecord[]>();
+  const bucket = (m: Map<number, MatchRecord[]>, k: number, r: MatchRecord) => {
+    const arr = m.get(k);
+    if (arr) arr.push(r);
+    else m.set(k, [r]);
+  };
+  for (const r of df) {
+    bucket(byHour, r.dt.getUTCHours(), r);
+    bucket(byDow, r.dt.getUTCDay(), r);
+  }
+  for (let h = 0; h < 24; h++) push('시간대', `${String(h).padStart(2, '0')}시`, byHour.get(h) ?? []);
+  for (let d = 0; d < 7; d++) push('요일', WEEKDAYS[d], byDow.get(d) ?? []);
+  return t;
+}
+
+// 세션 안 몇 번째 경기인지 구간 (피로도 확인용)
+const NTH_BANDS: [string, number, number][] = [
+  ['1~5번째', 1, 5],
+  ['6~10번째', 6, 10],
+  ['11~20번째', 11, 20],
+  ['21~30번째', 21, 30],
+  ['31번째 이상', 31, Infinity],
+];
+
+/**
+ * '흐름' — 최근 폼 / 세션 내 순번(피로도) / 연속 기록 / 연승·연패 직후.
+ *
+ * 세 가지를 한 탭에 담는 이유: 각각은 표 몇 줄이라 탭을 따로 낼 만큼이 아니고,
+ * 셋 다 "지금 계속할까 그만할까"라는 한 가지 질문에 답하기 때문이다.
+ */
+export function buildFlow(
+  df: MatchRecord[],
+  gapMinutes = SESSION_GAP_MINUTES,
+): Table {
+  const t = new Table('Unit', 'Bucket', 'Games', 'W', 'L', 'WinRate(%)');
+  if (df.length === 0) return t;
+
+  const ordered = [...df].sort((a, b) => a.dt.getTime() - b.dt.getTime());
+  const add = (unit: string, label: string, rows: MatchRecord[]) => {
+    if (!rows.length) return;
+    const w = rows.filter((r) => r.result === 'W').length;
+    t.add(unit, label, rows.length, w, rows.length - w, wr(w, rows.length));
+  };
+
+  // ── 최근 폼: 최근 N경기가 전체와 다른가 ──
+  const recent = [...ordered].reverse();
+  for (const n of [20, 50, 100]) {
+    if (ordered.length > n) add('최근 폼', `최근 ${n}경기`, recent.slice(0, n));
+  }
+  add('최근 폼', '전체', ordered);
+
+  // ── 세션 내 순번: 오래 할수록 떨어지는가 ──
+  const nth: MatchRecord[][] = NTH_BANDS.map(() => []);
+  let idx = 0;
+  for (let i = 0; i < ordered.length; i++) {
+    if (i > 0 && ordered[i].dt.getTime() - ordered[i - 1].dt.getTime() > gapMinutes * 60_000)
+      idx = 0;
+    idx++;
+    const b = NTH_BANDS.findIndex(([, lo, hi]) => idx >= lo && idx <= hi);
+    if (b >= 0) nth[b].push(ordered[i]);
+  }
+  NTH_BANDS.forEach(([label], i) => add('세션 내 순번', label, nth[i]));
+
+  // ── 연승·연패 직후: 흐름을 타는가, 무너지는가 ──
+  const after: Record<string, MatchRecord[]> = {
+    '2연승 직후': [],
+    '3연승 이상 직후': [],
+    '2연패 직후': [],
+    '3연패 이상 직후': [],
+  };
+  let run = 0; // 양수=연승, 음수=연패
+  for (let i = 0; i < ordered.length; i++) {
+    if (i > 0) {
+      if (run >= 3) after['3연승 이상 직후'].push(ordered[i]);
+      else if (run === 2) after['2연승 직후'].push(ordered[i]);
+      else if (run <= -3) after['3연패 이상 직후'].push(ordered[i]);
+      else if (run === -2) after['2연패 직후'].push(ordered[i]);
+    }
+    const won = ordered[i].result === 'W';
+    run = won ? (run > 0 ? run + 1 : 1) : run < 0 ? run - 1 : -1;
+  }
+  for (const [k, v] of Object.entries(after)) add('연속 직후', k, v);
+
+  // ── 연속 기록: 최장 연승/연패와 현재 상태 ──
+  let bestW = 0,
+    bestL = 0,
+    cur = 0;
+  for (const r of ordered) {
+    cur = r.result === 'W' ? (cur > 0 ? cur + 1 : 1) : cur < 0 ? cur - 1 : -1;
+    if (cur > bestW) bestW = cur;
+    if (-cur > bestL) bestL = -cur;
+  }
+  t.add('연속 기록', '최장 연승', bestW, bestW, 0, 100);
+  t.add('연속 기록', '최장 연패', bestL, 0, bestL, 0);
+  t.add(
+    '연속 기록',
+    cur >= 0 ? '현재 연승' : '현재 연패',
+    Math.abs(cur),
+    cur >= 0 ? cur : 0,
+    cur < 0 ? -cur : 0,
+    cur >= 0 ? 100 : 0,
+  );
+  return t;
+}
+
+/** 스테이지별 성적. wavu 가 stage_id 를 숫자로만 줘서 이름 매핑 없이 숫자로 둔다. */
+export function buildStage(df: MatchRecord[]): Table {
+  const m = new Map<number, { id: number; w: number; l: number }>();
+  for (const r of df) {
+    if (r.stageId == null) continue;
+    let g = m.get(r.stageId);
+    if (!g) m.set(r.stageId, (g = { id: r.stageId, w: 0, l: 0 }));
+    if (r.result === 'W') g.w++;
+    else g.l++;
+  }
+  const rows = [...m.values()]
+    .map((g) => ({ ...g, games: g.w + g.l }))
+    .sort((a, b) => b.games - a.games || a.id - b.id);
+  const t = new Table('Stage', 'Games', 'W', 'L', 'WinRate(%)');
+  for (const x of rows) t.add(x.id, x.games, x.w, x.l, wr(x.w, x.games));
+  return t;
 }
 
 /** 임의 키 요약 (시즌별 등). */

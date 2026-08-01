@@ -6,7 +6,7 @@
 
 import type { Metadata } from 'next';
 import Home from '../../page';
-import { WAVU_BASE } from '@/lib/wavu/client';
+import { getReplays } from '@/lib/wavu/cache';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -16,24 +16,21 @@ interface Props {
 const normalize = (raw: string) =>
   decodeURIComponent(raw).replace(/[^A-Za-z0-9]/g, '');
 
-/** 링크 미리보기·검색결과용 이름. 실패해도 조회 자체엔 영향이 없다. */
+/**
+ * 링크 미리보기·검색결과용 이름. 실패해도 조회 자체엔 영향이 없다.
+ *
+ * 예전에는 여기서 wavu 를 직접 불렀다. 그런데 이 페이지는 크롤러도 여는 데다,
+ * 곧이어 클라이언트가 /api/replays 로 같은 데이터를 또 받는다 —
+ * 즉 페이지 1회 열람에 wavu 원본(30,233경기면 15.2MB)이 **두 번** 나갔다.
+ * 게다가 next.revalidate 도 2MB 한도에 걸려 실질적으로 안 걸렸다.
+ * 공용 캐시(Blob)를 쓰면 사본 한 벌을 나눠 쓰고, 이 호출이 그 사본을 데워준다.
+ *
+ * wavu 는 최신 경기를 배열 맨 앞에 준다(실측) — arr[0] 이 현재 이름이다.
+ */
 async function fetchName(id: string): Promise<string | null> {
   try {
-    const res = await fetch(`${WAVU_BASE}/player/${encodeURIComponent(id)}/replays`, {
-      headers: {
-        Accept: 'application/json',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'User-Agent': 'tekken-stats-wavu (personal stats viewer)',
-      },
-      next: { revalidate: 600 },
-    });
-    if (!res.ok) return null;
-    const arr = (await res.json()) as {
-      p1_polaris_id: string | null;
-      p1_name: string | null;
-      p2_name: string | null;
-    }[];
-    const b = arr[0];
+    const { replays } = await getReplays(id);
+    const b = replays[0];
     if (!b) return null;
     return (b.p1_polaris_id === id ? b.p1_name : b.p2_name) ?? null;
   } catch {

@@ -312,6 +312,12 @@ button.ghost,
   color: #0b1020;
 }
 
+/* 링크가 둘 이상이면 첫 개만 우측으로 밀고 나머지는 그 옆에 붙인다
+   (전부 margin-left:auto 면 링크끼리 화면 폭만큼 벌어진다) */
+.tier-link ~ .tier-link {
+  margin-left: 0;
+}
+
 .mode-switch button {
   min-height: 36px;
   padding: 0.35rem 0.9rem;
@@ -331,6 +337,14 @@ button.ghost,
   flex-wrap: wrap;
 }
 
+/* 버튼 줄 앞에 붙는 설명 라벨 (예: "최소 경기", "만난 시기") */
+.ctl-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  align-self: center;
+  margin-right: 0.1rem;
+}
+
 .gran-sep {
   width: 1px;
   align-self: stretch;
@@ -347,6 +361,18 @@ button.ghost,
   font-size: 0.9rem;
   margin-top: 0.6rem;
   white-space: pre-wrap;
+}
+
+/* 경고 — 실패는 아니지만 사용자가 알아야 하는 상태 (예: 지난 사본을 보는 중).
+   에러(빨강)와 구분되게 주의색을 쓴다. */
+.warn {
+  color: #e0a640;
+  background: rgba(224, 166, 64, 0.1);
+  border: 1px solid rgba(224, 166, 64, 0.4);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.9rem;
+  margin-top: 0.6rem;
 }
 
 .meta {
@@ -479,6 +505,37 @@ td a.plink {
 
 td a.plink:hover {
   text-decoration: underline;
+}
+
+/* 상대 이름/식별코드 셀 — 기본 클릭은 '나와 비교', ↗ 는 그 플레이어 새 창 */
+.plink-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+td button.plink {
+  /* 버튼이지만 링크처럼 보여야 한다 (기존 a.plink 와 같은 모양) */
+  all: unset;
+  cursor: pointer;
+  color: var(--accent);
+  min-height: 0;
+  padding: 0;
+}
+
+td button.plink:hover {
+  text-decoration: underline;
+}
+
+td a.plink-out {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.85em;
+  flex: none;
+}
+
+td a.plink-out:hover {
+  color: var(--accent);
 }
 
 /* 비교 표 우위 하이라이트 */

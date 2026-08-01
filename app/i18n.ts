@@ -63,6 +63,19 @@ const D = {
   charAll: { ko: '전체 캐릭터', en: 'All characters', ja: '全キャラ' },
   charLabel: { ko: '캐릭터별 상세 (경기 수 순)', en: 'Per-character detail (by games)', ja: 'キャラ別詳細 (試合数順)' },
   hlToggle: { ko: '우위 항목 하이라이트', en: 'Highlight advantages', ja: '優位項目をハイライト' },
+  compareWithMe: { ko: '나와 비교', en: 'Compare with me', ja: '自分と比較' },
+  openPlayer: {
+    ko: '이 플레이어 전적 보기 (새 창)',
+    en: 'Open this player (new tab)',
+    ja: 'このプレイヤーを開く (新規タブ)',
+  },
+  minGames: { ko: '최소 경기', en: 'Min games', ja: '最低試合数' },
+  metSince: { ko: '만난 시기', en: 'Last met', ja: '対戦時期' },
+  hideThin: {
+    ko: (n: number) => `${n}경기 미만 숨기기 (표본 부족)`,
+    en: (n: number) => `Hide under ${n} games (thin sample)`,
+    ja: (n: number) => `${n}試合未満を隠す (標本不足)`,
+  },
   periodPrefix: { ko: '기간', en: 'Period', ja: '期間' },
   begin: { ko: '처음', en: 'start', ja: '最初' },
   today: { ko: '오늘', en: 'today', ja: '今日' },
@@ -112,6 +125,13 @@ const D = {
     en: (s: string) => `${s} is already in the list.`,
     ja: (s: string) => `${s} はすでにリストにあります。`,
   },
+  // 식별코드로도 닉네임으로도 못 찾은 경우. 한쪽 실패 메시지만 보이면
+  // (예: '그런 식별코드 없음') 닉네임을 넣은 사용자가 원인을 오해한다.
+  noMatch: {
+    ko: (tok: string) => `'${tok}' — 식별코드로도 닉네임으로도 찾지 못했습니다.`,
+    en: (tok: string) => `'${tok}' — not found as a polaris ID or a nickname.`,
+    ja: (tok: string) => `「${tok}」— IDでもニックネームでも見つかりませんでした。`,
+  },
   needInput: {
     ko: '식별코드 또는 닉네임을 입력하세요.',
     en: 'Enter a polaris ID or nickname.',
@@ -121,6 +141,27 @@ const D = {
     ko: '식별코드/닉네임을 쉼표로 구분해 2개 이상 입력하세요.',
     en: 'Enter 2 or more IDs/nicknames, comma-separated.',
     ja: 'ID/ニックネームをカンマ区切りで2つ以上入力してください。',
+  },
+  // 엑셀 생성은 경기 수에 비례해 오래 걸린다 (실측 30,233경기 = 27.6초).
+  // 아무 반응 없이 30초가 흐르면 사용자는 멈춘 줄 안다 — 상태와 예상 시간을 밝힌다.
+  xlsxBusy: { ko: '⏳ 엑셀 생성 중…', en: '⏳ Building Excel…', ja: '⏳ Excel 生成中…' },
+  xlsxEta: {
+    ko: (sec: number) =>
+      `${sec}초쯤 걸립니다 — 기간이나 캐릭터를 좁히면 빨라집니다.`,
+    en: (sec: number) =>
+      `Takes about ${sec}s — narrowing the period or character speeds it up.`,
+    ja: (sec: number) =>
+      `約${sec}秒かかります — 期間やキャラを絞ると速くなります。`,
+  },
+  // wavu 수집에 실패했지만 지난 사본이 있어 그것으로 보여주는 중.
+  // 예전에는 이 경우 사이트 전체가 503 이었다.
+  staleWarn: {
+    ko: (min: number) =>
+      `⚠ wavu 에 연결하지 못해 ${min}분 전 데이터를 보여주고 있습니다.`,
+    en: (min: number) =>
+      `⚠ Can't reach wavu — showing data from ${min} min ago.`,
+    ja: (min: number) =>
+      `⚠ wavu に接続できず、${min}分前のデータを表示しています。`,
   },
   trendLimit: {
     ko: (n: number, total: number) => `최근 ${n}경기만 표시 (전체 ${total}건은 엑셀 다운로드로)`,
@@ -148,8 +189,14 @@ export const TAB_LABELS: Record<string, Entry> = {
   daily: { ko: '일별', en: 'Daily', ja: '日別' },
   sessions: { ko: '세션', en: 'Sessions', ja: 'セッション' },
   trend: { ko: '레이팅 추이', en: 'Rating trend', ja: 'レート推移' },
+  vs_rating: { ko: '레이팅대', en: 'By opp rating', ja: 'レート帯' },
+  flow: { ko: '흐름', en: 'Form & streaks', ja: '流れ' },
+  time: { ko: '시간대', en: 'Time of day', ja: '時間帯' },
+  rank: { ko: '단', en: 'Rank', ja: '段位' },
+  stage: { ko: '스테이지', en: 'Stages', ja: 'ステージ' },
   overview: { ko: '개요', en: 'Overview', ja: '概要' },
   chars: { ko: '캐릭터', en: 'Characters', ja: 'キャラ' },
+  vs_chars: { ko: '상대 캐릭', en: 'Vs characters', ja: '相手キャラ' },
   h2h_detail: { ko: '맞대결 상세', en: 'H2H detail', ja: '直接対決詳細' },
   vs_common: { ko: '공통 상대', en: 'Common opponents', ja: '共通の相手' },
 };
@@ -172,11 +219,65 @@ export const CELL_I18N: Record<string, Entry> = {
   '데이터 기간': { ko: '데이터 기간', en: 'Data range', ja: 'データ期間' },
   '지표': { ko: '지표', en: 'Metric', ja: '指標' },
   '승률(%)': { ko: '승률(%)', en: 'Win rate (%)', ja: '勝率(%)' },
+  '현재 레이팅': { ko: '현재 레이팅', en: 'Current rating', ja: '現在レート' },
+  '최근 20경기 승률(%)': {
+    ko: '최근 20경기 승률(%)', en: 'Last 20 win rate (%)', ja: '直近20試合勝率(%)',
+  },
+  // ── 흐름 탭 ──
+  '최근 폼': { ko: '최근 폼', en: 'Recent form', ja: '直近の調子' },
+  '세션 내 순번': { ko: '세션 내 순번', en: 'Nth game in session', ja: 'セッション内順番' },
+  '연속 직후': { ko: '연속 직후', en: 'After a streak', ja: '連続の直後' },
+  '연속 기록': { ko: '연속 기록', en: 'Streak records', ja: '連続記録' },
+  '전체': { ko: '전체', en: 'All', ja: '全体' },
+  '최장 연승': { ko: '최장 연승', en: 'Longest win streak', ja: '最長連勝' },
+  '최장 연패': { ko: '최장 연패', en: 'Longest loss streak', ja: '最長連敗' },
+  '현재 연승': { ko: '현재 연승', en: 'Current win streak', ja: '現在の連勝' },
+  '현재 연패': { ko: '현재 연패', en: 'Current loss streak', ja: '現在の連敗' },
+  '2연승 직후': { ko: '2연승 직후', en: 'After 2 wins', ja: '2連勝の直後' },
+  '3연승 이상 직후': { ko: '3연승 이상 직후', en: 'After 3+ wins', ja: '3連勝以上の直後' },
+  '2연패 직후': { ko: '2연패 직후', en: 'After 2 losses', ja: '2連敗の直後' },
+  '3연패 이상 직후': { ko: '3연패 이상 직후', en: 'After 3+ losses', ja: '3連敗以上の直後' },
+  '1~5번째': { ko: '1~5번째', en: '1st–5th', ja: '1〜5戦目' },
+  '6~10번째': { ko: '6~10번째', en: '6th–10th', ja: '6〜10戦目' },
+  '11~20번째': { ko: '11~20번째', en: '11th–20th', ja: '11〜20戦目' },
+  '21~30번째': { ko: '21~30번째', en: '21st–30th', ja: '21〜30戦目' },
+  '31번째 이상': { ko: '31번째 이상', en: '31st+', ja: '31戦目以降' },
+  // ── 시간대 탭 ──
+  '시간대': { ko: '시간대', en: 'Hour (KST)', ja: '時間帯 (KST)' },
+  '요일': { ko: '요일', en: 'Weekday', ja: '曜日' },
+  // ── 레이팅대 탭 ──
+  '-300 이하 (내가 훨씬 위)': {
+    ko: '-300 이하 (내가 훨씬 위)', en: '≤ -300 (far below me)', ja: '-300以下 (自分が格上)',
+  },
+  '-300 ~ -150': { ko: '-300 ~ -150', en: '-300 to -150', ja: '-300 〜 -150' },
+  '-150 ~ -50': { ko: '-150 ~ -50', en: '-150 to -50', ja: '-150 〜 -50' },
+  '-50 ~ +50 (비슷)': { ko: '-50 ~ +50 (비슷)', en: '-50 to +50 (even)', ja: '-50 〜 +50 (互角)' },
+  '+50 ~ +150': { ko: '+50 ~ +150', en: '+50 to +150', ja: '+50 〜 +150' },
+  '+150 ~ +300': { ko: '+150 ~ +300', en: '+150 to +300', ja: '+150 〜 +300' },
+  '+300 이상 (상대가 훨씬 위)': {
+    ko: '+300 이상 (상대가 훨씬 위)', en: '≥ +300 (far above me)', ja: '+300以上 (相手が格上)',
+  },
+};
+
+/** 요일 한 글자 (버킷 값으로 저장된 한국어 요일 → 각 언어) */
+const WEEKDAY_I18N: Record<string, Entry> = {
+  일: { ko: '일', en: 'Sun', ja: '日' },
+  월: { ko: '월', en: 'Mon', ja: '月' },
+  화: { ko: '화', en: 'Tue', ja: '火' },
+  수: { ko: '수', en: 'Wed', ja: '水' },
+  목: { ko: '목', en: 'Thu', ja: '木' },
+  금: { ko: '금', en: 'Fri', ja: '金' },
+  토: { ko: '토', en: 'Sat', ja: '土' },
 };
 
 export function cellText(lang: Lang, v: string): string {
   if (lang === 'ko') return v;
-  return CELL_I18N[v]?.[lang] ?? v;
+  const hit = CELL_I18N[v]?.[lang] ?? WEEKDAY_I18N[v]?.[lang];
+  if (hit) return hit;
+  // '14시' 같은 시간 버킷 — 숫자는 그대로 두고 단위만 바꾼다
+  const hour = /^(\d{2})시$/.exec(v);
+  if (hour) return lang === 'ja' ? `${hour[1]}時` : `${hour[1]}:00`;
+  return v;
 }
 
 /**
@@ -232,6 +333,17 @@ export const COL_I18N: Record<string, Entry> = {
   b_wins: { ko: 'B 승', en: 'B wins', ja: 'B勝' },
   'a_winrate(%)': { ko: 'A 승률(%)', en: 'A win rate(%)', ja: 'A勝率(%)' },
   last_played: { ko: '마지막 대전', en: 'Last played', ja: '最終対戦' },
+  // 신규 탭 컬럼
+  RatingGap: { ko: '레이팅 차 (상대-나)', en: 'Rating gap (opp−me)', ja: 'レート差 (相手−自分)' },
+  AvgRatingDelta: { ko: '평균 증감', en: 'Avg rating Δ', ja: '平均レート増減' },
+  'Share(%)': { ko: '비중(%)', en: 'Share(%)', ja: '割合(%)' },
+  Unit: { ko: '구분', en: 'Group', ja: '区分' },
+  Bucket: { ko: '항목', en: 'Item', ja: '項目' },
+  Rank: { ko: '단 (숫자)', en: 'Rank (raw)', ja: '段位 (数値)' },
+  FirstSeen: { ko: '처음', en: 'First', ja: '最初' },
+  LastSeen: { ko: '마지막', en: 'Last', ja: '最後' },
+  Stage: { ko: '스테이지 (숫자)', en: 'Stage (raw)', ja: 'ステージ (数値)' },
+  player: { ko: '플레이어', en: 'Player', ja: 'プレイヤー' },
   a_char: { ko: 'A 캐릭터', en: 'A char', ja: 'Aキャラ' },
   b_char: { ko: 'B 캐릭터', en: 'B char', ja: 'Bキャラ' },
   score: { ko: '스코어', en: 'Score', ja: 'スコア' },

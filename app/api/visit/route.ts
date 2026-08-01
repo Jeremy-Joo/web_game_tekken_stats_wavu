@@ -5,6 +5,12 @@
 //
 // 읽고-더하고-쓰는 방식이라 동시 방문이 겹치면 일부 증가가 유실될 수 있다.
 // 개인 사이트 트래픽에서는 무시할 수준이고, 정밀 집계가 필요해지면 KV 로 옮긴다.
+// (KV 는 '1 더해줘'를 한 동작으로 처리한다. Blob 으로는 원자적 증가가 불가능하다.)
+//
+// 유실보다 훨씬 나쁜 실패가 하나 있어서 그것만은 막는다 —
+// 읽기가 실패했을 때 '0명'으로 착각하고 1을 써버리면 **누적값 전체가 날아간다.**
+// 그래서 readVisits 는 '읽기 성공 여부'(ok)를 값과 함께 돌려주고,
+// 읽지 못했으면 POST 는 아무것도 쓰지 않는다. 한 명 덜 세는 편이 낫다.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { list, put } from '@vercel/blob';
@@ -19,20 +25,30 @@ interface Visits {
   byDay: Record<string, number>; // 'yyyy-MM-dd'(KST) → 방문 수 (최근 위주로만 유지)
 }
 
-async function readVisits(): Promise<Visits> {
+const EMPTY: Visits = { total: 0, byDay: {} };
+
+/**
+ * ok=false 는 **읽지 못했다**는 뜻이다 — '0명'이 아니다.
+ * 파일이 아직 없는 경우만 ok=true + 0 으로 돌려준다(첫 방문은 정상적으로 1이 된다).
+ */
+async function readVisits(): Promise<{ ok: boolean; v: Visits }> {
   try {
     const { blobs } = await list({ prefix: BLOB_PATH, limit: 1 });
     const blob = blobs.find((b) => b.pathname === BLOB_PATH);
-    if (!blob) return { total: 0, byDay: {} };
+    if (!blob) return { ok: true, v: { total: 0, byDay: {} } }; // 아직 없음 = 0 이 맞다
     const res = await fetch(blob.url, { cache: 'no-store' });
-    if (!res.ok) return { total: 0, byDay: {} };
+    if (!res.ok) return { ok: false, v: EMPTY }; // 있는데 못 읽음 = 값을 모른다
     const d = (await res.json()) as Visits;
+    if (typeof d?.total !== 'number') return { ok: false, v: EMPTY }; // 깨진 내용
     return {
-      total: typeof d.total === 'number' ? d.total : 0,
-      byDay: d.byDay && typeof d.byDay === 'object' ? d.byDay : {},
+      ok: true,
+      v: {
+        total: d.total,
+        byDay: d.byDay && typeof d.byDay === 'object' ? d.byDay : {},
+      },
     };
   } catch {
-    return { total: 0, byDay: {} };
+    return { ok: false, v: EMPTY }; // 네트워크/권한 실패 — 값을 모른다
   }
 }
 
@@ -40,20 +56,25 @@ function todayKst(): string {
   return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
+const view = (v: Visits) => ({ total: v.total, today: v.byDay[todayKst()] ?? 0 });
+
 export async function GET() {
-  const v = await readVisits();
-  return NextResponse.json({ total: v.total, today: v.byDay[todayKst()] ?? 0 });
+  const { v } = await readVisits();
+  return NextResponse.json(view(v));
 }
 
 export async function POST(req: NextRequest) {
   // 브라우저 방문만 센다 — 크롤러/프리페치가 카운터를 부풀리지 않게 최소한의 거름막
   const ua = req.headers.get('user-agent') ?? '';
   if (/bot|crawler|spider|preview|prerender/i.test(ua)) {
-    const v = await readVisits();
-    return NextResponse.json({ total: v.total, today: v.byDay[todayKst()] ?? 0 });
+    const { v } = await readVisits();
+    return NextResponse.json(view(v));
   }
 
-  const v = await readVisits();
+  const { ok, v } = await readVisits();
+  // ★ 읽지 못했으면 쓰지 않는다. 여기서 쓰면 누적값이 1 로 덮여 복구가 불가능하다.
+  if (!ok) return NextResponse.json({ ...view(v), stale: true });
+
   const day = todayKst();
   v.total += 1;
   v.byDay[day] = (v.byDay[day] ?? 0) + 1;

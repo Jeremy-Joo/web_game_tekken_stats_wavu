@@ -4,27 +4,21 @@
 // 원본 replay(489KB)를 클라이언트로 흘리지 않는 이유: 모바일 회선에서 무겁고,
 // 집계 로직이 서버/클라 두 벌로 갈라질 이유가 없다.
 //
-// 캐시: 같은 식별코드 요청을 10분간 Vercel Data Cache 에 태운다.
+// 캐시: 같은 식별코드 요청을 10분간 Vercel Blob 에 gzip 으로 보관한다(lib/wavu/cache.ts).
 // 전체 이력이 한 번에 오는 구조라 wavu 에는 요청을 아낄수록 좋고
 // (문서상 "한 번에 하나씩이면 레이트리밋에 안 걸린다"),
 // 기간 필터는 받아온 뒤 서버 메모리에서 하므로 캐시 키를 오염시키지 않는다.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { unstable_cache } from 'next/cache';
-import { fetchReplays, normalizePolarisId, WavuError } from '@/lib/wavu/client';
+import { normalizePolarisId, WavuError } from '@/lib/wavu/client';
+import { getReplays } from '@/lib/wavu/cache';
 import { normalizeReplays, filterByDate } from '@/lib/wavu/normalize';
 import { computeFromRecords } from '@/lib/tekken/compute';
+import { seasonSpans } from '@/lib/tekken/seasons';
 
 export const runtime = 'nodejs';
-// wavu 전체 이력(수천 경기)을 받는 데 수 초 걸릴 수 있다. Hobby 기본 10초보다 여유를 둔다.
+// wavu 전체 이력(수천~수만 경기)을 받는 데 수 초 걸릴 수 있다. Hobby 기본 10초보다 여유를 둔다.
 export const maxDuration = 30;
-
-const CACHE_SECONDS = 600;
-
-const getReplaysCached = (id: string) =>
-  unstable_cache(() => fetchReplays(id), ['wavu-replays', id], {
-    revalidate: CACHE_SECONDS,
-  })();
 
 export async function GET(
   req: NextRequest,
@@ -40,9 +34,12 @@ export async function GET(
   const start = sp.get('start') ?? undefined;
   const end = sp.get('end') ?? undefined;
   const char = sp.get('char') ?? undefined; // 캐릭터별 상세: 이 캐릭터 경기만 집계
+  // 시즌 필터는 날짜가 아니라 season 키로 받는다 — game_version 판정이 유일한 정답이라
+  // 시즌 경계 날짜를 어디에도 적어둘 필요가 없다(새 시즌도 자동으로 동작).
+  const season = sp.get('season') ?? undefined;
 
   try {
-    const replays = await getReplaysCached(id);
+    const { replays, fetchedAt, stale } = await getReplays(id);
     const { records, myName, stats } = normalizeReplays(replays, id);
 
     if (records.length === 0) {
@@ -52,7 +49,10 @@ export async function GET(
       );
     }
 
-    const dated = filterByDate(records, start, end);
+    // 시즌 필터와 날짜 필터는 화면에서 서로 배타적인 선택지다.
+    const dated = season
+      ? records.filter((r) => r.season === season)
+      : filterByDate(records, start, end);
 
     // 캐릭터 칩용: 기간 필터까지 적용된 시점의 캐릭터별 경기 수 (사용량 내림차순).
     // char 필터 '이전' 값이어야 칩 목록이 선택과 무관하게 안정적으로 유지된다.
@@ -74,7 +74,16 @@ export async function GET(
       charCounts,
       selectedChar: char ?? null,
       stats,
-      filtered: { start: start ?? null, end: end ?? null, count: filtered.length },
+      // 시즌 목록·구간은 전체 이력에서 뽑는다 — 기간 필터를 바꿔도 버튼이 흔들리지 않게.
+      seasons: seasonSpans(records),
+      filtered: {
+        start: start ?? null,
+        end: end ?? null,
+        season: season ?? null,
+        count: filtered.length,
+      },
+      // stale=true 면 wavu 수집에 실패해 지난 사본을 보여주는 중이다. UI 가 밝힌다.
+      cache: { fetchedAt, stale },
     });
   } catch (e) {
     if (e instanceof WavuError) {
