@@ -87,10 +87,56 @@ async function writeBlob(id: string, stored: Stored): Promise<void> {
       // 경로가 고정이라 덮어쓴 뒤 CDN 이 옛 내용을 내주면 안 된다.
       cacheControlMaxAge: 0,
     });
-  } catch {
+  } catch (e) {
     // Blob 미설정(로컬 개발 등)이어도 조회 자체는 굴러가야 한다.
     // 이 경우 캐시만 없는 셈이고 동작은 예전과 같다.
+    //
+    // 다만 **조용히 넘어가지는 않는다.** 프로덕션에서 스토어가 안 붙어 있으면
+    // 이 자리가 매번 실패하면서 캐시가 통째로 없는 상태가 되는데, 응답은 정상이라
+    // 몇 달을 모른 채 지날 수 있다(실제로 그랬다 — 조회할 때마다 wavu 에서
+    // 15MB 를 새로 받고 있었다). 상태 확인은 /api/probe 의 blob 항목으로 한다.
+    console.warn(`[cache] Blob 저장 실패 — 캐시 없이 동작 중: ${(e as Error).message}`);
   }
+}
+
+/**
+ * Blob 스토어가 실제로 쓸 수 있는 상태인지 확인한다 (/api/probe 전용).
+ *
+ * `list()` 만 봐서는 부족하다 — 캐시가 필요한 것은 **쓰기**고, 토큰 권한이나
+ * 스토어 연결이 어긋나면 읽기만 되는 경우가 있다. 그래서 작은 파일을
+ * 실제로 쓰고 다시 읽어 왕복을 확인한다. 경로는 고정이라 쌓이지 않는다.
+ */
+export async function probeBlob(): Promise<{
+  ok: boolean;
+  hasToken: boolean;
+  canList: boolean;
+  canWrite: boolean;
+  error: string | null;
+}> {
+  const hasToken = !!process.env.BLOB_READ_WRITE_TOKEN;
+  let canList = false;
+  let canWrite = false;
+  let error: string | null = null;
+
+  try {
+    await list({ prefix: 'cache/', limit: 1 });
+    canList = true;
+
+    const mark = `probe ${Date.now()}`;
+    const { url } = await put('probe/blob-check.txt', mark, {
+      access: 'public',
+      contentType: 'text/plain',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      cacheControlMaxAge: 0,
+    });
+    const back = await fetch(url, { cache: 'no-store' });
+    canWrite = back.ok && (await back.text()) === mark;
+  } catch (e) {
+    error = (e as Error).message;
+  }
+
+  return { ok: canList && canWrite, hasToken, canList, canWrite, error };
 }
 
 /** 같은 인스턴스에서 같은 식별코드 요청이 겹치면 한 번만 일하게 합친다. */
