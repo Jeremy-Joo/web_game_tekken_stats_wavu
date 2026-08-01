@@ -17,6 +17,7 @@ import {
 } from './i18n';
 import { looksLikeId, toPolarisId } from '@/lib/wavu/token';
 import { COMPARE_MIN_GAMES } from '@/lib/tekken/compare';
+import { pickJoke } from './jokes';
 
 interface TabData {
   key: string;
@@ -1885,21 +1886,16 @@ export default function Home() {
                     단정하지 않는다 — 표본이 얇거나 꺾이는 지점이 없으면 그렇게 말한다. */}
                 {current.key === 'flow' && single?.advice && (
                   <div className="advice">
-                    {/* 농담 한 줄 — 수위는 실제 숫자(최근 폼·연패)로 고른다 */}
+                    {/* 농담 한 줄 — 수위는 실제 숫자로 정하고(advice.mood),
+                        문구는 조회 결과에서 나온 씨앗으로 고른다(같은 조회 = 같은 문구). */}
                     <p className={`advice-mood mood-${single.advice.mood}`}>
-                      {single.advice.mood === 'hot'
-                        ? t('moodHot')(single.advice.recentDeltaPp)
-                        : single.advice.mood === 'steady'
-                          ? t('moodSteady')
-                          : single.advice.mood === 'cooling'
-                            ? t('moodCooling')(
-                                single.advice.recentDeltaPp,
-                                single.advice.losingStreak,
-                              )
-                            : t('moodCold')(
-                                single.advice.recentDeltaPp,
-                                single.advice.losingStreak,
-                              )}
+                      {pickJoke(
+                        single.advice.mood,
+                        lang,
+                        single.recordCount + single.advice.losingStreak * 7,
+                        single.advice.recentDeltaPp,
+                        single.advice.losingStreak,
+                      )}
                     </p>
                     {single.advice.reliable ? (
                       <>
