@@ -8,7 +8,7 @@
 import {
   roundTo, wr, pct, avg,
   buildTotal, buildRound, buildSessions, buildH2h, buildDaily,
-  buildVsRating, buildFlow, buildTimePatterns, buildRankStats, buildStage,
+  buildVsRating, buildFlow, buildTimePatterns, buildRankStats,
   buildRatingTrend, widenTrend,
 } from '../lib/tekken/aggregations';
 import { seasonOf, kstFromEpoch, dateKey, type MatchRecord } from '../lib/tekken/models';
@@ -163,19 +163,17 @@ eq('seasonOf 0', seasonOf(0), '?');
   eq('목요일 버킷', dow?.[2], 1);
 }
 
-// ── 단 / 스테이지 ──
+// ── 단 ──
 {
   const df = [
-    rec({ kst: '2026-01-01T10:00', result: 'W', myRank: 30, stageId: 7 }),
-    rec({ kst: '2026-01-02T10:00', result: 'L', myRank: 30, stageId: 7 }),
-    rec({ kst: '2026-01-03T10:00', result: 'W', myRank: 31, stageId: 9 }),
+    rec({ kst: '2026-01-01T10:00', result: 'W', myRank: 30 }),
+    rec({ kst: '2026-01-02T10:00', result: 'L', myRank: 30 }),
+    rec({ kst: '2026-01-03T10:00', result: 'W', myRank: 31 }),
   ];
   const rk = buildRankStats(df);
   eq('단은 높은 순', rk.rows.map((r) => r[0]), [31, 30]);
   eq('단 30 은 2경기 50%', rk.rows[1].slice(1, 5), [2, 1, 1, 50]);
   eq('단 30 처음 본 날', rk.rows[1][6], '2026-01-01');
-  const st = buildStage(df);
-  eq('스테이지는 경기 많은 순', st.rows.map((r) => r[0]), [7, 9]);
 }
 
 // ── 레이팅 추이: 좁은 포맷 / 엑셀용 와이드 전개 ──

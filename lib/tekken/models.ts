@@ -45,6 +45,12 @@ export interface MatchRecord {
 
   season: string; // S1/S2/S3
   gameVersion: number;
+  /**
+   * wavu 의 stage_id 원본값. **집계에 쓰지 않는다.**
+   * 이름을 알 방법이 없어서다 — wavu 는 JSON 에도 HTML 에도 스테이지명을 안 쓴다.
+   * 필드만 남겨두는 이유는 나중에 매핑이 생기면 바로 쓰기 위해서다.
+   * (aggregations.ts 의 '스테이지별 성적은 만들지 않는다' 주석 참조)
+   */
   stageId: number | null;
 }
 

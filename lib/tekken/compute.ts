@@ -16,7 +16,6 @@ import {
   buildRankStats,
   buildTimePatterns,
   buildFlow,
-  buildStage,
   summaryBy,
 } from './aggregations';
 import type { MatchRecord } from './models';
@@ -105,7 +104,6 @@ export function computeFromRecords(
     tab('daily', '일별', buildDaily(records)),
     tab('sessions', '세션', buildSessions(records)),
     tab('trend', '레이팅 추이', opts?.wideTrend ? widenTrend(trend, trendChars) : trend),
-    tab('stage', '스테이지', buildStage(records)),
   ];
 
   return {

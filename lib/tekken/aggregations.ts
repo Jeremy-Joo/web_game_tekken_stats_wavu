@@ -447,9 +447,10 @@ export function widenTrend(narrow: Table, chars: string[]): Table {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   아래 다섯은 이미 수집·정규화까지 해놓고 쓰지 않던 필드를 살린 것이다.
-   (myRank/oppRank/stageId/oppRating 은 집계에서 한 번도 안 쓰였다)
+   아래 넷은 이미 수집·정규화까지 해놓고 쓰지 않던 필드를 살린 것이다.
+   (myRank/oppRating 은 집계에서 한 번도 안 쓰였다)
    추가 수집 없이 만들어지므로 wavu 요청은 늘지 않는다.
+   `stageId` 도 같은 처지지만 이름을 알 길이 없어 남겨뒀다 — 이 파일 아래쪽 주석 참조.
    ══════════════════════════════════════════════════════════════════ */
 
 /** 경기 **직전** 레이팅 = 경기 후 값 - 변동. 상대와의 실력차는 이 값으로 봐야 맞다. */
@@ -678,23 +679,19 @@ export function buildFlow(
   return t;
 }
 
-/** 스테이지별 성적. wavu 가 stage_id 를 숫자로만 줘서 이름 매핑 없이 숫자로 둔다. */
-export function buildStage(df: MatchRecord[]): Table {
-  const m = new Map<number, { id: number; w: number; l: number }>();
-  for (const r of df) {
-    if (r.stageId == null) continue;
-    let g = m.get(r.stageId);
-    if (!g) m.set(r.stageId, (g = { id: r.stageId, w: 0, l: 0 }));
-    if (r.result === 'W') g.w++;
-    else g.l++;
-  }
-  const rows = [...m.values()]
-    .map((g) => ({ ...g, games: g.w + g.l }))
-    .sort((a, b) => b.games - a.games || a.id - b.id);
-  const t = new Table('Stage', 'Games', 'W', 'L', 'WinRate(%)');
-  for (const x of rows) t.add(x.id, x.games, x.w, x.l, wr(x.w, x.games));
-  return t;
-}
+/*
+ * 스테이지별 성적은 만들지 않는다 (한 번 만들었다가 뺐다).
+ *
+ * `stage_id` 는 수집되지만 **이름을 알아낼 방법이 없다.** 캐릭터는 wavu HTML 페이지에
+ * 이름이 글자로 있어서 JSON 의 chara_id 와 시각으로 조인해 41종을 실측 도출했는데,
+ * 스테이지는 HTML·JSON 어디에도 이름이 없다 (플레이어 페이지 576KB 전문 검색 확인:
+ * 'stage'/'Stage'/'Arena' 전부 0건). 짝지을 정답지가 없다.
+ *
+ * 그래서 표를 만들면 `#500  1,765경기  70.14%` 처럼 **읽을 수 없는 행**만 남는다.
+ * 추측한 이름을 붙이는 선택지는 버렸다 — 틀리면 숫자보다 나쁘다(단 이름과 같은 방침).
+ *
+ * wavu 가 이름을 노출하거나 매핑이 확보되면 그때 만들 것. 그전까지는 만들지 말 것.
+ */
 
 /** 임의 키 요약 (시즌별 등). */
 export function summaryBy(
