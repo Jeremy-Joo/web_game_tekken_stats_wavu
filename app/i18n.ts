@@ -138,6 +138,11 @@ const D = {
   periodPrefix: { ko: '기간', en: 'Period', ja: '期間' },
   begin: { ko: '처음', en: 'start', ja: '最初' },
   today: { ko: '오늘', en: 'today', ja: '今日' },
+  quipsOpt: {
+    ko: '한 줄 멘트 표시 (컨디션·조언)',
+    en: 'Show one-line commentary',
+    ja: '一行コメントを表示',
+  },
   historyOpt: {
     ko: '과거 닉네임 포함 검색',
     en: 'Include past nicknames',

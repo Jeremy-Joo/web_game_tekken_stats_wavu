@@ -19,10 +19,14 @@ import { looksLikeId, toPolarisId } from '@/lib/wavu/token';
 import { COMPARE_MIN_GAMES } from '@/lib/tekken/compare';
 import {
   pickJoke,
+  pickCoach,
   pickCondition,
   type Condition,
   type ConditionFacts,
 } from './jokes';
+
+/** 한 줄 멘트(컨디션·농담·연습 권유) 표시 여부 — 브라우저에 기억시킨다. */
+const QUIPS_KEY = 'tkwavu_quips';
 
 interface TabData {
   key: string;
@@ -665,6 +669,16 @@ export default function Home() {
 
   // 닉네임 검색 시 과거 닉네임까지 포함할지 (wavu 는 개명 이력도 검색해준다)
   const [inclHistory, setInclHistory] = useState(false);
+  // 한 줄 멘트 표시 (기본 켜짐). 통계만 보고 싶은 사람이 끌 수 있어야 한다.
+  const [showQuips, setShowQuipsState] = useState(true);
+  const setShowQuips = (v: boolean) => {
+    setShowQuipsState(v);
+    try {
+      localStorage.setItem(QUIPS_KEY, v ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  };
 
   // 최근 조회한 플레이어 (이 브라우저에만 저장, 최대 8명)
   const [recent, setRecent] = useState<Favorite[]>([]);
@@ -690,6 +704,7 @@ export default function Home() {
       localStorage.removeItem('tkwavu_admin_pw');
       const l = localStorage.getItem(LANG_KEY) as Lang | null;
       if (l && ['ko', 'en', 'ja'].includes(l)) setLangState(l);
+      if (localStorage.getItem(QUIPS_KEY) === '0') setShowQuipsState(false);
       const rc = localStorage.getItem('tkwavu_recent');
       if (rc) {
         const arr = JSON.parse(rc) as Favorite[];
@@ -1534,6 +1549,14 @@ export default function Home() {
           />
           {t('historyOpt')}
         </label>
+        <label className="hl-toggle">
+          <input
+            type="checkbox"
+            checked={showQuips}
+            onChange={(e) => setShowQuips(e.target.checked)}
+          />
+          {t('quipsOpt')}
+        </label>
 
         {recent.length > 0 && (
           <div className="fav-chips recent-chips">
@@ -1728,8 +1751,8 @@ export default function Home() {
               )}
             </div>
           )}
-          {/* 마지막 세션 기준 컨디션 한 줄 */}
-          {condition && <p className="condition">{condition}</p>}
+          {/* 마지막 세션 기준 컨디션 한 줄 (멘트 끄면 안 나온다) */}
+          {showQuips && condition && <p className="condition">{condition}</p>}
           {single.charCounts && single.charCounts.length > 1 && (
             <div className="char-chips">
               <span className="hint" style={{ margin: 0 }}>{t('charLabel')}:</span>
@@ -1947,17 +1970,30 @@ export default function Home() {
                     단정하지 않는다 — 표본이 얇거나 꺾이는 지점이 없으면 그렇게 말한다. */}
                 {current.key === 'flow' && single?.advice && (
                   <div className="advice">
-                    {/* 농담 한 줄 — 수위는 실제 숫자로 정하고(advice.mood),
-                        문구는 조회 결과에서 나온 씨앗으로 고른다(같은 조회 = 같은 문구). */}
-                    <p className={`advice-mood mood-${single.advice.mood}`}>
-                      {pickJoke(
-                        single.advice.mood,
-                        lang,
-                        single.recordCount + single.advice.losingStreak * 7,
-                        single.advice.recentDeltaPp,
-                        single.advice.losingStreak,
-                      )}
-                    </p>
+                    {/* 농담 + 연습 권유 — 수위는 실제 숫자로 정하고(advice.mood),
+                        문구는 조회 결과에서 나온 씨앗으로 고른다(같은 조회 = 같은 문구).
+                        멘트를 끄면 권장 판수 분석만 남는다. */}
+                    {showQuips && (
+                      <>
+                        <p className={`advice-mood mood-${single.advice.mood}`}>
+                          {pickJoke(
+                            single.advice.mood,
+                            lang,
+                            single.recordCount + single.advice.losingStreak * 7,
+                            single.advice.recentDeltaPp,
+                            single.advice.losingStreak,
+                          )}
+                        </p>
+                        <p className="advice-coach">
+                          {pickCoach(
+                            single.advice.mood,
+                            lang,
+                            // 농담과 다른 씨앗 — 같은 짝만 반복해서 나오지 않게
+                            single.recordCount * 3 + Math.round(single.advice.recentDeltaPp),
+                          )}
+                        </p>
+                      </>
+                    )}
                     {single.advice.reliable ? (
                       <>
                         <p className="advice-main">

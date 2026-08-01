@@ -578,6 +578,114 @@ const CONDITIONS: Record<Condition, Record<Lang, CondFn[]>> = {
   },
 };
 
+/* ═══════════════ 연습 권유 한 줄 ═══════════════
+   농담 다음에 붙는 실용 멘트. 잘하고 있으면 "네 리플레이가 교본이다",
+   못하고 있으면 "리플레이·확정딜캐·유튜브 매치업 영상을 보고 와라".
+   놀리기만 하고 끝내지 않으려고 붙였다 — 다음에 뭘 할지가 있어야 조언이다. */
+
+const COACH: Record<Mood, Record<Lang, string[]>> = {
+  hot: {
+    ko: [
+      '오늘 리플레이는 저장해두세요. 나중에 당신의 교본이 됩니다.',
+      '이 판들을 유튜브에 올리면 누군가는 배웁니다. 진심입니다.',
+      '잘 될 때의 리플레이가 안 될 때의 답입니다. 지금 저장하세요.',
+      '이긴 판도 돌려보세요. 왜 이겼는지 모르면 다음엔 못 이깁니다.',
+      '지금 확정딜캐가 잘 들어가고 있습니다. 그 감각을 기록해두세요.',
+      '오늘의 당신은 남의 강의를 볼 게 아니라 찍을 차례입니다.',
+      '이 폼일 때 어려운 매치업을 연습하세요. 자신감이 있을 때가 적기입니다.',
+      '리플레이에서 놓친 확정딜캐를 찾아보세요. 이겨도 놓친 건 있습니다.',
+    ],
+    en: [
+      'Save today\'s replays — future you will study them.',
+      'Rewatch the wins too. If you don\'t know why you won, it won\'t repeat.',
+      'Your punishes are landing. Bank that feeling.',
+      'Good form is the right time to drill your worst matchup.',
+    ],
+    ja: [
+      '今日のリプレイは保存を。後で自分の教本になります。',
+      '勝った試合も見返しましょう。理由が分からなければ再現できません。',
+      '確定反撃がよく入っています。その感覚を記録に。',
+      '調子がいい今こそ苦手マッチアップの練習どきです。',
+    ],
+  },
+  steady: {
+    ko: [
+      '리플레이 한 판만 돌려보세요. 정체는 대개 거기서 풀립니다.',
+      '확정딜캐 연습 10분이 랭크 10판보다 남습니다. 오늘은 특히요.',
+      '유튜브에서 자기 캐릭 최신 콤보 영상 하나만 보고 오세요.',
+      '같은 실수를 반복하고 있는지 리플레이가 알려줍니다.',
+      '승률이 안 움직이면 실력이 아니라 습관을 바꿔야 합니다.',
+      '상대 캐릭 프레임을 한 번도 안 찾아보셨다면 지금이 그때입니다.',
+      '연습 모드에서 확정딜캐 세 개만 확실히 만들어두세요.',
+      '정체 구간에서는 새 콤보보다 확정딜캐가 승률을 올립니다.',
+    ],
+    en: [
+      'Watch one replay. Plateaus usually break there.',
+      'Ten minutes of punish drills beats ten ranked games today.',
+      'Look up one recent combo video for your character.',
+      'When the rate stops moving, change the habit — not the character.',
+    ],
+    ja: [
+      'リプレイを1試合だけ見返しましょう。停滞はそこで解けます。',
+      '確定反撃の練習10分は、ランク10戦より残ります。',
+      '自キャラの最新コンボ動画を1本だけ見てきましょう。',
+      '勝率が動かないならキャラではなく癖を変える番です。',
+    ],
+  },
+  cooling: {
+    ko: [
+      '진 판 리플레이를 보세요. 아프지만 거기에 답이 있습니다.',
+      '확정딜캐를 놓치고 계실 겁니다. 연습 모드가 5분이면 됩니다.',
+      '유튜브에서 그 매치업 영상 하나만 보고 오세요. 판이 달라집니다.',
+      '지금 필요한 건 한 판 더가 아니라 리플레이 한 판입니다.',
+      '무엇에 맞아 죽었는지 모르겠다면 그게 리플레이를 볼 이유입니다.',
+      '상대 주력기 확정딜캐를 모르면 계속 같은 걸 맞습니다.',
+      '연습 모드에서 그 기술 방어 한 번만 잡아보세요. 바로 달라집니다.',
+      '고수 대전 영상을 보면 같은 상황을 어떻게 넘기는지 나옵니다.',
+      '리플레이는 상대가 아니라 자기 습관을 보는 겁니다.',
+      '오늘 진 판 중 하나만 골라서 끝까지 보세요. 하나면 충분합니다.',
+    ],
+    en: [
+      'Watch the losses. It stings, and that\'s where the answer is.',
+      'You\'re likely dropping punishes. Five minutes in practice mode fixes it.',
+      'Watch one video of that matchup. It changes the next set.',
+      'What you need isn\'t one more game — it\'s one replay.',
+    ],
+    ja: [
+      '負け試合のリプレイを見ましょう。痛いですが答えはそこにあります。',
+      '確定反撃を落としています。練習モード5分で直ります。',
+      'そのマッチアップの動画を1本見てきましょう。次のセットが変わります。',
+      '今必要なのは「あと1戦」ではなくリプレイ1試合です。',
+    ],
+  },
+  cold: {
+    ko: [
+      '오늘은 랭크 대신 리플레이를 보세요. 이길 확률이 그게 더 높습니다.',
+      '연습 모드로 가세요. 확정딜캐 세 개만 만들고 자면 내일이 다릅니다.',
+      '유튜브에서 자기 캐릭 강의를 보는 게 지금 유일하게 남는 선택입니다.',
+      '지금 랭크를 더 도는 건 데이터 수집이지 연습이 아닙니다.',
+      '진 판을 돌려보기 싫다면 그것도 신호입니다. 내일 보세요.',
+      '오늘 맞은 기술들, 내일 연습 모드에서 하나씩 방어법을 찾으세요.',
+      '고수 대전 영상 30분이 오늘 30판보다 남습니다.',
+      '리플레이는 내일 보세요. 오늘 보면 화만 납니다.',
+      '확정딜캐 한 개만 확실히 익히고 오세요. 그거면 이 구간을 벗어납니다.',
+      '연습 모드는 당신을 이기지 않습니다. 오늘은 그게 필요합니다.',
+    ],
+    en: [
+      'Watch replays instead of queueing. Better odds today.',
+      'Go to practice mode. Lock in three punishes and sleep on it.',
+      'A character guide on YouTube is the only winning option left today.',
+      'More ranked right now is data collection, not practice.',
+    ],
+    ja: [
+      '今日はランクよりリプレイを。そのほうが勝率が高いです。',
+      '練習モードへ。確定反撃を3つ固めて寝ましょう。',
+      '自キャラの解説動画を見るのが今日唯一残った選択肢です。',
+      '今ランクを回すのは練習ではなくデータ収集です。',
+    ],
+  },
+};
+
 /** 안정적인 씨앗으로 배열에서 하나 고르기. */
 function pick<T>(pool: T[], seed: number): T {
   const i = ((Math.trunc(seed) % pool.length) + pool.length) % pool.length;
@@ -603,6 +711,12 @@ export function pickJoke(
   if (pool.length === 0) return '';
   const j = pick(pool, seed);
   return (typeof j === 'function' ? j : j.fn)(pp, streak);
+}
+
+/** 연습 권유 한 줄 (농담 다음 줄). 씨앗을 농담과 어긋나게 줘야 짝이 다양해진다. */
+export function pickCoach(mood: Mood, lang: Lang, seed: number): string {
+  const pool = COACH[mood][lang];
+  return pool.length ? pick(pool, seed) : '';
 }
 
 /** 요약 카드 아래 컨디션 한 줄. */
