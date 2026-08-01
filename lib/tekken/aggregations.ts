@@ -584,41 +584,46 @@ export function buildTimePatterns(df: MatchRecord[]): Table {
   return t;
 }
 
-// 세션 안 몇 번째 경기인지 구간 (피로도 확인용)
+// 세션 안 몇 번째 경기인지 구간 (피로도 확인용).
+// 라벨에 '세션'을 붙여둔 이유: 흐름 표는 구분 열 없이 항목만 보여주므로
+// 라벨 하나만 읽고도 무슨 기준인지 알 수 있어야 한다.
 const NTH_BANDS: [string, number, number][] = [
-  ['1~5번째', 1, 5],
-  ['6~10번째', 6, 10],
-  ['11~20번째', 11, 20],
-  ['21~30번째', 21, 30],
-  ['31번째 이상', 31, Infinity],
+  ['세션 1~5번째', 1, 5],
+  ['세션 6~10번째', 6, 10],
+  ['세션 11~20번째', 11, 20],
+  ['세션 21~30번째', 21, 30],
+  ['세션 31번째 이상', 31, Infinity],
 ];
 
 /**
- * '흐름' — 최근 폼 / 세션 내 순번(피로도) / 연속 기록 / 연승·연패 직후.
+ * '흐름' — 최근 폼 / 세션 내 순번(피로도) / 연승·연패 직후 / 연속 기록.
  *
- * 세 가지를 한 탭에 담는 이유: 각각은 표 몇 줄이라 탭을 따로 낼 만큼이 아니고,
- * 셋 다 "지금 계속할까 그만할까"라는 한 가지 질문에 답하기 때문이다.
+ * 넷을 한 탭에 담는 이유: 각각은 표 몇 줄이라 탭을 따로 낼 만큼이 아니고,
+ * 넷 다 "지금 계속할까 그만할까"라는 한 가지 질문에 답하기 때문이다.
+ *
+ * 구분 열은 두지 않는다 — 항목 라벨이 스스로 무슨 기준인지 말하게 써놨다
+ * ('세션 11~20번째', '3연패 이상 직후'처럼).
  */
 export function buildFlow(
   df: MatchRecord[],
   gapMinutes = SESSION_GAP_MINUTES,
 ): Table {
-  const t = new Table('Unit', 'Bucket', 'Games', 'W', 'L', 'WinRate(%)');
+  const t = new Table('Bucket', 'Games', 'W', 'L', 'WinRate(%)');
   if (df.length === 0) return t;
 
   const ordered = [...df].sort((a, b) => a.dt.getTime() - b.dt.getTime());
-  const add = (unit: string, label: string, rows: MatchRecord[]) => {
+  const add = (label: string, rows: MatchRecord[]) => {
     if (!rows.length) return;
     const w = rows.filter((r) => r.result === 'W').length;
-    t.add(unit, label, rows.length, w, rows.length - w, wr(w, rows.length));
+    t.add(label, rows.length, w, rows.length - w, wr(w, rows.length));
   };
 
   // ── 최근 폼: 최근 N경기가 전체와 다른가 ──
   const recent = [...ordered].reverse();
   for (const n of [20, 50, 100]) {
-    if (ordered.length > n) add('최근 폼', `최근 ${n}경기`, recent.slice(0, n));
+    if (ordered.length > n) add(`최근 ${n}경기`, recent.slice(0, n));
   }
-  add('최근 폼', '전체', ordered);
+  add('전체 평균', ordered);
 
   // ── 세션 내 순번: 오래 할수록 떨어지는가 ──
   const nth: MatchRecord[][] = NTH_BANDS.map(() => []);
@@ -630,7 +635,7 @@ export function buildFlow(
     const b = NTH_BANDS.findIndex(([, lo, hi]) => idx >= lo && idx <= hi);
     if (b >= 0) nth[b].push(ordered[i]);
   }
-  NTH_BANDS.forEach(([label], i) => add('세션 내 순번', label, nth[i]));
+  NTH_BANDS.forEach(([label], i) => add(label, nth[i]));
 
   // ── 연승·연패 직후: 흐름을 타는가, 무너지는가 ──
   const after: Record<string, MatchRecord[]> = {
@@ -650,7 +655,7 @@ export function buildFlow(
     const won = ordered[i].result === 'W';
     run = won ? (run > 0 ? run + 1 : 1) : run < 0 ? run - 1 : -1;
   }
-  for (const [k, v] of Object.entries(after)) add('연속 직후', k, v);
+  for (const [k, v] of Object.entries(after)) add(k, v);
 
   // ── 연속 기록: 최장 연승/연패와 현재 상태 ──
   let bestW = 0,
@@ -661,10 +666,9 @@ export function buildFlow(
     if (cur > bestW) bestW = cur;
     if (-cur > bestL) bestL = -cur;
   }
-  t.add('연속 기록', '최장 연승', bestW, bestW, 0, 100);
-  t.add('연속 기록', '최장 연패', bestL, 0, bestL, 0);
+  t.add('최장 연승', bestW, bestW, 0, 100);
+  t.add('최장 연패', bestL, 0, bestL, 0);
   t.add(
-    '연속 기록',
     cur >= 0 ? '현재 연승' : '현재 연패',
     Math.abs(cur),
     cur >= 0 ? cur : 0,

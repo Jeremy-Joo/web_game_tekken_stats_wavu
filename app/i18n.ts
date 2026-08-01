@@ -223,12 +223,8 @@ export const CELL_I18N: Record<string, Entry> = {
   '최근 20경기 승률(%)': {
     ko: '최근 20경기 승률(%)', en: 'Last 20 win rate (%)', ja: '直近20試合勝率(%)',
   },
-  // ── 흐름 탭 ──
-  '최근 폼': { ko: '최근 폼', en: 'Recent form', ja: '直近の調子' },
-  '세션 내 순번': { ko: '세션 내 순번', en: 'Nth game in session', ja: 'セッション内順番' },
-  '연속 직후': { ko: '연속 직후', en: 'After a streak', ja: '連続の直後' },
-  '연속 기록': { ko: '연속 기록', en: 'Streak records', ja: '連続記録' },
-  '전체': { ko: '전체', en: 'All', ja: '全体' },
+  // ── 흐름 탭 (구분 열 없이 항목 라벨만으로 읽히게) ──
+  '전체 평균': { ko: '전체 평균', en: 'Overall', ja: '全体平均' },
   '최장 연승': { ko: '최장 연승', en: 'Longest win streak', ja: '最長連勝' },
   '최장 연패': { ko: '최장 연패', en: 'Longest loss streak', ja: '最長連敗' },
   '현재 연승': { ko: '현재 연승', en: 'Current win streak', ja: '現在の連勝' },
@@ -237,11 +233,11 @@ export const CELL_I18N: Record<string, Entry> = {
   '3연승 이상 직후': { ko: '3연승 이상 직후', en: 'After 3+ wins', ja: '3連勝以上の直後' },
   '2연패 직후': { ko: '2연패 직후', en: 'After 2 losses', ja: '2連敗の直後' },
   '3연패 이상 직후': { ko: '3연패 이상 직후', en: 'After 3+ losses', ja: '3連敗以上の直後' },
-  '1~5번째': { ko: '1~5번째', en: '1st–5th', ja: '1〜5戦目' },
-  '6~10번째': { ko: '6~10번째', en: '6th–10th', ja: '6〜10戦目' },
-  '11~20번째': { ko: '11~20번째', en: '11th–20th', ja: '11〜20戦目' },
-  '21~30번째': { ko: '21~30번째', en: '21st–30th', ja: '21〜30戦目' },
-  '31번째 이상': { ko: '31번째 이상', en: '31st+', ja: '31戦目以降' },
+  '세션 1~5번째': { ko: '세션 1~5번째', en: 'Session 1st–5th', ja: 'セッション1〜5戦目' },
+  '세션 6~10번째': { ko: '세션 6~10번째', en: 'Session 6th–10th', ja: 'セッション6〜10戦目' },
+  '세션 11~20번째': { ko: '세션 11~20번째', en: 'Session 11th–20th', ja: 'セッション11〜20戦目' },
+  '세션 21~30번째': { ko: '세션 21~30번째', en: 'Session 21st–30th', ja: 'セッション21〜30戦目' },
+  '세션 31번째 이상': { ko: '세션 31번째 이상', en: 'Session 31st+', ja: 'セッション31戦目以降' },
   // ── 시간대 탭 ──
   '시간대': { ko: '시간대', en: 'Hour (KST)', ja: '時間帯 (KST)' },
   '요일': { ko: '요일', en: 'Weekday', ja: '曜日' },

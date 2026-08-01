@@ -179,9 +179,14 @@ function granOptions(tab: TabData, seasons: SeasonInfo[]): DailyGran[] {
    좁혀야 실제로 읽을 수 있다. 한 명 모드의 강점/약점 매치업과 같은 취지다. */
 
 type H2hView = 'all' | 'strong' | 'weak';
-const H2H_MINS = [0, 10, 50, 100];
-/** '마지막으로 만난 날'이 최근 N일 안인 상대만. 0 = 전체. */
-const H2H_DAYS = [0, 30, 90, 365];
+const H2H_MINS = [0, 10, 50, 100, 150];
+/**
+ * '마지막으로 만난 날' 기준.
+ *   0     전체
+ *   양수  최근 N일 안에 만난 상대
+ *   음수  |N|일보다 **이전에** 마지막으로 만난 상대 (요즘 안 보이는 옛 상대)
+ */
+const H2H_DAYS = [0, 30, 90, 365, -365];
 
 const H2H_VIEW_LABEL: Record<H2hView, Record<Lang, string>> = {
   all: { ko: '전체', en: 'All', ja: '全体' },
@@ -191,8 +196,10 @@ const H2H_VIEW_LABEL: Record<H2hView, Record<Lang, string>> = {
 
 const H2H_DAY_LABEL = (d: number, lang: Lang): string => {
   if (d === 0) return { ko: '전체', en: 'All', ja: '全体' }[lang];
-  if (d === 365) return { ko: '1년', en: '1 year', ja: '1年' }[lang];
-  return { ko: `${d}일`, en: `${d} days`, ja: `${d}日` }[lang];
+  if (d < 0)
+    return { ko: '1년 이상 전', en: 'Over 1 year ago', ja: '1年以上前' }[lang];
+  if (d === 365) return { ko: '1년 이내', en: 'Within 1 year', ja: '1年以内' }[lang];
+  return { ko: `${d}일 이내`, en: `${d} days`, ja: `${d}日以内` }[lang];
 };
 
 /** 이 탭에 쓸 수 있는 최소 경기수 선택지 (행이 남는 값만). 비교 모드 맞대결 탭이면 null. */
@@ -217,12 +224,15 @@ function filterH2h(tab: TabData, min: number, days: number, view: H2hView): TabD
   if (gi < 0 || wi < 0) return tab;
 
   let rows = min > 0 ? tab.rows.filter((r) => Number(r[gi]) >= min) : tab.rows;
-  if (days > 0 && li >= 0) {
+  if (days !== 0 && li >= 0) {
     // KST 기준 날짜 문자열끼리 비교 (LastPlayed 도 KST 'yyyy-MM-dd HH:mm:ss')
-    const cutoff = new Date(Date.now() + 9 * 3600_000 - days * 86400_000)
+    const cutoff = new Date(Date.now() + 9 * 3600_000 - Math.abs(days) * 86400_000)
       .toISOString()
       .slice(0, 10);
-    rows = rows.filter((r) => String(r[li]).slice(0, 10) >= cutoff);
+    rows = rows.filter((r) => {
+      const last = String(r[li]).slice(0, 10);
+      return days > 0 ? last >= cutoff : last < cutoff; // 음수 = 그 이전에 마지막으로 만남
+    });
   }
   const g = (r: (string | number | null)[]) => Number(r[gi]);
   const w = (r: (string | number | null)[]) => Number(r[wi]);
@@ -235,6 +245,30 @@ function filterH2h(tab: TabData, min: number, days: number, view: H2hView): TabD
     rows = rows.filter((r) => w(r) < 50).sort((a, b) => w(a) - w(b) || g(b) - g(a));
 
   return { ...tab, rows };
+}
+
+/* ── 시간대 탭: '구분' 열 대신 보기 전환 ──────────────────────────
+   서버는 하루 시간대(24행)와 요일(7행)을 'Unit' 열로 묶어 한 표에 담아 보낸다.
+   화면에서는 둘을 섞어 보여줄 이유가 없으므로 버튼으로 고르고, 구분 열은 지운다.
+   (엑셀/CSV 에는 Unit 이 남아 있어야 두 표를 구분할 수 있으니 서버 형식은 그대로 둔다) */
+
+type TimeView = '시간대' | '요일';
+
+const TIME_VIEW_LABEL: Record<TimeView, Record<Lang, string>> = {
+  시간대: { ko: '하루 시간대', en: 'Hour of day', ja: '時間帯' },
+  요일: { ko: '요일별', en: 'By weekday', ja: '曜日別' },
+};
+
+/** 'Unit' 열로 묶인 표에서 한 묶음만 남기고 그 열은 없앤다. */
+function pickUnit(tab: TabData, unit: string): TabData {
+  const ui = tab.columns.indexOf('Unit');
+  if (ui < 0) return tab;
+  const drop = <T,>(arr: T[]) => arr.filter((_, i) => i !== ui);
+  return {
+    ...tab,
+    columns: drop(tab.columns),
+    rows: tab.rows.filter((r) => r[ui] === unit).map(drop),
+  };
 }
 
 function rollupDaily(tab: TabData, g: DailyGran, seasons: SeasonInfo[]): TabData {
@@ -532,7 +566,8 @@ export default function Home() {
   const [xlsxBusy, setXlsxBusy] = useState(false);
   const [xlsxMsg, setXlsxMsg] = useState('');
   const [h2hMin, setH2hMin] = useState(0); // 상대전적: 최소 경기수
-  const [h2hDays, setH2hDays] = useState(0); // 상대전적: 최근 N일 안에 만난 상대만
+  const [h2hDays, setH2hDays] = useState(0); // 상대전적: 만난 시기
+  const [timeView, setTimeView] = useState<TimeView>('시간대');
   const [h2hView, setH2hView] = useState<H2hView>('all');
   // 비교 표에서 표본 미달(5경기 미만) 행 숨기기 — 3판 100% 가 39판 55% 위에 뜨는 걸 막는다
   const [hideThin, setHideThin] = useState(true);
@@ -1016,7 +1051,9 @@ export default function Home() {
       ? rollupDaily(current, effGran, seasons)
       : current?.key === 'h2h' && h2hOpts
         ? filterH2h(current, effH2hMin, h2hDays, h2hView)
-        : current;
+        : current?.key === 'time'
+          ? pickUnit(current, timeView)
+          : current;
 
   // 비교 표(캐릭터·상대 캐릭·공통 상대)에서 표본이 얇은 행을 걸러낼 수 있는가.
   // 실측: 39행 중 3행이 5경기 미만이었고 그중 둘이 '3전 100%' 였다.
@@ -1661,6 +1698,21 @@ export default function Home() {
                       ))}
                     </div>
                   </>
+                )}
+
+                {/* 시간대: 하루 시간대 / 요일별 */}
+                {current.key === 'time' && (
+                  <div className="mode-switch period">
+                    {(['시간대', '요일'] as TimeView[]).map((v) => (
+                      <button
+                        key={v}
+                        className={timeView === v ? 'on' : ''}
+                        onClick={() => setTimeView(v)}
+                      >
+                        {TIME_VIEW_LABEL[v][lang]}
+                      </button>
+                    ))}
+                  </div>
                 )}
 
                 {/* 비교 표: 표본이 얇은 행 숨기기 */}

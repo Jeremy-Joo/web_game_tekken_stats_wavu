@@ -143,12 +143,14 @@ eq('seasonOf 0', seasonOf(0), '?');
   // W W W L L  → 최장 연승 3, 최장 연패 2, 현재 2연패
   const df = [R('W', 0), R('W', 1), R('W', 2), R('L', 3), R('L', 4)];
   const t = buildFlow(df);
-  const find = (b: string) => t.rows.find((r) => r[1] === b)!;
-  eq('최장 연승 3', find('최장 연승')[2], 3);
-  eq('최장 연패 2', find('최장 연패')[2], 2);
-  eq('현재 2연패', find('현재 연패')[2], 2);
+  eq('흐름 표에 구분 열이 없다', t.columns[0], 'Bucket');
+  const find = (b: string) => t.rows.find((r) => r[0] === b)!;
+  eq('최장 연승 3', find('최장 연승')[1], 3);
+  eq('최장 연패 2', find('최장 연패')[1], 2);
+  eq('현재 2연패', find('현재 연패')[1], 2);
   // 각 경기는 1시간 간격이라 전부 한 세션(120분 이내) → 1~5번째에 5경기
-  eq('세션 내 1~5번째에 5경기', find('1~5번째')[2], 5);
+  eq('세션 1~5번째에 5경기', find('세션 1~5번째')[1], 5);
+  eq('라벨만 보고 기준을 알 수 있다', t.rows.every((r) => String(r[0]).length > 2), true);
 }
 
 // ── 시간대·요일: KST 로 버킷팅 ──

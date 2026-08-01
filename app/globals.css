@@ -408,12 +408,12 @@ button.ghost,
 }
 
 /* ── 탭 ── */
+/* 탭이 16개라 한 줄에 안 들어간다. 가로 스크롤 대신 줄바꿈 —
+   스크롤바가 안 생기고, 숨는 탭 없이 전부 보인다. */
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 0.4rem;
   margin-bottom: 0.6rem;
 }
 
