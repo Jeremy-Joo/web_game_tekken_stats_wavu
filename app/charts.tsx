@@ -85,6 +85,133 @@ function useSvgPointer(): {
   return { ref, x, onMove, clear: () => setX(null) };
 }
 
+/* ── 세션 내 순번별 승률 (흐름 탭) ──────────────────────────────
+   구간 12개를 텍스트로 나열하면 "1~5판 56.15% · 6~10판 57.53% · …" 처럼
+   한 줄이 화면을 넘어가고, 어디서 꺾이는지가 눈에 안 들어온다.
+   같은 값을 3~4줄 높이의 작은 선 그래프로 바꾼다.
+
+   형태 선택: 세션 내 순번은 **순서가 있는 연속량**이고 묻는 것도 '올라가나
+   내려가나'라서 선이 맞다. 막대는 길이로 크기를 말하는 형태라, 승률처럼
+   0에서 시작할 필요가 없는 값에 쓰면 축을 자르는 순간 거짓말이 된다.
+   선은 y축을 데이터 범위로 좁혀도 되지만, 대신 **내 평균선을 같이 그려**
+   기준 없이 오르내림만 보고 오해하는 일을 막는다.
+
+   계열이 하나라 범례는 두지 않는다(제목이 곧 계열명). 색은 charts.tsx 상단의
+   검증된 팔레트에서 첫 색만 쓴다 — 새 색을 만들지 않는다. */
+
+const AW = 720; // 이 차트만 별도 크기 (본문 3~4줄 높이에 맞춘 납작한 비율)
+const AH = 132;
+const APAD = { l: 40, r: 46, t: 12, b: 26 };
+
+export interface AdviceBandPoint {
+  from: number;
+  to: number;
+  games: number;
+  winRate: number;
+  enough: boolean;
+}
+
+export function AdviceChart({
+  bands,
+  baseline,
+  stopAfter,
+  lang = 'ko',
+}: {
+  bands: AdviceBandPoint[];
+  baseline: number;
+  stopAfter: number | null;
+  lang?: ChartLang;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const pts = bands.filter((b) => b.enough);
+  if (pts.length < 2) return null;
+
+  // y 범위: 데이터와 평균선을 모두 담되 위아래 1%p 여유. 0 부터 그리면
+  // 52~58% 구간이 한 줄로 뭉개져 아무것도 안 보인다.
+  const vals = [...pts.map((p) => p.winRate), baseline];
+  const lo = Math.floor(Math.min(...vals) - 1);
+  const hi = Math.ceil(Math.max(...vals) + 1);
+  const x = (i: number) =>
+    APAD.l + (i / (pts.length - 1)) * (AW - APAD.l - APAD.r);
+  const y = (v: number) =>
+    AH - APAD.b - ((v - lo) / (hi - lo)) * (AH - APAD.t - APAD.b);
+
+  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i)},${y(p.winRate)}`).join(' ');
+  // 꺾이는 지점: advice 가 계산한 stopAfter 직후 구간
+  const dropIdx = stopAfter ? pts.findIndex((p) => p.from > stopAfter) : -1;
+  const h = hover !== null ? pts[hover] : null;
+
+  const unit = lang === 'ko' ? '판' : lang === 'ja' ? '戦' : '';
+  const avgLabel = lang === 'ko' ? '내 평균' : lang === 'ja' ? '平均' : 'avg';
+
+  return (
+    <svg
+      className="trend-svg advice-svg"
+      viewBox={`0 0 ${AW} ${AH}`}
+      role="img"
+      onPointerLeave={() => setHover(null)}
+    >
+      {/* 내 평균 — 기준선. 데이터색이 아니라 잉크색을 쓴다 */}
+      <line
+        x1={APAD.l} x2={AW - APAD.r} y1={y(baseline)} y2={y(baseline)}
+        stroke={INK_MUTED} strokeWidth="1" strokeDasharray="4 4"
+      />
+      <text
+        x={AW - APAD.r + 6} y={y(baseline) + 3.5}
+        fill={INK_MUTED} fontSize="11"
+      >
+        {avgLabel} {baseline}%
+      </text>
+
+      {/* y 눈금은 위아래 둘만 — 납작한 차트에 격자를 채우면 선이 안 보인다 */}
+      {[lo, hi].map((v) => (
+        <text key={v} x={APAD.l - 6} y={y(v) + 3.5} fill={INK_MUTED} fontSize="11" textAnchor="end">
+          {v}%
+        </text>
+      ))}
+
+      <path d={path} fill="none" stroke={SERIES[0]} strokeWidth="2"
+        strokeLinejoin="round" strokeLinecap="round" />
+
+      {pts.map((p, i) => (
+        <g key={p.from}>
+          <circle cx={x(i)} cy={y(p.winRate)} r="3"
+            fill={i === dropIdx ? CRIT : SERIES[0]} stroke={SURFACE} strokeWidth="2" />
+          {/* 손가락·마우스가 잡을 영역은 점보다 크게 */}
+          <rect
+            x={x(i) - 16} y={APAD.t} width="32" height={AH - APAD.t - APAD.b}
+            fill="transparent"
+            onPointerEnter={() => setHover(i)}
+          />
+        </g>
+      ))}
+
+      {/* x 라벨은 처음·중간·끝만 — 12개를 다 적으면 겹친다 */}
+      {[0, Math.floor((pts.length - 1) / 2), pts.length - 1].map((i) => (
+        <text key={i} x={x(i)} y={AH - 8} fill={INK_MUTED} fontSize="11" textAnchor="middle">
+          {pts[i].from}~{pts[i].to}{unit}
+        </text>
+      ))}
+
+      {h && (
+        <>
+          <line x1={x(hover!)} x2={x(hover!)} y1={APAD.t} y2={AH - APAD.b}
+            stroke={GRID} strokeWidth="1" />
+          <text
+            x={Math.min(Math.max(x(hover!), APAD.l + 4), AW - APAD.r - 4)}
+            y={APAD.t + 10}
+            fill="#e6e8ec" fontSize="12" fontWeight="600"
+            textAnchor={hover! > pts.length / 2 ? 'end' : 'start'}
+          >
+            {h.from}~{h.to}{unit} · {h.winRate}% · {h.games.toLocaleString()}
+            {CL.gamesUnit[lang]}
+          </text>
+        </>
+      )}
+    </svg>
+  );
+}
+
 function Legend({ items }: { items: { label: string; color: string; note?: string }[] }) {
   return (
     <div className="chart-legend">

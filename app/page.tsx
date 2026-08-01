@@ -5,7 +5,13 @@
 // 레이팅 추이 탭만 클라이언트에서 SVG 그래프를 추가로 그린다.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { TrendChart, DailyChart, SessionChart, type DailyStyle } from './charts';
+import {
+  TrendChart,
+  DailyChart,
+  SessionChart,
+  AdviceChart,
+  type DailyStyle,
+} from './charts';
 import {
   LANGS,
   LANG_KEY,
@@ -2196,13 +2202,14 @@ export default function Home() {
                               )
                             : t('adviceNoDrop')(single.advice.goodUpTo ?? 0)}
                         </p>
-                        <p className="advice-bands">
-                          {single.advice.bands
-                            .filter((b) => b.enough)
-                            .map((b) => `${b.from}~${b.to}판 ${b.winRate}%`)
-                            .join('  ·  ')}
-                          {`  (${t('adviceBaseline')} ${single.advice.baselineWinRate}%)`}
-                        </p>
+                        {/* 구간 12개를 텍스트로 나열하면 화면을 넘어가고 꺾이는
+                            지점이 안 보인다. 같은 값을 납작한 선 그래프로 낸다. */}
+                        <AdviceChart
+                          bands={single.advice.bands}
+                          baseline={single.advice.baselineWinRate}
+                          stopAfter={single.advice.stopAfter}
+                          lang={lang}
+                        />
                       </>
                     ) : (
                       <p className="advice-main">{t('adviceThin')}</p>
