@@ -22,8 +22,9 @@
 import { list, put } from '@vercel/blob';
 import { gzip, gunzip } from 'node:zlib';
 import { promisify } from 'node:util';
-import { fetchReplays } from './client';
+import { fetchReplays, fetchRegion } from './client';
 import type { Replay } from './types';
+import type { Region } from './region';
 
 const gz = promisify(gzip);
 const gunz = promisify(gunzip);
@@ -39,11 +40,22 @@ export interface CachedReplays {
   fetchedAt: number;
   /** wavu 수집에 실패해 낡은 사본을 내주는 중이면 true. */
   stale: boolean;
+  /**
+   * 서버 지역 (시간대 추정용). 못 읽었으면 null —
+   * 그 경우 화면은 KST 를 그대로 쓴다(region.ts 참조).
+   */
+  region: Region | null;
 }
 
 interface Stored {
   fetchedAt: number;
   replays: Replay[];
+  /**
+   * 지역은 나중에 추가된 필드다. 그 전에 쓰인 사본에는 없어서 undefined 가 온다 —
+   * 이때는 null 로 다뤄 '지역 모름'(KST 유지)이 되고, 사본이 만료되는 대로
+   * (CACHE_SECONDS) 다음 갱신에서 저절로 채워진다. 마이그레이션이 필요 없다.
+   */
+  region?: Region | null;
 }
 
 async function readBlob(id: string): Promise<Stored | null> {
@@ -87,18 +99,31 @@ const inflight = new Map<string, Promise<CachedReplays>>();
 async function load(id: string): Promise<CachedReplays> {
   const cached = await readBlob(id);
   if (cached && Date.now() - cached.fetchedAt < CACHE_SECONDS * 1000)
-    return { replays: cached.replays, fetchedAt: cached.fetchedAt, stale: false };
+    return {
+      replays: cached.replays,
+      fetchedAt: cached.fetchedAt,
+      stale: false,
+      region: cached.region ?? null,
+    };
 
   try {
     const replays = await fetchReplays(id);
+    // ★ 순차 — wavu 레이트리밋 원칙("요청을 한 번에 하나씩")을 따른다.
+    //   Promise.all 로 묶지 말 것. 지역은 실패해도 null 이라 조회를 막지 않는다.
+    const region = await fetchRegion(id);
     const fetchedAt = Date.now();
-    await writeBlob(id, { fetchedAt, replays });
-    return { replays, fetchedAt, stale: false };
+    await writeBlob(id, { fetchedAt, replays, region });
+    return { replays, fetchedAt, stale: false, region };
   } catch (e) {
     // wavu 가 막혔거나 느리다. 낡았더라도 사본이 있으면 그것을 준다 —
     // '10분 지난 데이터'가 '서비스 불가'보다 낫다. 사본이 없을 때만 에러를 올린다.
     if (cached)
-      return { replays: cached.replays, fetchedAt: cached.fetchedAt, stale: true };
+      return {
+        replays: cached.replays,
+        fetchedAt: cached.fetchedAt,
+        stale: true,
+        region: cached.region ?? null,
+      };
     throw e;
   }
 }

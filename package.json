@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "probe": "tsx scripts/probe-wavu.ts",
-    "check": "tsx scripts/check-tokens.ts && tsx scripts/check-search.ts && tsx scripts/check-aggregations.ts",
+    "check": "tsx scripts/check-tokens.ts && tsx scripts/check-search.ts && tsx scripts/check-region.ts && tsx scripts/check-aggregations.ts",
     "validate": "tsx scripts/validate.ts"
   },
   "dependencies": {
