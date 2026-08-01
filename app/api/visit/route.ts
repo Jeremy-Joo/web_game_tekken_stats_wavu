@@ -13,7 +13,8 @@
 // 읽지 못했으면 POST 는 아무것도 쓰지 않는다. 한 명 덜 세는 편이 낫다.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { list, put } from '@vercel/blob';
+import { put } from '@vercel/blob';
+import { readPublicBlob, rememberOriginFrom } from '@/lib/wavu/blob';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,13 +33,15 @@ const EMPTY: Visits = { total: 0, byDay: {} };
  * 파일이 아직 없는 경우만 ok=true + 0 으로 돌려준다(첫 방문은 정상적으로 1이 된다).
  */
 async function readVisits(): Promise<{ ok: boolean; v: Visits }> {
+  // ★ list() 를 쓰지 않는다 — Advanced Operation 이고, 여기는 **모든 페이지 방문**이
+  //   지나가는 자리다. 예전에는 이 한 줄 때문에 방문 1회당 한도가 1씩 깎였다.
+  //   (lib/wavu/blob.ts 의 사고 이력 참조)
+  const r = await readPublicBlob(BLOB_PATH);
+  if (!r.ok) return { ok: false, v: EMPTY }; // 못 읽음 = 값을 모른다
+  if (!r.body) return { ok: true, v: { total: 0, byDay: {} } }; // 아직 없음 = 0 이 맞다
+
   try {
-    const { blobs } = await list({ prefix: BLOB_PATH, limit: 1 });
-    const blob = blobs.find((b) => b.pathname === BLOB_PATH);
-    if (!blob) return { ok: true, v: { total: 0, byDay: {} } }; // 아직 없음 = 0 이 맞다
-    const res = await fetch(blob.url, { cache: 'no-store' });
-    if (!res.ok) return { ok: false, v: EMPTY }; // 있는데 못 읽음 = 값을 모른다
-    const d = (await res.json()) as Visits;
+    const d = JSON.parse(Buffer.from(r.body).toString('utf8')) as Visits;
     if (typeof d?.total !== 'number') return { ok: false, v: EMPTY }; // 깨진 내용
     return {
       ok: true,
@@ -48,7 +51,7 @@ async function readVisits(): Promise<{ ok: boolean; v: Visits }> {
       },
     };
   } catch {
-    return { ok: false, v: EMPTY }; // 네트워크/권한 실패 — 값을 모른다
+    return { ok: false, v: EMPTY }; // 파싱 실패 — 값을 모른다
   }
 }
 
@@ -86,13 +89,15 @@ export async function POST(req: NextRequest) {
   for (const d of days.slice(0, Math.max(0, days.length - 60))) delete v.byDay[d];
 
   try {
-    await put(BLOB_PATH, JSON.stringify(v), {
+    const res = await put(BLOB_PATH, JSON.stringify(v), {
       access: 'public',
       contentType: 'application/json',
+      // ★ URL 이 경로에서 결정돼야 읽을 때 list() 를 안 쓴다.
       addRandomSuffix: false,
       allowOverwrite: true,
       cacheControlMaxAge: 0,
     });
+    rememberOriginFrom(res.url);
   } catch (e) {
     // Blob 미설정(로컬 등)이어도 페이지는 굴러가야 한다.
     //

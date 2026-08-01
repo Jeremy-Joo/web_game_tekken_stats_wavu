@@ -19,10 +19,11 @@
 // - 갱신을 담당한 요청은 gzip+업로드 시간을 더 쓴다(10분에 한 번). 그 대가로
 //   나머지 요청 전부가 wavu 를 건드리지 않는다.
 
-import { list, put } from '@vercel/blob';
+import { put } from '@vercel/blob';
 import { gzip, gunzip } from 'node:zlib';
 import { promisify } from 'node:util';
 import { fetchReplays, fetchRegion } from './client';
+import { readPublicBlob, rememberOriginFrom, blobOrigin } from './blob';
 import type { Replay } from './types';
 import type { Region } from './region';
 
@@ -60,13 +61,11 @@ interface Stored {
 
 async function readBlob(id: string): Promise<Stored | null> {
   try {
-    const path = keyFor(id);
-    const { blobs } = await list({ prefix: path, limit: 1 });
-    const b = blobs.find((x) => x.pathname === path);
-    if (!b) return null;
-    const res = await fetch(b.url, { cache: 'no-store' });
-    if (!res.ok) return null;
-    const raw = await gunz(Buffer.from(await res.arrayBuffer()));
+    // ★ list() 를 쓰지 않는다 — Advanced Operation 이라 요청마다 부르면 한도가 녹는다.
+    //   경로로 바로 읽는다 (lib/wavu/blob.ts 의 사고 이력 참조).
+    const r = await readPublicBlob(keyFor(id));
+    if (!r.body) return null; // 없거나 못 읽음 — 어느 쪽이든 wavu 에서 새로 받으면 된다
+    const raw = await gunz(Buffer.from(r.body));
     const d = JSON.parse(raw.toString('utf8')) as Stored;
     if (!Array.isArray(d?.replays) || typeof d.fetchedAt !== 'number') return null;
     return d;
@@ -79,14 +78,17 @@ async function readBlob(id: string): Promise<Stored | null> {
 async function writeBlob(id: string, stored: Stored): Promise<void> {
   try {
     const body = await gz(Buffer.from(JSON.stringify(stored)));
-    await put(keyFor(id), body, {
+    const res = await put(keyFor(id), body, {
       access: 'public',
       contentType: 'application/gzip',
+      // ★ 이 둘이 있어야 URL 이 경로에서 결정된다 — 읽을 때 list() 를 안 쓰는 전제다.
       addRandomSuffix: false,
       allowOverwrite: true,
       // 경로가 고정이라 덮어쓴 뒤 CDN 이 옛 내용을 내주면 안 된다.
       cacheControlMaxAge: 0,
     });
+    // 응답의 url 이 공개 URL 앞부분의 가장 확실한 출처다. 공짜로 알 수 있으니 기억해 둔다.
+    rememberOriginFrom(res.url);
   } catch (e) {
     // Blob 미설정(로컬 개발 등)이어도 조회 자체는 굴러가야 한다.
     // 이 경우 캐시만 없는 셈이고 동작은 예전과 같다.
@@ -109,19 +111,22 @@ async function writeBlob(id: string, stored: Stored): Promise<void> {
 export async function probeBlob(): Promise<{
   ok: boolean;
   hasToken: boolean;
-  canList: boolean;
+  canRead: boolean;
   canWrite: boolean;
   error: string | null;
 }> {
   const hasToken = !!process.env.BLOB_READ_WRITE_TOKEN;
-  let canList = false;
   let canWrite = false;
   let error: string | null = null;
 
-  try {
-    await list({ prefix: 'cache/', limit: 1 });
-    canList = true;
+  // 읽기는 공개 URL 로 확인한다 — list() 를 쓰면 확인하는 행위 자체가 한도를 깎는다.
+  // (probe 는 사람이 부르는 것이라 잦지 않지만, 여기서도 원칙을 지킨다)
+  const canRead = (await blobOrigin()) !== null;
 
+  try {
+    // 쓰기만은 실제로 써봐야 안다. Advanced Operation 1회를 쓰는 유일한 자리다 —
+    // 캐시가 되는지는 **쓰기**에 달렸고, 읽기만 되는 상태가 실제로 존재하기 때문이다
+    // (스토어 정지가 정확히 그 모양이었다: 목록·읽기는 되고 쓰기만 막힘).
     const mark = `probe ${Date.now()}`;
     const { url } = await put('probe/blob-check.txt', mark, {
       access: 'public',
@@ -130,13 +135,14 @@ export async function probeBlob(): Promise<{
       allowOverwrite: true,
       cacheControlMaxAge: 0,
     });
+    rememberOriginFrom(url);
     const back = await fetch(url, { cache: 'no-store' });
     canWrite = back.ok && (await back.text()) === mark;
   } catch (e) {
     error = (e as Error).message;
   }
 
-  return { ok: canList && canWrite, hasToken, canList, canWrite, error };
+  return { ok: canRead && canWrite, hasToken, canRead, canWrite, error };
 }
 
 /** 같은 인스턴스에서 같은 식별코드 요청이 겹치면 한 번만 일하게 합친다. */
