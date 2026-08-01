@@ -59,7 +59,22 @@ npm run build
   오인돼 검색을 건너뛰고 404 가 났다. **구분자를 지우기 전 원문으로 판정할 것.**
 - `scripts/check-search.ts` — wavu 검색 HTML 파싱. 구조 변화를 '0건'으로 위장하지 않는지.
 
-배포 직후 `/api/probe` 를 열어 Vercel IP 에서 wavu 가 200 을 주는지 확인할 것.
+## 배포
+
+**`main` 에 push 하면 Vercel 이 자동 배포한다** (2026-08-02 부터 GitHub 연동됨).
+그전에는 연동이 없어 push 해도 반영되지 않았다 — 옛 기억으로 "push 했는데 왜 그대로지"
+하지 말 것. 연동 상태는 `npx vercel git connect` / `disconnect` 로 바꾼다.
+
+수동 배포가 필요하면 `npx vercel --prod` (프로젝트: `teamjeremio/tekken8stats`).
+로컬에 `.vercel/` 이 없으면 먼저
+`npx vercel link --yes --scope teamjeremio --project tekken8stats` —
+**`--project` 를 빼면 새 프로젝트가 만들어져 URL 이 바뀐다.**
+
+배포 직후 확인할 것:
+
+1. `/api/probe` — Vercel IP 에서 wavu 가 200 을 주는가.
+2. 헤비 유저 조회를 두 번 — 응답의 `cache.fetchedAt` 이 두 번 다 같으면 Blob 캐시가
+   먹은 것이다. 값이 매번 바뀌면 캐시가 안 걸리고 wavu 를 계속 때리는 중이다.
 
 ## 구조
 
