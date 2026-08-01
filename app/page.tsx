@@ -95,7 +95,15 @@ const MAX_COMPARE = 4;
 
 const WIN_LOSS_COLS = new Set(['result', 'result_for_a']);
 const ROW_CHUNK = 100; // 긴 표는 이 단위로 끊어 보여준다
-const CHART_TABS = new Set(['trend', 'daily', 'sessions']); // 그래프/표 토글 지원 탭
+const CHART_TABS = new Set(['trend', 'daily', 'sessions']); // 그래프로 그릴 수 있는 탭
+/**
+ * 표 없이 그래프만 보여줄 탭.
+ *
+ * 레이팅 추이는 경기 하나가 한 줄이라 표로 보면 3만 줄짜리 숫자 나열이고,
+ * 그 정보는 '전적 목록' 탭에 이미 더 읽기 좋게 있다. 토글 자체를 없앤다.
+ * (데이터는 그대로 실려 있어 CSV·엑셀 다운로드에는 영향이 없다)
+ */
+const CHART_ONLY_TABS = new Set(['trend']);
 
 function cellClass(col: string, v: string | number | null): string | undefined {
   if (!WIN_LOSS_COLS.has(col)) return undefined;
@@ -1098,6 +1106,7 @@ export default function Home() {
 
   const tabs = mode === 'single' ? single?.tabs : compare?.tabs;
   const current = tabs?.find((t) => t.key === activeTab) ?? tabs?.[0];
+  const chartOnly = current ? CHART_ONLY_TABS.has(current.key) : false;
 
   // wavu 가 막혀 지난 사본을 보고 있는가. null 이면 정상(신선한 데이터).
   const staleMinutes = (() => {
@@ -1744,18 +1753,23 @@ export default function Home() {
           {current && CHART_TABS.has(current.key) ? (
             <>
               <div className="mode-switch period">
-                <button
-                  className={view === 'chart' ? 'on' : ''}
-                  onClick={() => setView('chart')}
-                >
-                  {t('chart')}
-                </button>
-                <button
-                  className={view === 'table' ? 'on' : ''}
-                  onClick={() => setView('table')}
-                >
-                  {t('table')}
-                </button>
+                {/* 그래프만 있는 탭은 토글을 내지 않는다 */}
+                {!chartOnly && (
+                  <>
+                    <button
+                      className={view === 'chart' ? 'on' : ''}
+                      onClick={() => setView('chart')}
+                    >
+                      {t('chart')}
+                    </button>
+                    <button
+                      className={view === 'table' ? 'on' : ''}
+                      onClick={() => setView('table')}
+                    >
+                      {t('table')}
+                    </button>
+                  </>
+                )}
                 {current.key === 'daily' && view === 'chart' && (
                   <>
                     <span className="gran-sep" />
@@ -1785,7 +1799,7 @@ export default function Home() {
                   </>
                 )}
               </div>
-              {view === 'chart' ? (
+              {chartOnly || view === 'chart' ? (
                 current.key === 'trend' ? (
                   <TrendChart rows={current.rows} lang={lang} />
                 ) : current.key === 'daily' ? (
