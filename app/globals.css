@@ -337,6 +337,16 @@ button.ghost,
   flex-wrap: wrap;
 }
 
+/* 끄는 법 안내 — 본문보다 확실히 뒤로 물러나게 */
+.quips-off {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--muted);
+  opacity: 0.6;
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
 /* 요약 카드 아래 컨디션 한 줄 */
 .condition {
   margin: -0.3rem 0 0.8rem;
@@ -367,9 +377,12 @@ button.ghost,
 .mood-cooling { color: #e0a640; }
 .mood-cold { color: var(--loss); }
 
-/* 연습 권유 — 농담보다 한 톤 낮게, 실용 정보처럼 */
+/* 연습 조언 — 유머와 다른 트랙이라 시각적으로도 분리한다 */
 .advice-coach {
   margin: 0 0 0.5rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(110, 168, 254, 0.1);
   color: var(--accent);
   font-size: 0.88rem;
   line-height: 1.5;

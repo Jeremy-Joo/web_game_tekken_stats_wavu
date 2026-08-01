@@ -139,9 +139,21 @@ const D = {
   begin: { ko: '처음', en: 'start', ja: '最初' },
   today: { ko: '오늘', en: 'today', ja: '今日' },
   quipsOpt: {
-    ko: '한 줄 멘트 표시 (컨디션·조언)',
-    en: 'Show one-line commentary',
-    ja: '一行コメントを表示',
+    ko: '한 줄 멘트 표시 (컨디션·유머)',
+    en: 'Show one-line commentary (mood)',
+    ja: '一行コメントを表示 (調子)',
+  },
+  // 멘트가 보이는 자리마다 마지막 줄에 붙는 안내.
+  // 끄는 방법을 모르면 불편해도 참고 보게 된다 — 스위치가 있다는 사실 자체를 알려준다.
+  quipsOff: {
+    ko: '※ 이 문구가 불편하시면 위 조회 화면의 체크박스를 해제하세요.',
+    en: '※ Not your thing? Uncheck the option in the search panel above.',
+    ja: '※ この一言が不要なら、上の検索画面のチェックを外してください。',
+  },
+  coachOpt: {
+    ko: '연습 조언 표시 (리플레이·확정딜캐·영상)',
+    en: 'Show practice tips (replays, punishes, video)',
+    ja: '練習アドバイスを表示 (リプレイ・確定反撃・動画)',
   },
   historyOpt: {
     ko: '과거 닉네임 포함 검색',

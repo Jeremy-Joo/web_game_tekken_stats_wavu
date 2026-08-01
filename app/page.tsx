@@ -25,8 +25,14 @@ import {
   type ConditionFacts,
 } from './jokes';
 
-/** 한 줄 멘트(컨디션·농담·연습 권유) 표시 여부 — 브라우저에 기억시킨다. */
+/**
+ * 한 줄 멘트는 성격이 다른 두 갈래라 스위치도 따로 둔다.
+ *   QUIPS  유머 — 컨디션 한 줄 + 흐름 탭 농담. 취향을 심하게 타서 끄고 싶어 하는 사람이 있다.
+ *   COACH  조언 — 리플레이·확정딜캐·유튜브 권유. 유머는 싫지만 이건 원하는 경우가 있다.
+ * 둘을 한 스위치로 묶으면 그 조합을 만들 수 없다.
+ */
 const QUIPS_KEY = 'tkwavu_quips';
+const COACH_KEY = 'tkwavu_coach';
 
 interface TabData {
   key: string;
@@ -669,15 +675,23 @@ export default function Home() {
 
   // 닉네임 검색 시 과거 닉네임까지 포함할지 (wavu 는 개명 이력도 검색해준다)
   const [inclHistory, setInclHistory] = useState(false);
-  // 한 줄 멘트 표시 (기본 켜짐). 통계만 보고 싶은 사람이 끌 수 있어야 한다.
+  // 두 트랙 모두 기본 켜짐. 통계만 보고 싶은 사람이 각각 끌 수 있어야 한다.
   const [showQuips, setShowQuipsState] = useState(true);
-  const setShowQuips = (v: boolean) => {
-    setShowQuipsState(v);
+  const [showCoach, setShowCoachState] = useState(true);
+  const remember = (key: string, v: boolean) => {
     try {
-      localStorage.setItem(QUIPS_KEY, v ? '1' : '0');
+      localStorage.setItem(key, v ? '1' : '0');
     } catch {
       /* ignore */
     }
+  };
+  const setShowQuips = (v: boolean) => {
+    setShowQuipsState(v);
+    remember(QUIPS_KEY, v);
+  };
+  const setShowCoach = (v: boolean) => {
+    setShowCoachState(v);
+    remember(COACH_KEY, v);
   };
 
   // 최근 조회한 플레이어 (이 브라우저에만 저장, 최대 8명)
@@ -705,6 +719,7 @@ export default function Home() {
       const l = localStorage.getItem(LANG_KEY) as Lang | null;
       if (l && ['ko', 'en', 'ja'].includes(l)) setLangState(l);
       if (localStorage.getItem(QUIPS_KEY) === '0') setShowQuipsState(false);
+      if (localStorage.getItem(COACH_KEY) === '0') setShowCoachState(false);
       const rc = localStorage.getItem('tkwavu_recent');
       if (rc) {
         const arr = JSON.parse(rc) as Favorite[];
@@ -1557,6 +1572,14 @@ export default function Home() {
           />
           {t('quipsOpt')}
         </label>
+        <label className="hl-toggle">
+          <input
+            type="checkbox"
+            checked={showCoach}
+            onChange={(e) => setShowCoach(e.target.checked)}
+          />
+          {t('coachOpt')}
+        </label>
 
         {recent.length > 0 && (
           <div className="fav-chips recent-chips">
@@ -1752,7 +1775,12 @@ export default function Home() {
             </div>
           )}
           {/* 마지막 세션 기준 컨디션 한 줄 (멘트 끄면 안 나온다) */}
-          {showQuips && condition && <p className="condition">{condition}</p>}
+          {showQuips && condition && (
+            <p className="condition">
+              {condition}
+              <span className="quips-off">{t('quipsOff')}</span>
+            </p>
+          )}
           {single.charCounts && single.charCounts.length > 1 && (
             <div className="char-chips">
               <span className="hint" style={{ margin: 0 }}>{t('charLabel')}:</span>
@@ -1974,25 +2002,27 @@ export default function Home() {
                         문구는 조회 결과에서 나온 씨앗으로 고른다(같은 조회 = 같은 문구).
                         멘트를 끄면 권장 판수 분석만 남는다. */}
                     {showQuips && (
-                      <>
-                        <p className={`advice-mood mood-${single.advice.mood}`}>
-                          {pickJoke(
-                            single.advice.mood,
-                            lang,
-                            single.recordCount + single.advice.losingStreak * 7,
-                            single.advice.recentDeltaPp,
-                            single.advice.losingStreak,
-                          )}
-                        </p>
-                        <p className="advice-coach">
-                          {pickCoach(
-                            single.advice.mood,
-                            lang,
-                            // 농담과 다른 씨앗 — 같은 짝만 반복해서 나오지 않게
-                            single.recordCount * 3 + Math.round(single.advice.recentDeltaPp),
-                          )}
-                        </p>
-                      </>
+                      <p className={`advice-mood mood-${single.advice.mood}`}>
+                        {pickJoke(
+                          single.advice.mood,
+                          lang,
+                          single.recordCount + single.advice.losingStreak * 7,
+                          single.advice.recentDeltaPp,
+                          single.advice.losingStreak,
+                        )}
+                      </p>
+                    )}
+                    {/* 조언은 유머와 독립이다 — 유머를 꺼도 이건 볼 수 있어야 한다 */}
+                    {showCoach && (
+                      <p className="advice-coach">
+                        🎬{' '}
+                        {pickCoach(
+                          single.advice.mood,
+                          lang,
+                          // 농담과 다른 씨앗 — 같은 짝만 반복해서 나오지 않게
+                          single.recordCount * 3 + Math.round(single.advice.recentDeltaPp),
+                        )}
+                      </p>
                     )}
                     {single.advice.reliable ? (
                       <>
@@ -2016,6 +2046,9 @@ export default function Home() {
                       <p className="advice-main">{t('adviceThin')}</p>
                     )}
                     <p className="hint">{t('adviceCaveat')}</p>
+                    {(showQuips || showCoach) && (
+                      <p className="hint quips-off">{t('quipsOff')}</p>
+                    )}
                   </div>
                 )}
 
