@@ -71,8 +71,9 @@ const fakeReplays = (offsetHours: number, games: number): Replay[] => {
     const n = Math.round((REFERENCE_PROFILE[localH] / total) * games);
     const utcH = (((localH - offsetHours) % 24) + 24) % 24;
     for (let i = 0; i < n; i++) {
-      // 1970-01-02 의 해당 UTC 시각 (날짜는 상관없다 — 시각만 본다)
-      out.push({ battle_at: 86400 + utcH * 3600 + i } as Replay);
+      // 1970-01-02 의 해당 UTC 시각 (날짜는 상관없다 — 시각만 본다).
+      // i 를 3600 으로 감싸 경기가 많아도 다음 시간대로 새지 않게 한다.
+      out.push({ battle_at: 86400 + utcH * 3600 + (i % 3600) } as Replay);
     }
   }
   return out;

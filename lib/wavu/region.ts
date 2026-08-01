@@ -140,12 +140,19 @@ function correlation(a: readonly number[], b: readonly number[]): number {
   return num / Math.sqrt(da * db);
 }
 
-/** UTC 시각별 경기 수 24칸. */
+/**
+ * UTC 시각별 경기 수 24칸.
+ *
+ * `battle_at` 은 진짜 UTC epoch 초라서 나눗셈만으로 시각이 나온다(epoch 기준점이
+ * UTC 자정이므로). 3만 경기짜리 플레이어에서 Date 를 3만 개 만들지 않으려는 것 —
+ * 이 값은 조회마다 전체 이력으로 한 번씩 계산된다.
+ */
 export function hourHistogramUtc(replays: Replay[]): number[] {
   const h = new Array(24).fill(0);
   for (const r of replays) {
-    if (!Number.isFinite(r?.battle_at)) continue;
-    h[new Date(r.battle_at * 1000).getUTCHours()]++;
+    const t = r?.battle_at;
+    if (!Number.isFinite(t)) continue;
+    h[(((Math.floor(t / 3600) % 24) + 24) % 24)]++;
   }
   return h;
 }
