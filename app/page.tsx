@@ -24,6 +24,15 @@ import {
   type Condition,
   type ConditionFacts,
 } from './jokes';
+import {
+  pickCompareSummary,
+  pickH2hQuip,
+  pickCharsQuip,
+  pickCommonQuip,
+  type SummaryTone,
+  type H2hTone,
+  type CharsTone,
+} from './compare-quips';
 
 /**
  * 한 줄 멘트는 성격이 다른 두 갈래라 스위치도 따로 둔다.
@@ -33,6 +42,44 @@ import {
  */
 const QUIPS_KEY = 'tkwavu_quips';
 const COACH_KEY = 'tkwavu_coach';
+
+/**
+ * 비교 결과 멘트에 쓸 값을 뽑는다. 전부 **개요 탭에 이미 있는 숫자**다 —
+ * 서버에 새로 요청하지도, 다시 계산하지도 않는다.
+ */
+function compareFacts(tabs: TabData[]) {
+  const ov = tabs.find((t) => t.key === 'overview');
+  if (!ov || ov.columns.length < 3) return null;
+  const names = ov.columns.slice(1); // 0번 컬럼은 '지표'
+  const rowOf = (metric: string) => ov.rows.find((r) => String(r[0]) === metric);
+  /** 그 지표에서 값이 가장 큰 사람과 1·2위 차이 */
+  const topOf = (metric: string) => {
+    const r = rowOf(metric);
+    if (!r) return null;
+    const vals = names.map((n, i) => ({ name: n, v: Number(r[i + 1]) }));
+    if (vals.some((x) => !Number.isFinite(x.v))) return null;
+    const sorted = [...vals].sort((a, b) => b.v - a.v);
+    return { name: sorted[0].name, gap: sorted[0].v - sorted[1].v };
+  };
+
+  const rating = topOf('현재 레이팅');
+  const form = topOf('최근 20경기 승률(%)');
+  if (!rating || !form) return null;
+
+  const charRow = rowOf('사용 캐릭터 수');
+  const charCounts = charRow
+    ? names
+        .map((n, i) => ({ name: n, v: Number(charRow[i + 1]) }))
+        .sort((a, b) => b.v - a.v)
+    : [];
+
+  return {
+    ratingLeader: rating.name,
+    ratingGap: Math.round(rating.gap),
+    formLeader: form.name,
+    charCounts,
+  };
+}
 
 interface TabData {
   key: string;
@@ -1324,6 +1371,82 @@ export default function Home() {
     return pickCondition(kind, lang, seed, facts);
   }, [single, summary, lang]);
 
+  /** 비교 결과 맨 위 한 줄 — 현재 순위와 최근 흐름이 엇갈리는지가 핵심이다. */
+  const compareQuip = useMemo(() => {
+    if (mode !== 'compare' || !compare || !showQuips) return null;
+    const f = compareFacts(compare.tabs);
+    if (!f) return null;
+    const tone: SummaryTone =
+      f.ratingLeader !== f.formLeader ? 'flipping'
+      : f.ratingGap < 50 ? 'tight'
+      : f.ratingGap >= 300 ? 'blowout'
+      : 'sameLeader';
+    const seed = f.ratingGap * 3 + compare.players.reduce((s, p) => s + p.count, 0);
+    return pickCompareSummary(tone, lang, seed, {
+      leader: f.ratingLeader,
+      gap: f.ratingGap,
+      formLeader: f.formLeader,
+      players: compare.players.length,
+    });
+  }, [mode, compare, showQuips, lang]);
+
+  /** 탭별 한 줄 — 맞대결 / 캐릭터 폭 / 공통 상대. 해당 탭에서만 보인다. */
+  const tabQuip = useMemo(() => {
+    if (mode !== 'compare' || !compare || !showQuips || !current) return null;
+
+    if (current.key === 'h2h' && current.rows.length > 0) {
+      const c = current.columns;
+      const [ai, bi, gi, awi, wri] = ['player_a', 'player_b', 'games', 'a_wins', 'a_winrate(%)'].map((k) => c.indexOf(k));
+      // 가장 많이 붙은 쌍 하나만 말한다 — 여러 쌍을 나열하면 멘트가 아니라 표가 된다
+      const row = [...current.rows].sort((x, y) => Number(y[gi]) - Number(x[gi]))[0];
+      const games = Number(row[gi]);
+      const aWr = Number(row[wri]);
+      const aLeads = aWr >= 50;
+      const facts = {
+        leader: String(row[aLeads ? ai : bi]),
+        loser: String(row[aLeads ? bi : ai]),
+        games,
+        wr: aLeads ? aWr : Math.round((100 - aWr) * 100) / 100,
+      };
+      const tone: H2hTone =
+        games < 10 ? 'few' : facts.wr >= 65 ? 'dominant' : facts.wr >= 55 ? 'edge' : 'even';
+      return pickH2hQuip(tone, lang, games + Number(row[awi]), facts);
+    }
+
+    if (current.key === 'chars') {
+      const f = compareFacts(compare.tabs);
+      if (!f || f.charCounts.length < 2) return null;
+      const most = f.charCounts[0];
+      const least = f.charCounts[f.charCounts.length - 1];
+      const tone: CharsTone =
+        most.v >= least.v * 2 ? 'wide' : most.v <= 5 ? 'narrow' : 'similar';
+      return pickCharsQuip(tone, lang, most.v * 7 + least.v, {
+        most: most.name,
+        mostN: most.v,
+        least: least.name,
+        leastN: least.v,
+      });
+    }
+
+    if (current.key === 'vs_common' && current.rows.length > 0) {
+      // 공통 상대 전체에서 평균 승률이 가장 높은 사람 (표본 가중 없이 단순 평균)
+      const wrCols = current.columns
+        .map((c, i) => (c.endsWith('_wr(%)') ? i : -1))
+        .filter((i) => i >= 0);
+      if (wrCols.length < 2) return null;
+      const avgs = wrCols.map((i) => ({
+        name: current.columns[i].replace(/_wr\(%\)$/, ''),
+        v: current.rows.reduce((s, r) => s + Number(r[i]), 0) / current.rows.length,
+      }));
+      avgs.sort((a, b) => b.v - a.v);
+      return pickCommonQuip(lang, current.rows.length, {
+        count: current.rows.length,
+        leader: avgs[0].name,
+      });
+    }
+    return null;
+  }, [mode, compare, showQuips, current, lang]);
+
   const baseName =
     mode === 'single'
       ? single?.myName || single?.polarisId || 'tekken'
@@ -1834,14 +1957,23 @@ export default function Home() {
         </>
       )}
       {compare && (
-        <p className="meta compare-meta">
-          {compare.players.map((p, i) => (
-            <span key={p.polarisId}>
-              {i > 0 && <span className="vs"> vs </span>}
-              <b>{p.name}</b> <span className="cnt">({p.count})</span>
-            </span>
-          ))}
-        </p>
+        <>
+          <p className="meta compare-meta">
+            {compare.players.map((p, i) => (
+              <span key={p.polarisId}>
+                {i > 0 && <span className="vs"> vs </span>}
+                <b>{p.name}</b> <span className="cnt">({p.count})</span>
+              </span>
+            ))}
+          </p>
+          {/* 비교 요약 한 줄 — 현재 순위와 최근 흐름이 엇갈리는지 */}
+          {compareQuip && (
+            <p className="condition">
+              {compareQuip}
+              <span className="quips-off">{t('quipsOff')}</span>
+            </p>
+          )}
+        </>
       )}
 
       {tabs && (
@@ -2081,6 +2213,9 @@ export default function Home() {
                     )}
                   </div>
                 )}
+
+                {/* 비교 탭별 한 줄 — 맞대결 / 캐릭터 폭 / 공통 상대 */}
+                {tabQuip && <p className="advice-mood mood-steady">{tabQuip}</p>}
 
                 {/* 시간대: 하루 시간대 / 요일별 */}
                 {current.key === 'time' && (
