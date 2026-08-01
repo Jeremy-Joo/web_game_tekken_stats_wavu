@@ -10,6 +10,7 @@ import { computeFromRecords } from '@/lib/tekken/compute';
 import { computeCompare, type ComparePlayer } from '@/lib/tekken/compare';
 import { tabsToXlsx } from '@/lib/tekken/xlsx';
 import type { MatchRecord } from '@/lib/tekken/models';
+import { guessTimezone, hourHistogramUtc, KST_MINUTES } from '@/lib/wavu/region';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -118,7 +119,7 @@ export async function GET(
     if (!id) {
       return NextResponse.json({ error: '식별코드가 비었습니다.' }, { status: 400 });
     }
-    const { replays } = await getReplays(id);
+    const { replays, region } = await getReplays(id);
     const { records, myName } = normalizeReplays(replays, id);
     const char = sp.get('char') ?? undefined;
     const dated = applyPeriod(records);
@@ -128,8 +129,16 @@ export async function GET(
     }
     // 엑셀은 레이팅 추이를 캐릭터별 컬럼으로 펼친다 — 시트에서 바로 차트를 만들 수 있게.
     // (JSON 응답은 좁은 포맷이다. compute.ts 의 wideTrend 주석 참조)
-    const result = computeFromRecords(filtered, id, myName, { wideTrend: true });
-    const buf = await tabsToXlsx(result.tabs, {
+    const tz = guessTimezone(region, hourHistogramUtc(replays));
+    const result = computeFromRecords(filtered, id, myName, {
+      wideTrend: true,
+      tzShiftMinutes: tz.offsetMinutes - KST_MINUTES,
+    });
+    // 현지 시각 시트는 KST 와 다를 때만 붙는다 — 같은 표를 두 번 넣지 않는다.
+    const sheets = result.localTime
+      ? [...result.tabs, result.localTime]
+      : result.tabs;
+    const buf = await tabsToXlsx(sheets, {
       title: `${myName || id} (${id})${char ? ` — ${char}` : ''}`,
       subtitle: period,
     });

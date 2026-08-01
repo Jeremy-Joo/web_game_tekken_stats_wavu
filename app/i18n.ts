@@ -251,6 +251,28 @@ const D = {
     en: (n: number, total: number) => `Showing last ${n} games (all ${total} via Excel download)`,
     ja: (n: number, total: number) => `直近${n}試合のみ表示 (全${total}件はExcelで)`,
   },
+  // ── 시간대 기준 (lib/wavu/region.ts) ──
+  tzLocal: {
+    ko: (off: string) => `현지 시간 (${off})`,
+    en: (off: string) => `Local time (${off})`,
+    ja: (off: string) => `現地時間 (${off})`,
+  },
+  tzKst: { ko: '한국 시간 (UTC+9)', en: 'Korea time (UTC+9)', ja: '韓国時間 (UTC+9)' },
+  tzRegion: {
+    ko: (region: string, off: string) => `이 플레이어는 ${region} 서버입니다 — 현지 시각은 ${off} 기준입니다.`,
+    en: (region: string, off: string) => `This player is on the ${region} server — local time is ${off}.`,
+    ja: (region: string, off: string) => `このプレイヤーは ${region} サーバーです — 現地時間は ${off} 基準です。`,
+  },
+  tzUnknown: {
+    ko: '서버 지역을 알 수 없어 한국 시간(UTC+9) 그대로 보여줍니다.',
+    en: 'Server region unknown — showing Korea time (UTC+9) as-is.',
+    ja: 'サーバー地域が不明なため、韓国時間 (UTC+9) のまま表示しています。',
+  },
+  tzByCurve: {
+    ko: '(지역 안에서의 정확한 시간대는 플레이 시간 분포로 추정한 값입니다)',
+    en: '(exact offset within the region is estimated from the play-time distribution)',
+    ja: '(地域内の正確な時間帯はプレイ時間の分布から推定した値です)',
+  },
 } satisfies Record<string, Entry | Record<Lang, (...a: never[]) => string>>;
 
 export type Dict = typeof D;
@@ -321,7 +343,9 @@ export const CELL_I18N: Record<string, Entry> = {
   '세션 21~30번째': { ko: '세션 21~30번째', en: 'Session 21st–30th', ja: 'セッション21〜30戦目' },
   '세션 31번째 이상': { ko: '세션 31번째 이상', en: 'Session 31st+', ja: 'セッション31戦目以降' },
   // ── 시간대 탭 ──
-  '시간대': { ko: '시간대', en: 'Hour (KST)', ja: '時間帯 (KST)' },
+  // KST 를 라벨에 박지 않는다 — 외국 플레이어는 현지 시각으로 볼 수 있고,
+  // 어느 기준인지는 표 위의 전환 버튼과 안내문이 말한다 (lib/wavu/region.ts).
+  '시간대': { ko: '시간대', en: 'Hour', ja: '時間帯' },
   '요일': { ko: '요일', en: 'Weekday', ja: '曜日' },
   // ── 승단 이력 ──
   '▲ 승단': { ko: '▲ 승단', en: '▲ Promoted', ja: '▲ 昇段' },

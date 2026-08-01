@@ -37,6 +37,15 @@ export interface PlayerResult {
   lastDt: string | null;
   chars: string[];
   tabs: TabData[];
+  /**
+   * 시간대 탭을 **조회 대상의 현지 시각**으로 다시 묶은 것. KST 와 같으면 null.
+   *
+   * tabs 안에 끼우지 않고 따로 내보내는 이유: 탭 목록이 사람에 따라 늘었다 줄었다
+   * 하면 안 되고, 화면에서는 같은 탭 안의 '보기 전환'이기 때문이다.
+   * 31행짜리 작은 표라 두 벌을 다 실어도 응답 크기에 영향이 없다 —
+   * 덕분에 전환이 즉시 되고 재조회가 필요 없다.
+   */
+  localTime: TabData | null;
 }
 
 const tab = (key: string, label: string, t: Table): TabData => ({
@@ -76,8 +85,10 @@ export function computeFromRecords(
    * wideTrend  — 레이팅 추이를 캐릭터별 컬럼으로 펼친다. **엑셀에서만 켤 것.**
    *              JSON 응답에서 켜면 셀 수가 경기수 × 캐릭터수 로 곱해진다
    *              (aggregations.buildRatingTrend 주석 참조).
+   * tzShiftMinutes — KST 로부터의 차이(분). 0/미지정이면 지금까지와 완전히 같다.
+   *              시간대 탭에만 쓴다 (buildTimePatterns 주석 참조).
    */
-  opts?: { matchesLimit?: number; wideTrend?: boolean },
+  opts?: { matchesLimit?: number; wideTrend?: boolean; tzShiftMinutes?: number },
 ): PlayerResult {
   const ordered = [...records].sort((a, b) => a.dt.getTime() - b.dt.getTime());
   const first = ordered[0] ?? null;
@@ -106,6 +117,8 @@ export function computeFromRecords(
     tab('trend', '레이팅 추이', opts?.wideTrend ? widenTrend(trend, trendChars) : trend),
   ];
 
+  const shift = opts?.tzShiftMinutes ?? 0;
+
   return {
     polarisId,
     myName,
@@ -114,5 +127,9 @@ export function computeFromRecords(
     lastDt: last ? formatDt(last.dt) : null,
     chars,
     tabs,
+    // 라벨을 KST 쪽과 다르게 둔다 — 엑셀 시트명이 라벨이라 겹치면 만들 수 없다.
+    localTime: shift
+      ? tab('time_local', '시간대 (현지)', buildTimePatterns(records, shift))
+      : null,
   };
 }

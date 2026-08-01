@@ -16,6 +16,12 @@ import { normalizeReplays, filterByDate } from '@/lib/wavu/normalize';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { seasonSpans } from '@/lib/tekken/seasons';
 import { sessionAdvice } from '@/lib/tekken/advice';
+import {
+  guessTimezone,
+  hourHistogramUtc,
+  formatOffset,
+  KST_MINUTES,
+} from '@/lib/wavu/region';
 
 export const runtime = 'nodejs';
 // wavu 전체 이력(수천~수만 경기)을 받는 데 수 초 걸릴 수 있다. Hobby 기본 10초보다 여유를 둔다.
@@ -40,8 +46,13 @@ export async function GET(
   const season = sp.get('season') ?? undefined;
 
   try {
-    const { replays, fetchedAt, stale } = await getReplays(id);
+    const { replays, fetchedAt, stale, region } = await getReplays(id);
     const { records, myName, stats } = normalizeReplays(replays, id);
+
+    // 시간대 추정은 **전체 이력**으로 한다 — 기간 필터를 좁혀도 추정이 흔들리면
+    // 같은 사람의 시간축이 조회할 때마다 달라진다.
+    const tz = guessTimezone(region, hourHistogramUtc(replays));
+    const tzShiftMinutes = tz.offsetMinutes - KST_MINUTES;
 
     if (records.length === 0) {
       return NextResponse.json(
@@ -65,7 +76,10 @@ export async function GET(
 
     const filtered = char ? dated.filter((r) => r.myChar === char) : dated;
     // 전적 목록은 최근 1,000경기까지만 JSON 에 싣는다 (전체는 엑셀 다운로드로)
-    const result = computeFromRecords(filtered, id, myName, { matchesLimit: 1000 });
+    const result = computeFromRecords(filtered, id, myName, {
+      matchesLimit: 1000,
+      tzShiftMinutes,
+    });
 
     return NextResponse.json({
       ...result,
@@ -84,6 +98,16 @@ export async function GET(
         end: end ?? null,
         season: season ?? null,
         count: filtered.length,
+      },
+      // 서버 지역과 거기서 추정한 현지 시간대. 화면이 '시간대' 탭에서 KST 와
+      // 현지 시각을 전환하는 데 쓴다. region 이 null 이면 추정하지 않았다는 뜻이고
+      // (source='default') 그때는 지금까지와 똑같이 KST 만 보여준다.
+      timezone: {
+        region: region ? { code: region.code, label: region.label } : null,
+        offsetMinutes: tz.offsetMinutes,
+        offsetLabel: formatOffset(tz.offsetMinutes),
+        source: tz.source,
+        fit: tz.fit,
       },
       // stale=true 면 wavu 수집에 실패해 지난 사본을 보여주는 중이다. UI 가 밝힌다.
       cache: { fetchedAt, stale },

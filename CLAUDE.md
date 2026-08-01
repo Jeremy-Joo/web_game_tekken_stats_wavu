@@ -16,7 +16,15 @@ Accept: application/json          ← 이 헤더가 없으면 HTML 이 온다
 
 - HTML 페이지 경로(`?before=` 페이지네이션, `/opps` 등)는 Cloudflare 403 에 막힌다.
   **HTML 스크레이핑으로 되돌리려는 시도는 하지 말 것.**
-  (예외 하나 — 닉네임 검색만은 JSON 변형이 없어 HTML 을 판다. `lib/wavu/search.ts`)
+  예외는 **둘뿐**이다. 둘 다 JSON 에 아예 없는 정보라서 어쩔 수 없는 경우다:
+  1. 닉네임 검색 (`lib/wavu/search.ts`) — 검색은 JSON 변형이 없다(`?_format=json` 무시).
+  2. 서버 지역 (`lib/wavu/region.ts`) — `/player/<id>` 페이지의
+     `<span class="region">`. `/replays` JSON 필드 24개에 국가·지역이 없다(전수 확인).
+     이 경로는 403 에 안 막힌다(실측 200).
+
+  둘 다 **없어도 되는 값**으로 다룬다 — 못 읽으면 조용히 0건/기본값이 되는 게 아니라
+  실패 이유를 구분해 내놓고(`scripts/check-search.ts`, `scripts/check-region.ts`),
+  기능은 '모름' 상태로 계속 굴러간다.
 - wavu 레이트리밋: "요청을 한 번에 하나씩이면 안 걸린다" (공식 문서).
   → 비교 모드도 **순차 수집**이다. `Promise.all` 로 바꾸지 말 것.
 
@@ -58,6 +66,8 @@ npm run build
   사고 이력: `HATE_THIS_GAME` 이 영숫자만 남기면 12자(`HATETHISGAME`)라 식별코드로
   오인돼 검색을 건너뛰고 404 가 났다. **구분자를 지우기 전 원문으로 판정할 것.**
 - `scripts/check-search.ts` — wavu 검색 HTML 파싱. 구조 변화를 '0건'으로 위장하지 않는지.
+- `scripts/check-region.ts` — 지역 파싱 + 시간대 추정. 구조 변화를 '지역 없음'으로
+  위장하지 않는지, 그리고 **추정이 지역 범위를 절대 벗어나지 않는지**(25시간대 × 4지역).
 
 ## 배포
 
@@ -89,6 +99,7 @@ app/api/probe              배포 후 wavu 접근성 확인용
 lib/wavu/client.ts         wavu 호출 + 에러 분류
 lib/wavu/cache.ts          Blob 캐시 + wavu 실패 시 지난 사본 폴백  ← 수집은 전부 여기로
 lib/wavu/search.ts         검색 HTML 파서 (순수 함수 — 테스트됨)
+lib/wavu/region.ts         서버 지역 HTML 파서 + 현지 시간대 추정 (순수 함수 — 테스트됨)
 lib/wavu/token.ts          입력이 식별코드냐 닉네임이냐 판정 (순수 함수 — 테스트됨)
 lib/tekken/                집계(aggregations)·비교(compare)·시즌(seasons)·xlsx
 ```
@@ -107,6 +118,21 @@ lib/tekken/                집계(aggregations)·비교(compare)·시즌(seasons
   스테이지별 승률 탭을 한 번 만들었다가 `#500 70.14%` 처럼 읽을 수 없어 뺐다.
   **매핑이 확보되기 전에는 다시 만들지 말 것.**
 - 시각은 **KST 벽시계를 UTC 필드에 담는다** (`lib/tekken/models.ts` 참조). `getUTC*` 로 읽을 것.
+  wavu 원본 `battle_at` 은 **진짜 UTC epoch 초**다 — wavu 화면이 `new Date(t*1000)` 에
+  `toLocaleString(undefined, …)` (timeZone 옵션 없음)을 쓰므로 **보는 사람 브라우저 시간대**로
+  그려진다. 즉 한국에서 wavu 를 보면 이 사이트와 시각이 같다. 시차 문제는 없다.
+- **'시간대' 탭만 조회 대상의 현지 시각으로 볼 수 있다** (`lib/wavu/region.ts`).
+  외국 유저를 KST 축에 얹으면 "새벽 6~8시 피크, 저녁 0%" 처럼 보여 해석이 통째로 틀린다
+  (실측: 북미 The Quickster). 지역이 **가능한 오프셋 범위**를 주고, 활동 곡선이 그
+  **범위 안에서** 하나를 고른다 — 곡선만 믿으면 22명 검증에서 5명이 최대 3시간 튀었다.
+  - `asia` 는 +9 고정이다(범위 +7~+9). 랭크전 인구가 한국·일본이고, 흔한 경우를
+    2시간 폭으로 흔들 이유가 없다. **한국 유저 조회는 동작이 예전과 완전히 같다.**
+  - 지역을 못 읽으면 **추정하지 않는다.** KST 로 두고 '모름'이라고 화면에 밝힌다.
+  - 기준 프로필(`REFERENCE_PROFILE`)은 asia 상위 6명 140,259경기 실측이다.
+    **'수면 = 새벽 4시' 같은 상식으로 대체하지 말 것** — 게이머의 골짜기는 아침 6~7시라,
+    상식으로 계산했더니 한국 유저가 UTC+5.5 로 나왔다.
+  - **일별·세션·기간 필터·엑셀 파일명은 KST 로 남긴다.** 거기까지 밀면 '기간 08-01~08-02'
+    의 의미가 조회 대상마다 달라지고, 두 사람 비교에서 같은 날짜가 다른 구간을 가리킨다.
 - **시즌 판정의 정답은 `game_version` 하나다** (`models.seasonOf`). 자릿수로 계산하므로
   S4 가 열려도 저절로 따라간다. 화면의 시즌 필터도 날짜가 아니라 `?season=S3` 키로 보내고,
   버튼 목록·구간은 `lib/tekken/seasons.ts` 가 데이터에서 파생시킨다.

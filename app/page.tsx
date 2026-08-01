@@ -122,6 +122,19 @@ interface PlayerResponse {
     season?: string | null;
     count: number;
   };
+  /**
+   * 시간대 탭을 조회 대상의 **현지 시각**으로 다시 묶은 표. KST 와 같으면 null.
+   * (한국 유저·지역 불명이면 항상 null 이라 화면이 지금까지와 똑같다)
+   */
+  localTime?: TabData | null;
+  /** 서버 지역과 거기서 추정한 현지 시간대. lib/wavu/region.ts 참조. */
+  timezone?: {
+    region: { code: string; label: string } | null;
+    offsetMinutes: number;
+    offsetLabel: string;
+    source: 'curve' | 'region' | 'default';
+    fit: number | null;
+  };
   /** stale=true 면 wavu 수집 실패로 지난 사본을 보는 중. */
   cache?: { fetchedAt?: number; stale?: boolean };
   error?: string;
@@ -368,6 +381,11 @@ const TIME_VIEW_LABEL: Record<TimeView, Record<Lang, string>> = {
   시간대: { ko: '하루 시간대', en: 'Hour of day', ja: '時間帯' },
   요일: { ko: '요일별', en: 'By weekday', ja: '曜日別' },
 };
+
+/* 시각 기준 — 한국 시간(이 사이트의 고정 기준) vs 조회 대상의 현지 시간.
+   외국 유저는 KST 축에서 "새벽에 몰아서 한다"처럼 보인다. 숫자는 맞지만
+   해석이 통째로 틀리므로 축을 바꿔 볼 수 있게 한다. (lib/wavu/region.ts) */
+type TzView = 'kst' | 'local';
 
 /** 'Unit' 열로 묶인 표에서 한 묶음만 남기고 그 열은 없앤다. */
 function pickUnit(tab: TabData, unit: string): TabData {
@@ -682,6 +700,10 @@ export default function Home() {
   const [h2hDays, setH2hDays] = useState(0); // 상대전적: 만난 시기
   const [h2hTop, setH2hTop] = useState(0); // 상대전적: 상위 N명만 (0=전체)
   const [timeView, setTimeView] = useState<TimeView>('시간대');
+  // 시간대 탭의 시각 기준. 조회 대상이 외국이면 '현지'가 기본이다 —
+  // 그 사람에게 KST 축은 의미가 없고, 기본값이 오독을 만들면 안 되기 때문이다.
+  // (한국·지역 불명이면 애초에 localTime 이 없어서 이 전환 자체가 안 나온다)
+  const [tzView, setTzView] = useState<TzView>('local');
   // 상대전적에서 눌러 담은 비교 대상 (나는 제외 — 목록을 만들 때 앞에 붙인다)
   const [picked, setPicked] = useState<Favorite[]>([]);
   const [pickMsg, setPickMsg] = useState('');
@@ -1267,6 +1289,10 @@ export default function Home() {
   const h2hTopOpts = h2hFiltered ? h2hTopOptions(h2hFiltered.rows.length) : null;
   const effH2hTop = h2hTopOpts?.includes(h2hTop) ? h2hTop : 0;
 
+  // 현지 시각 표는 한 명 모드에서만, 그리고 KST 와 실제로 다를 때만 존재한다.
+  const localTimeTab = mode === 'single' ? (single?.localTime ?? null) : null;
+  const tz = mode === 'single' ? single?.timezone : undefined;
+
   const displayTab =
     current?.key === 'daily'
       ? rollupDaily(current, effGran, seasons)
@@ -1275,7 +1301,11 @@ export default function Home() {
           ? { ...h2hFiltered, rows: h2hFiltered.rows.slice(0, effH2hTop) }
           : h2hFiltered
         : current?.key === 'time'
-          ? pickUnit(current, timeView)
+          ? // 현지 시각 표는 서버가 같이 보내준 것으로 갈아끼운다 (재조회 없음).
+            pickUnit(
+              tzView === 'local' && localTimeTab ? localTimeTab : current,
+              timeView,
+            )
           : current;
 
   // 비교 표(캐릭터·상대 캐릭·공통 상대)에서 표본이 얇은 행을 걸러낼 수 있는가.
@@ -2237,6 +2267,36 @@ export default function Home() {
                       </button>
                     ))}
                   </div>
+                )}
+
+                {/* 시각 기준 전환 — 조회 대상이 외국일 때만 나온다.
+                    (한국·지역 불명이면 localTimeTab 이 없어 아예 안 그린다) */}
+                {current.key === 'time' && localTimeTab && tz && (
+                  <div className="mode-switch period">
+                    <button
+                      className={tzView === 'local' ? 'on' : ''}
+                      onClick={() => setTzView('local')}
+                    >
+                      {t('tzLocal')(tz.offsetLabel)}
+                    </button>
+                    <button
+                      className={tzView === 'kst' ? 'on' : ''}
+                      onClick={() => setTzView('kst')}
+                    >
+                      {t('tzKst')}
+                    </button>
+                  </div>
+                )}
+
+                {/* 지역 표시 — 추정을 숨기지 않는다. 틀렸을 때 사용자가 알아챌 수
+                    있어야 하고, 지역을 못 읽었으면 그것도 말해야 한다. */}
+                {current.key === 'time' && tz && (
+                  <p className="hint tz-note">
+                    {tz.region
+                      ? t('tzRegion')(tz.region.label, tz.offsetLabel)
+                      : t('tzUnknown')}
+                    {tz.source === 'curve' && ' ' + t('tzByCurve')}
+                  </p>
                 )}
 
                 {/* 비교 표: 표본이 얇은 행 숨기기 */}

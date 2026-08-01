@@ -1,4 +1,5 @@
 import type { Replay } from './types';
+import { parseRegionHtml, type Region } from './region';
 
 export const WAVU_BASE = 'https://wank.wavu.wiki';
 
@@ -95,4 +96,45 @@ export async function fetchReplays(polarisId: string): Promise<Replay[]> {
     throw new WavuError('wavu 응답이 배열이 아닙니다.', res.status, 'bad_response');
   }
   return data as Replay[];
+}
+
+/**
+ * 플레이어의 서버 지역(Asia/America/…). 시간대 추정에 쓴다.
+ *
+ * **JSON 이 아니라 HTML 을 판다** — /replays JSON 에 지역 필드가 없어서다
+ * (필드 24개 전수 확인). 파싱 규칙과 실패 판정은 region.ts 에 있다.
+ *
+ * `?before=` 나 `/opps` 와 달리 이 경로(`/player/<id>`)는 Cloudflare 에 막히지
+ * 않는다(실측 200). 그래도 남의 HTML 이므로 **없어도 되는 값**으로 다룬다 —
+ * 실패는 전부 null 이고, 지역을 몰라도 조회 자체는 그대로 굴러간다.
+ *
+ * 호출 순서 주의: wavu 레이트리밋 회피 원칙상 **replays 와 동시에 보내지 않는다.**
+ * 반드시 순차로 부를 것(Promise.all 금지 — cache.ts 참조).
+ */
+export async function fetchRegion(polarisId: string): Promise<Region | null> {
+  const id = normalizePolarisId(polarisId);
+  if (!id) return null;
+
+  let res: Response;
+  try {
+    res = await fetch(`${WAVU_BASE}/player/${encodeURIComponent(id)}`, {
+      headers: {
+        Accept: 'text/html',
+        'User-Agent': 'tekken-stats-wavu (personal stats viewer)',
+      },
+      cache: 'no-store',
+    });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+
+  const parsed = parseRegionHtml(await res.text());
+  if (!parsed.ok) {
+    // 조용히 넘어가되 흔적은 남긴다. 지역을 못 읽으면 화면은 '지역 모름'으로
+    // 표시되고 시간대는 KST 로 유지된다 — 틀린 시간대를 만들어내지는 않는다.
+    console.warn(`[wavu] 지역 파싱 실패 (${parsed.reason}) id=${id}`);
+    return null;
+  }
+  return parsed.region;
 }

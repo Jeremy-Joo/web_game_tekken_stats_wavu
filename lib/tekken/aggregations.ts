@@ -575,8 +575,15 @@ const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 /**
  * 시간대·요일 패턴. 두 표를 한 탭에 담는다 (탭이 무한정 늘지 않게).
  * `dt` 는 KST 벽시계를 UTC 필드에 담고 있으므로 getUTC* 로 읽는다(models.ts 규약).
+ *
+ * `shiftMinutes` — KST 로부터의 차이(분). 0 이면 지금까지와 똑같이 KST 로 묶는다.
+ * 외국 플레이어를 그 사람 현지 시각으로 보기 위한 것이다 (lib/wavu/region.ts).
+ * **이 표에만 적용한다.** 일별·세션·기간 필터·엑셀 파일명은 KST 로 남는다 —
+ * 그쪽까지 흔들면 '기간 2026-08-01~08-02' 의 의미가 조회 대상에 따라 달라지고,
+ * 두 사람을 비교할 때 같은 날짜가 다른 구간을 가리키게 된다.
+ * 요일도 같이 민다: UTC-8 의 토요일 밤은 KST 로 일요일이라, 시각만 밀면 어긋난다.
  */
-export function buildTimePatterns(df: MatchRecord[]): Table {
+export function buildTimePatterns(df: MatchRecord[], shiftMinutes = 0): Table {
   const t = new Table('Unit', 'Bucket', 'Games', 'W', 'L', 'WinRate(%)', 'AvgRatingDelta');
 
   const push = (unit: string, label: string, rows: MatchRecord[]) => {
@@ -598,8 +605,10 @@ export function buildTimePatterns(df: MatchRecord[]): Table {
     else m.set(k, [r]);
   };
   for (const r of df) {
-    bucket(byHour, r.dt.getUTCHours(), r);
-    bucket(byDow, r.dt.getUTCDay(), r);
+    // shiftMinutes 가 0 이면 새 Date 를 만들지 않는다 — 흔한 경로(KST)를 그대로 둔다.
+    const d = shiftMinutes ? new Date(r.dt.getTime() + shiftMinutes * 60_000) : r.dt;
+    bucket(byHour, d.getUTCHours(), r);
+    bucket(byDow, d.getUTCDay(), r);
   }
   for (let h = 0; h < 24; h++) push('시간대', `${String(h).padStart(2, '0')}시`, byHour.get(h) ?? []);
   for (let d = 0; d < 7; d++) push('요일', WEEKDAYS[d], byDow.get(d) ?? []);
