@@ -59,8 +59,10 @@ function todayKst(): string {
 const view = (v: Visits) => ({ total: v.total, today: v.byDay[todayKst()] ?? 0 });
 
 export async function GET() {
-  const { v } = await readVisits();
-  return NextResponse.json(view(v));
+  const { ok, v } = await readVisits();
+  // ★ ok 를 버리면 '진짜 0명'과 '못 읽어서 모름'이 같은 응답이 된다.
+  //   화면이 둘을 구분해야 없는 숫자를 사실처럼 띄우지 않는다.
+  return NextResponse.json(ok ? view(v) : { ...view(v), stale: true });
 }
 
 export async function POST(req: NextRequest) {
@@ -91,8 +93,15 @@ export async function POST(req: NextRequest) {
       allowOverwrite: true,
       cacheControlMaxAge: 0,
     });
-  } catch {
-    // Blob 미설정(로컬 등)이어도 페이지는 굴러가야 한다
+  } catch (e) {
+    // Blob 미설정(로컬 등)이어도 페이지는 굴러가야 한다.
+    //
+    // 다만 **저장 못 한 숫자를 저장한 것처럼 돌려주지는 않는다.** 예전에는 여기서
+    // 삼키고 v.total(=읽은 값+1)을 그대로 내보냈다. 쓰기만 막힌 상태에서는
+    // 방문자 수가 새로고침마다 늘었다 되돌아가는 유령 숫자가 된다.
+    // 읽기 실패와 같은 취급(stale)으로 통일해 화면이 숫자를 감추게 한다.
+    console.warn(`[visit] Blob 저장 실패 — 방문 수가 누적되지 않는다: ${(e as Error).message}`);
+    return NextResponse.json({ ...view(v), stale: true });
   }
   return NextResponse.json({ total: v.total, today: v.byDay[day] });
 }
