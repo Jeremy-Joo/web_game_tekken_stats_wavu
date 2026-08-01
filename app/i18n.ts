@@ -47,6 +47,13 @@ const D = {
   periodCustom: { ko: '직접입력', en: 'Custom', ja: '指定' },
   startDate: { ko: '시작일', en: 'From', ja: '開始日' },
   endDate: { ko: '종료일', en: 'To', ja: '終了日' },
+  // 비교는 wavu 지침에 맞춰 순차 수집이라 인원수만큼 시간이 는다.
+  // 실측: 4명(149,593경기) 첫 조회 36.7초. 아무 말 없이 30초가 흐르면 멈춘 줄 안다.
+  compareHint: {
+    ko: '여러 명은 한 명씩 차례로 수집합니다 — 인원이 많으면 1분 가까이 걸릴 수 있습니다.',
+    en: 'Players are fetched one at a time — 4 players can take close to a minute.',
+    ja: '複数人は1人ずつ順に取得します — 人数が多いと1分近くかかることがあります。',
+  },
   firstHint: {
     ko: '첫 조회는 몇 초 걸릴 수 있습니다 (전체 전적을 한 번에 받아옴 · 10분간 캐시).',
     en: 'First query may take a few seconds (full history fetched at once, cached 10 min).',
@@ -63,13 +70,64 @@ const D = {
   charAll: { ko: '전체 캐릭터', en: 'All characters', ja: '全キャラ' },
   charLabel: { ko: '캐릭터별 상세 (경기 수 순)', en: 'Per-character detail (by games)', ja: 'キャラ別詳細 (試合数順)' },
   hlToggle: { ko: '우위 항목 하이라이트', en: 'Highlight advantages', ja: '優位項目をハイライト' },
-  compareWithMe: { ko: '나와 비교', en: 'Compare with me', ja: '自分と比較' },
+  // 상대전적 → 비교 목록에 담기 (화면을 벗어나지 않는다)
+  addToCompare: { ko: '비교 목록에 추가', en: 'Add to compare list', ja: '比較リストに追加' },
+  pickLabel: {
+    ko: (n: number, max: number) => `비교 목록 ${n}/${max}명`,
+    en: (n: number, max: number) => `Compare list ${n}/${max}`,
+    ja: (n: number, max: number) => `比較リスト ${n}/${max}人`,
+  },
+  meLabel: { ko: '나', en: 'me', ja: '自分' },
+  remove: { ko: '목록에서 빼기', en: 'Remove', ja: 'リストから外す' },
+  copyBtn: { ko: '📋 복사', en: '📋 Copy', ja: '📋 コピー' },
+  copied: { ko: '복사했습니다 — 여러 명 비교 입력칸에 붙여넣으세요.', en: 'Copied — paste it into the Compare box.', ja: 'コピーしました — 複数比較の入力欄に貼り付けてください。' },
+  copyFail: {
+    ko: '복사하지 못했습니다. 입력칸을 눌러 직접 복사하세요.',
+    en: "Couldn't copy. Select the field and copy manually.",
+    ja: 'コピーできませんでした。入力欄を選択して手動でコピーしてください。',
+  },
+  compareNow: { ko: '⚔ 즉시 비교 (새 창)', en: '⚔ Compare now (new tab)', ja: '⚔ すぐ比較 (新規タブ)' },
+  pickTextLabel: { ko: '비교할 식별코드 목록', en: 'IDs to compare', ja: '比較するIDリスト' },
+  pickFull: {
+    ko: (max: number) => `최대 ${max}명까지 비교할 수 있습니다. 빼고 담으세요.`,
+    en: (max: number) => `Up to ${max} players can be compared. Remove one first.`,
+    ja: (max: number) => `最大${max}人まで比較できます。先に外してください。`,
+  },
   openPlayer: {
     ko: '이 플레이어 전적 보기 (새 창)',
     en: 'Open this player (new tab)',
     ja: 'このプレイヤーを開く (新規タブ)',
   },
   minGames: { ko: '최소 경기', en: 'Min games', ja: '最低試合数' },
+  showTop: { ko: '보여줄 수', en: 'Show top', ja: '表示人数' },
+  // ── 권장 판수 (lib/tekken/advice.ts) ──
+  adviceStop: {
+    ko: (good: number, stop: number) =>
+      `한 세션 ${good}판까지는 평균 이상이었고, ${stop}판을 넘기면 성적이 꺾였습니다.`,
+    en: (good: number, stop: number) =>
+      `Up to ${good} games per session you were above your average; past ${stop} it dropped.`,
+    ja: (good: number, stop: number) =>
+      `1セッション${good}試合までは平均以上、${stop}試合を超えると成績が落ちました。`,
+  },
+  adviceNoDrop: {
+    ko: (good: number) =>
+      `${good}판까지 봐도 성적이 꺾이는 지점이 없었습니다. 판수 자체는 발목을 잡지 않는 편입니다.`,
+    en: (good: number) =>
+      `No drop-off found through ${good} games — session length doesn't seem to hurt you.`,
+    ja: (good: number) =>
+      `${good}試合まで成績の落ち込みは見られません。試合数自体は足を引っ張っていないようです。`,
+  },
+  adviceThin: {
+    ko: '권장 판수를 말하기엔 표본이 부족합니다. 경기가 더 쌓이면 계산됩니다.',
+    en: 'Not enough data yet to suggest a session length.',
+    ja: '推奨試合数を出すにはデータが足りません。',
+  },
+  adviceBaseline: { ko: '내 평균', en: 'your average', ja: '自分の平均' },
+  adviceCaveat: {
+    ko: '※ 상관관계일 뿐입니다 — 잘 풀린 날일수록 오래 하게 되므로 뒷구간 표본은 유리한 쪽으로 치우칩니다.',
+    en: '※ Correlation only — good days last longer, so later buckets are biased toward good sessions.',
+    ja: '※ 相関にすぎません — 調子が良い日ほど長く続くため、後半の標本は有利側に偏ります。',
+  },
   metSince: { ko: '만난 시기', en: 'Last met', ja: '対戦時期' },
   hideThin: {
     ko: (n: number) => `${n}경기 미만 숨기기 (표본 부족)`,
@@ -192,7 +250,7 @@ export const TAB_LABELS: Record<string, Entry> = {
   vs_rating: { ko: '레이팅대', en: 'By opp rating', ja: 'レート帯' },
   flow: { ko: '흐름', en: 'Form & streaks', ja: '流れ' },
   time: { ko: '시간대', en: 'Time of day', ja: '時間帯' },
-  rank: { ko: '단', en: 'Rank', ja: '段位' },
+  rank: { ko: '승단 이력', en: 'Rank history', ja: '昇段履歴' },
   overview: { ko: '개요', en: 'Overview', ja: '概要' },
   chars: { ko: '캐릭터', en: 'Characters', ja: 'キャラ' },
   vs_chars: { ko: '상대 캐릭', en: 'Vs characters', ja: '相手キャラ' },
@@ -240,6 +298,9 @@ export const CELL_I18N: Record<string, Entry> = {
   // ── 시간대 탭 ──
   '시간대': { ko: '시간대', en: 'Hour (KST)', ja: '時間帯 (KST)' },
   '요일': { ko: '요일', en: 'Weekday', ja: '曜日' },
+  // ── 승단 이력 ──
+  '▲ 승단': { ko: '▲ 승단', en: '▲ Promoted', ja: '▲ 昇段' },
+  '▼ 강등': { ko: '▼ 강등', en: '▼ Demoted', ja: '▼ 降段' },
   // ── 레이팅대 탭 ──
   '-300 이하 (내가 훨씬 위)': {
     ko: '-300 이하 (내가 훨씬 위)', en: '≤ -300 (far below me)', ja: '-300以下 (自分が格上)',
@@ -334,9 +395,12 @@ export const COL_I18N: Record<string, Entry> = {
   'Share(%)': { ko: '비중(%)', en: 'Share(%)', ja: '割合(%)' },
   Unit: { ko: '구분', en: 'Group', ja: '区分' },
   Bucket: { ko: '항목', en: 'Item', ja: '項目' },
-  Rank: { ko: '단 (숫자)', en: 'Rank (raw)', ja: '段位 (数値)' },
-  FirstSeen: { ko: '처음', en: 'First', ja: '最初' },
-  LastSeen: { ko: '마지막', en: 'Last', ja: '最後' },
+  // 승단 이력
+  From: { ko: '이전 단', en: 'From', ja: '前の段位' },
+  To: { ko: '바뀐 단', en: 'To', ja: '後の段位' },
+  Change: { ko: '변동', en: 'Change', ja: '変動' },
+  PrevGames: { ko: '이전 단 경기', en: 'Games at prev', ja: '前段位の試合' },
+  'PrevWinRate(%)': { ko: '이전 단 승률(%)', en: 'Prev WR(%)', ja: '前段位勝率(%)' },
   player: { ko: '플레이어', en: 'Player', ja: 'プレイヤー' },
   a_char: { ko: 'A 캐릭터', en: 'A char', ja: 'Aキャラ' },
   b_char: { ko: 'B 캐릭터', en: 'B char', ja: 'Bキャラ' },

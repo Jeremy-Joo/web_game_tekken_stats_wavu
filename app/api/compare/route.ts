@@ -17,6 +17,18 @@ export const maxDuration = 60;
 
 const MAX_PLAYERS = 4;
 
+/**
+ * 수집에 쓸 시간 상한. maxDuration(60초)에서 집계·직렬화 몫을 남겨둔 값이다.
+ *
+ * 왜 필요한가: 순차 수집이라 인원수만큼 시간이 는다. 실측으로 4명(149,593경기)이
+ * 캐시가 전부 빈 상태에서 36.7초 걸렸다 — 60초를 넘길 여지가 있고, 넘기면
+ * 사용자는 1분을 기다린 끝에 원인 모를 504 를 본다.
+ *
+ * 대신 여기서 멈추고 이유를 말한다. 이미 받아온 사람들은 Blob 에 저장돼 있으므로
+ * **다시 시도하면 그만큼 빨라진다** — 재시도가 실제로 효과 있는 안내가 된다.
+ */
+const COLLECT_BUDGET_MS = 45_000;
+
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const ids = (sp.get('ids') ?? '')
@@ -45,7 +57,19 @@ export async function GET(req: NextRequest) {
   const spans: SeasonSpan[][] = []; // 시즌 버튼용 — 사람별 요약만 모은다(레코드 아님)
   let anyStale = false;
   try {
+    const startedAt = Date.now();
     for (const id of uniq) {
+      // 남은 사람을 더 받다가는 함수 시간 제한에 걸린다 — 여기서 끊고 이유를 말한다.
+      if (players.length > 0 && Date.now() - startedAt > COLLECT_BUDGET_MS) {
+        return NextResponse.json(
+          {
+            error:
+              `수집이 오래 걸려 중단했습니다 (${players.length}/${uniq.length}명 완료). ` +
+              `받아둔 기록은 저장돼 있으니 잠시 후 다시 시도하면 훨씬 빠릅니다.`,
+          },
+          { status: 503 },
+        );
+      }
       // 의도적 순차 — 주석 참조
       const { replays, stale } = await getReplays(id);
       if (stale) anyStale = true;

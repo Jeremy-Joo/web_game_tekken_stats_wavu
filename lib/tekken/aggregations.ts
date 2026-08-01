@@ -504,48 +504,69 @@ export function buildVsRating(df: MatchRecord[]): Table {
 }
 
 /**
- * 단(段)별 성적.
+ * 승단 이력 — 단이 바뀐 시점만 한 줄씩. 최신 우선.
  *
- * wavu 가 단 이름을 노출하지 않아 숫자 그대로 둔다 (lib/wavu/chars.ts 와 같은 방침 —
- * 추측한 이름을 붙였다가 틀리면 숫자보다 나쁘다). 숫자만으로도 '어느 단에서
- * 얼마나 오래 머물렀나 / 그 단에서 승률이 어땠나'는 읽을 수 있다.
+ * 단별 누적 통계가 아니라 **사건 기록**이다. "언제 올라갔고 언제 떨어졌나,
+ * 그 직전 단에서 얼마나 버텼나"가 레이팅 숫자보다 체감에 가깝다.
+ *
+ * 단 이름은 붙이지 않는다 — wavu 가 노출하지 않아 숫자 그대로다
+ * (lib/wavu/chars.ts 와 같은 방침: 추측한 이름은 숫자보다 나쁘다).
+ * 오르내림은 숫자 크기로 판정하므로 이름을 몰라도 방향은 정확하다.
  */
-export function buildRankStats(df: MatchRecord[]): Table {
-  interface RankAgg {
-    rank: number;
+export function buildRankHistory(df: MatchRecord[]): Table {
+  const t = new Table(
+    'dt', 'From', 'To', 'Change', 'my_char', 'my_rating', 'PrevGames', 'PrevWinRate(%)',
+  );
+  const ordered = df
+    .filter((r) => r.myRank != null)
+    .sort((a, b) => a.dt.getTime() - b.dt.getTime());
+  if (ordered.length === 0) return t;
+
+  interface Ev {
+    dt: Date;
+    from: number;
+    to: number;
+    char: string;
+    rating: number;
+    games: number;
     w: number;
-    l: number;
-    first: Date;
-    last: Date;
-    chars: Map<string, number>;
   }
-  const m = new Map<number, RankAgg>();
-  for (const r of df) {
-    if (r.myRank == null) continue;
-    let g = m.get(r.myRank);
-    if (!g) {
-      g = { rank: r.myRank, w: 0, l: 0, first: r.dt, last: r.dt, chars: new Map() };
-      m.set(r.myRank, g);
+  const events: Ev[] = [];
+  let cur = ordered[0].myRank;
+  let segW = 0;
+  let segL = 0;
+
+  for (const r of ordered) {
+    if (r.myRank !== cur) {
+      // 직전 단에서의 성적(segW/segL)은 이 경기 **이전**까지다 — 이 경기는 새 단 소속.
+      events.push({
+        dt: r.dt,
+        from: cur,
+        to: r.myRank,
+        char: r.myChar,
+        rating: r.myRating,
+        games: segW + segL,
+        w: segW,
+      });
+      cur = r.myRank;
+      segW = 0;
+      segL = 0;
     }
-    if (r.result === 'W') g.w++;
-    else g.l++;
-    if (r.dt < g.first) g.first = r.dt;
-    if (r.dt > g.last) g.last = r.dt;
-    g.chars.set(r.myChar, (g.chars.get(r.myChar) ?? 0) + 1);
+    if (r.result === 'W') segW++;
+    else segL++;
   }
 
-  const t = new Table('Rank', 'Games', 'W', 'L', 'WinRate(%)', 'main_char', 'FirstSeen', 'LastSeen');
-  for (const g of [...m.values()].sort((a, b) => b.rank - a.rank)) {
-    const games = g.w + g.l;
-    let top = '?';
-    let best = -1;
-    for (const [c, n] of g.chars)
-      if (n > best) {
-        best = n;
-        top = c;
-      }
-    t.add(g.rank, games, g.w, g.l, wr(g.w, games), top, dateKey(g.first), dateKey(g.last));
-  }
+  for (const x of events.reverse())
+    t.add(
+      formatDt(x.dt).slice(0, 16),
+      x.from,
+      x.to,
+      x.to > x.from ? '▲ 승단' : '▼ 강등',
+      x.char,
+      x.rating,
+      x.games,
+      wr(x.w, x.games),
+    );
   return t;
 }
 

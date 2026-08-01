@@ -15,6 +15,7 @@ import { getReplays } from '@/lib/wavu/cache';
 import { normalizeReplays, filterByDate } from '@/lib/wavu/normalize';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { seasonSpans } from '@/lib/tekken/seasons';
+import { sessionAdvice } from '@/lib/tekken/advice';
 
 export const runtime = 'nodejs';
 // wavu 전체 이력(수천~수만 경기)을 받는 데 수 초 걸릴 수 있다. Hobby 기본 10초보다 여유를 둔다.
@@ -76,6 +77,8 @@ export async function GET(
       stats,
       // 시즌 목록·구간은 전체 이력에서 뽑는다 — 기간 필터를 바꿔도 버튼이 흔들리지 않게.
       seasons: seasonSpans(records),
+      // 권장 판수는 '지금 보고 있는 범위' 기준이라 필터된 데이터로 계산한다.
+      advice: sessionAdvice(filtered),
       filtered: {
         start: start ?? null,
         end: end ?? null,

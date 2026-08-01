@@ -8,7 +8,7 @@
 import {
   roundTo, wr, pct, avg,
   buildTotal, buildRound, buildSessions, buildH2h, buildDaily,
-  buildVsRating, buildFlow, buildTimePatterns, buildRankStats,
+  buildVsRating, buildFlow, buildTimePatterns, buildRankHistory,
   buildRatingTrend, widenTrend,
 } from '../lib/tekken/aggregations';
 import { seasonOf, kstFromEpoch, dateKey, type MatchRecord } from '../lib/tekken/models';
@@ -163,18 +163,31 @@ eq('seasonOf 0', seasonOf(0), '?');
   eq('목요일 버킷', dow?.[2], 1);
 }
 
-// ── 단 ──
+// ── 승단 이력: 오름/내림 둘 다, 최신 우선 ──
 {
   const df = [
     rec({ kst: '2026-01-01T10:00', result: 'W', myRank: 30 }),
     rec({ kst: '2026-01-02T10:00', result: 'L', myRank: 30 }),
-    rec({ kst: '2026-01-03T10:00', result: 'W', myRank: 31 }),
+    rec({ kst: '2026-01-03T10:00', result: 'W', myRank: 31 }), // 30 → 31 승단
+    rec({ kst: '2026-01-04T10:00', result: 'L', myRank: 31 }),
+    rec({ kst: '2026-01-05T10:00', result: 'L', myRank: 30 }), // 31 → 30 강등
   ];
-  const rk = buildRankStats(df);
-  eq('단은 높은 순', rk.rows.map((r) => r[0]), [31, 30]);
-  eq('단 30 은 2경기 50%', rk.rows[1].slice(1, 5), [2, 1, 1, 50]);
-  eq('단 30 처음 본 날', rk.rows[1][6], '2026-01-01');
+  const rk = buildRankHistory(df);
+  eq('단이 바뀐 횟수만큼 행', rk.rows.length, 2);
+  eq('최신 사건이 위', rk.rows[0][0], '2026-01-05 10:00');
+  eq('★ 강등도 기록된다', rk.rows[0].slice(1, 4), [31, 30, '▼ 강등']);
+  eq('승단도 기록된다', rk.rows[1].slice(1, 4), [30, 31, '▲ 승단']);
+  // 30단에서 2경기 1승 1패 → 50%. 승단을 만든 그 경기는 새 단 몫이라 안 센다.
+  eq('직전 단 성적 (경기/승률)', rk.rows[1].slice(6), [2, 50]);
+  // 31단 구간은 승단을 만든 경기(1/03 승)부터 강등 직전(1/04 패)까지 2경기 → 50%
+  eq('강등 전 31단은 2경기 50%', rk.rows[0].slice(6), [2, 50]);
 }
+// 단 정보가 없으면 빈 표 (숫자 0 을 단으로 오인하지 않는다)
+eq(
+  '단 기록이 없으면 빈 표',
+  buildRankHistory([]).rows.length,
+  0,
+);
 
 // ── 레이팅 추이: 좁은 포맷 / 엑셀용 와이드 전개 ──
 {

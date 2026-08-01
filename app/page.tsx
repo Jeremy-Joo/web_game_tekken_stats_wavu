@@ -37,6 +37,13 @@ interface PlayerResponse {
   selectedChar?: string | null;
   stats?: { total: number; kept: number; dropped: number; dupes: number };
   seasons?: SeasonInfo[]; // 이 플레이어가 실제로 뛴 시즌들 (전체 이력 기준)
+  advice?: {
+    baselineWinRate: number;
+    bands: { from: number; to: number; games: number; winRate: number; avgDelta: number; enough: boolean }[];
+    goodUpTo: number | null;
+    stopAfter: number | null;
+    reliable: boolean;
+  } | null;
   filtered?: {
     start: string | null;
     end: string | null;
@@ -82,6 +89,9 @@ interface Favorite {
   id: string;
   name: string;
 }
+
+/** 서버가 받는 비교 인원 상한 (api/compare 의 MAX_PLAYERS 와 같아야 한다). */
+const MAX_COMPARE = 4;
 
 const WIN_LOSS_COLS = new Set(['result', 'result_for_a']);
 const ROW_CHUNK = 100; // 긴 표는 이 단위로 끊어 보여준다
@@ -179,7 +189,16 @@ function granOptions(tab: TabData, seasons: SeasonInfo[]): DailyGran[] {
    좁혀야 실제로 읽을 수 있다. 한 명 모드의 강점/약점 매치업과 같은 취지다. */
 
 type H2hView = 'all' | 'strong' | 'weak';
-const H2H_MINS = [0, 10, 50, 100, 150];
+/**
+ * 두 컨트롤이 같은 눈금을 쓴다. 어느 쪽이든 **데이터가 받쳐주는 값만** 화면에 나온다
+ * (h2hMinOptions / h2hTopOptions 가 걸러낸다) — 상대가 300명인데 '상위 5000명'
+ * 버튼이 보이거나, 최다 대전이 939판인데 '2500판 이상' 버튼이 보이는 일은 없다.
+ */
+const H2H_STEPS = [10, 50, 100, 250, 500, 1000, 2500, 5000];
+/** 최소 경기수 — 'N판 이상 붙어본 상대만'. 0 = 전체. */
+const H2H_MINS = [0, ...H2H_STEPS];
+/** 보여줄 인원 — 정렬 기준 상위 N명만. 0 = 전체. */
+const H2H_TOPS = [...H2H_STEPS, 0];
 /**
  * '마지막으로 만난 날' 기준.
  *   0     전체
@@ -209,6 +228,12 @@ function h2hMinOptions(tab: TabData): number[] | null {
   return H2H_MINS.filter((m) => m === 0 || tab.rows.some((r) => Number(r[gi]) >= m));
 }
 
+/** 지금 남은 행 수보다 작은 선택지만 (300명인데 '상위 500명' 버튼은 의미가 없다). */
+function h2hTopOptions(count: number): number[] {
+  const opts = H2H_TOPS.filter((n) => n === 0 || n < count);
+  return opts.length > 1 ? opts : [];
+}
+
 /**
  * 상대전적 좁히기.
  *
@@ -217,7 +242,12 @@ function h2hMinOptions(tab: TabData): number[] | null {
  * '그 기간 동안의 전적'이 필요하면 위쪽 조회 기간(월별/시즌/직접입력)을 쓰면 된다 —
  * 그건 서버가 다시 집계하므로 정확하다.
  */
-function filterH2h(tab: TabData, min: number, days: number, view: H2hView): TabData {
+function filterH2h(
+  tab: TabData,
+  min: number,
+  days: number,
+  view: H2hView,
+): TabData {
   const gi = tab.columns.indexOf('Games');
   const wi = tab.columns.indexOf('WinRate(%)');
   const li = tab.columns.indexOf('LastPlayed');
@@ -414,8 +444,8 @@ function DataTable({
   tab: TabData;
   rowHl?: ((row: (string | number | null)[]) => Set<number>) | null;
   lang?: Lang;
-  /** 주어지면 상대 이름/식별코드 클릭이 '나와 비교'가 된다 (한 명 모드 전용). */
-  onCompare?: (oppPolaris: string) => void;
+  /** 주어지면 상대 이름/식별코드 클릭이 '비교 목록에 담기'가 된다 (한 명 모드 전용). */
+  onCompare?: (oppPolaris: string, oppName: string) => void;
 }) {
   const tt = makeT(lang);
   const [query, setQuery] = useState('');
@@ -440,6 +470,7 @@ function DataTable({
 
   // 상대 식별코드가 있는 표(상대전적·공통 상대)는 이름/ID 클릭 → 새 창에서 그 플레이어 조회
   const polIdx = tab.columns.indexOf('opp_polaris');
+  const nameIdx = tab.columns.indexOf('opp_name'); // 칩에 보일 닉네임
   const isLinkCol = (j: number) =>
     polIdx >= 0 && (j === polIdx || tab.columns[j] === 'opp_name');
 
@@ -493,15 +524,17 @@ function DataTable({
                       >
                         {linked ? (
                           <span className="plink-cell">
-                            {/* 기본 동작 = 나와 비교. 상대전적에서 제일 자주 하는 다음 행동이다.
-                                onCompare 가 없는 화면(이미 비교 모드 등)에서는 예전처럼
-                                그 플레이어 조회로 떨어진다. */}
+                            {/* 기본 동작 = 비교 목록에 담기 (화면은 그대로 둔다).
+                                onCompare 가 없는 화면(이미 비교 모드 등)에서는
+                                예전처럼 그 플레이어 조회로 떨어진다. */}
                             {onCompare ? (
                               <button
                                 type="button"
                                 className="plink"
-                                title={`${pol} — ${tt('compareWithMe')}`}
-                                onClick={() => onCompare(pol)}
+                                title={`${pol} — ${tt('addToCompare')}`}
+                                onClick={() =>
+                                  onCompare(pol, nameIdx >= 0 ? String(r[nameIdx] ?? '') : '')
+                                }
                               >
                                 {v}
                               </button>
@@ -567,7 +600,11 @@ export default function Home() {
   const [xlsxMsg, setXlsxMsg] = useState('');
   const [h2hMin, setH2hMin] = useState(0); // 상대전적: 최소 경기수
   const [h2hDays, setH2hDays] = useState(0); // 상대전적: 만난 시기
+  const [h2hTop, setH2hTop] = useState(0); // 상대전적: 상위 N명만 (0=전체)
   const [timeView, setTimeView] = useState<TimeView>('시간대');
+  // 상대전적에서 눌러 담은 비교 대상 (나는 제외 — 목록을 만들 때 앞에 붙인다)
+  const [picked, setPicked] = useState<Favorite[]>([]);
+  const [pickMsg, setPickMsg] = useState('');
   const [h2hView, setH2hView] = useState<H2hView>('all');
   // 비교 표에서 표본 미달(5경기 미만) 행 숨기기 — 3판 100% 가 39판 55% 위에 뜨는 걸 막는다
   const [hideThin, setHideThin] = useState(true);
@@ -687,6 +724,25 @@ export default function Home() {
     return { choices: found };
   };
 
+
+  /**
+   * 기간 상태 → **공유 URL** 파라미터 (서버 쿼리가 아니라 화면 상태 복원용).
+   * 주소창 동기화와 '즉시 비교(새 창)'가 같은 형식을 쓰도록 한 곳에 모았다 —
+   * 갈라지면 새 창만 기간이 초기화되는 식으로 조용히 어긋난다.
+   */
+  const periodShareParams = useCallback((): URLSearchParams => {
+    const sp = new URLSearchParams();
+    if (periodMode === 'all') return sp;
+    sp.set('pm', periodMode);
+    if (periodMode === 'month') sp.set('mo', month);
+    if (periodMode === 'year') sp.set('yr', year);
+    if (periodMode === 'season') sp.set('sn', seasonSel);
+    if (periodMode === 'custom') {
+      if (start) sp.set('st', start);
+      if (end) sp.set('en', end);
+    }
+    return sp;
+  }, [periodMode, month, year, seasonSel, start, end]);
 
   /** 기간 모드 → 실제 start/end 쿼리. */
   const periodQuery = useCallback((): URLSearchParams => {
@@ -826,22 +882,49 @@ export default function Home() {
   };
 
   /**
-   * 상대전적에서 상대를 눌렀을 때 — **나 vs 그 상대**로 바로 비교 조회.
+   * 상대전적에서 상대를 눌렀을 때 — **비교 목록에 담기만 한다.**
    *
-   * 상대전적 표에서 "이 사람한테 왜 지지?"가 다음 질문이라, 식별코드를 복사해
-   * 비교 모드에 붙여넣는 과정을 없앤다. 기간 필터는 그대로 유지된다.
-   * setMode 는 다음 렌더에나 반영되므로 run 에 모드를 함께 넘긴다.
+   * 예전에는 곧바로 비교 조회로 넘어갔는데, 보던 상대전적 표가 사라지고
+   * 한 명하고만 비교할 수 있었다. 표를 그대로 둔 채 여러 명을 골라 담고,
+   * 다 고르면 새 창에서 열거나 복사해 쓰는 편이 실제 흐름에 맞는다.
    */
-  const compareWithMe = (oppPolaris: string) => {
+  const addPick = (oppPolaris: string, oppName: string) => {
     const me = single?.polarisId;
     if (!me || !oppPolaris || me === oppPolaris) return;
-    const joined = `${me}, ${oppPolaris}`;
-    setMode('compare');
-    setIds(joined);
-    setCharSel('');
-    setActiveTab(''); // 비교는 탭 구성이 달라 첫 탭부터 연다
-    window.scrollTo({ top: 0 });
-    run(undefined, joined, undefined, 'compare');
+    const label = oppName ? `${oppName} (${oppPolaris})` : oppPolaris;
+    if (picked.some((p) => p.id === oppPolaris)) {
+      setPickMsg(t('already')(oppName || oppPolaris));
+      return;
+    }
+    // 서버 상한이 4명이고 그중 한 자리는 '나'가 쓴다
+    if (picked.length + 1 >= MAX_COMPARE) {
+      setPickMsg(t('pickFull')(MAX_COMPARE));
+      return;
+    }
+    setPicked((prev) => [...prev, { id: oppPolaris, name: oppName }]);
+    setPickMsg(t('added')(label));
+  };
+
+  /** 비교 목록 = 나 + 고른 상대들. 복사·새 창 양쪽이 같은 값을 쓴다. */
+  const pickedIds = single ? [single.polarisId, ...picked.map((p) => p.id)] : [];
+  const pickedText = pickedIds.join(', ');
+
+  const copyPicked = async () => {
+    try {
+      await navigator.clipboard.writeText(pickedText);
+      setPickMsg(t('copied'));
+    } catch {
+      // 클립보드 권한이 없거나 http 인 환경 — 입력칸을 직접 고르게 안내한다
+      setPickMsg(t('copyFail'));
+    }
+  };
+
+  /** 새 창에서 비교 — 지금 화면(상대전적)을 유지한 채 결과를 따로 본다. */
+  const openCompare = () => {
+    if (!single || picked.length === 0) return;
+    const sp = periodShareParams();
+    sp.set('ids', pickedIds.join(','));
+    window.open(`/?${sp}`, '_blank', 'noopener');
   };
 
   // ── 공유 URL: 조회 상태(모드·기간·캐릭터·탭)를 주소에 싣고, 열릴 때 복원한다 ──
@@ -899,7 +982,7 @@ export default function Home() {
     // 현재 모드의 결과가 있을 때만 쓴다 — 결과 표시 중 모드만 토글하면
     // (mode 는 바뀌었는데 그 모드의 결과는 없음) URL 의 id/ids 가 지워지는 것을 방지
     if (mode === 'single' ? !single : !compare) return;
-    const sp = new URLSearchParams();
+    const sp = periodShareParams();
     // 단일은 /player/<식별코드> 를 기본 주소로 쓴다 (wavu·tknow 와 같은 형식).
     // 비교는 대상이 여럿이라 쿼리로 유지한다.
     const single1 = mode === 'single' && single;
@@ -1042,15 +1125,24 @@ export default function Home() {
   const effGran: DailyGran =
     dailyOpts && dailyOpts.includes(dailyGran) ? dailyGran : 'day';
 
-  // 상대전적 탭: 최소 경기수 + 강점/약점 보기
+  // 상대전적 탭: 최소 경기수 → 만난 시기 → 강점/약점 정렬 → 상위 N명
+  // (자르기는 정렬 뒤에 해야 '강점 상위 10명'이 뜻대로 나온다)
   const h2hOpts = current?.key === 'h2h' ? h2hMinOptions(current) : null;
   const effH2hMin = h2hOpts && h2hOpts.includes(h2hMin) ? h2hMin : 0;
+  const h2hFiltered =
+    current?.key === 'h2h' && h2hOpts
+      ? filterH2h(current, effH2hMin, h2hDays, h2hView)
+      : null;
+  const h2hTopOpts = h2hFiltered ? h2hTopOptions(h2hFiltered.rows.length) : null;
+  const effH2hTop = h2hTopOpts?.includes(h2hTop) ? h2hTop : 0;
 
   const displayTab =
     current?.key === 'daily'
       ? rollupDaily(current, effGran, seasons)
-      : current?.key === 'h2h' && h2hOpts
-        ? filterH2h(current, effH2hMin, h2hDays, h2hView)
+      : h2hFiltered
+        ? effH2hTop > 0
+          ? { ...h2hFiltered, rows: h2hFiltered.rows.slice(0, effH2hTop) }
+          : h2hFiltered
         : current?.key === 'time'
           ? pickUnit(current, timeView)
           : current;
@@ -1263,6 +1355,61 @@ export default function Home() {
                 {loading ? t('querying') : t('query')}
               </button>
             </div>
+
+            {/* 상대전적에서 눌러 담은 비교 목록.
+                여기서 끝내지 않고 '복사'(여러 명 비교에 붙여넣기)와
+                '즉시 비교'(새 창) 두 갈래를 준다 — 보던 표를 잃지 않게. */}
+            {picked.length > 0 && (
+              <div className="pick-box">
+                <div className="pick-head">
+                  <span className="ctl-label">
+                    {t('pickLabel')(pickedIds.length, MAX_COMPARE)}
+                  </span>
+                  <button
+                    className="ghost"
+                    onClick={() => {
+                      setPicked([]);
+                      setPickMsg('');
+                    }}
+                  >
+                    {t('clearBtn')}
+                  </button>
+                </div>
+                <div className="pick-chips">
+                  <span className="chip me">
+                    {single?.myName || single?.polarisId} · {t('meLabel')}
+                  </span>
+                  {picked.map((p) => (
+                    <span key={p.id} className="chip">
+                      {p.name || p.id}
+                      <button
+                        className="chip-x"
+                        title={t('remove')}
+                        onClick={() =>
+                          setPicked((v) => v.filter((x) => x.id !== p.id))
+                        }
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="row">
+                  <input
+                    className="pick-text"
+                    readOnly
+                    value={pickedText}
+                    onFocus={(e) => e.currentTarget.select()}
+                    aria-label={t('pickTextLabel')}
+                  />
+                  <button className="ghost" onClick={copyPicked}>
+                    {t('copyBtn')}
+                  </button>
+                  <button onClick={openCompare}>{t('compareNow')}</button>
+                </div>
+                {pickMsg && <p className="hint">{pickMsg}</p>}
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -1456,6 +1603,7 @@ export default function Home() {
           <p className="warn">{t('staleWarn')(staleMinutes)}</p>
         )}
         <p className="hint">{t('firstHint')}</p>
+        {mode === 'compare' && <p className="hint">{t('compareHint')}</p>}
       </div>
 
       {single && (
@@ -1696,8 +1844,53 @@ export default function Home() {
                           {H2H_VIEW_LABEL[v][lang]}
                         </button>
                       ))}
+                      {/* 정렬 뒤에 자르므로 '강점 상위 10명'처럼 뜻대로 동작한다 */}
+                      {h2hTopOpts && h2hTopOpts.length > 0 && (
+                        <>
+                          <span className="gran-sep" />
+                          <span className="ctl-label">{t('showTop')}</span>
+                          {h2hTopOpts.map((n) => (
+                            <button
+                              key={n}
+                              className={effH2hTop === n ? 'on' : ''}
+                              onClick={() => setH2hTop(n)}
+                            >
+                              {n === 0 ? t('periodAll') : n}
+                            </button>
+                          ))}
+                        </>
+                      )}
                     </div>
                   </>
+                )}
+
+                {/* 흐름: 이 사람 데이터로 뽑은 권장 판수.
+                    단정하지 않는다 — 표본이 얇거나 꺾이는 지점이 없으면 그렇게 말한다. */}
+                {current.key === 'flow' && single?.advice && (
+                  <div className="advice">
+                    {single.advice.reliable ? (
+                      <>
+                        <p className="advice-main">
+                          {single.advice.stopAfter
+                            ? t('adviceStop')(
+                                single.advice.goodUpTo ?? single.advice.stopAfter,
+                                single.advice.stopAfter,
+                              )
+                            : t('adviceNoDrop')(single.advice.goodUpTo ?? 0)}
+                        </p>
+                        <p className="advice-bands">
+                          {single.advice.bands
+                            .filter((b) => b.enough)
+                            .map((b) => `${b.from}~${b.to}판 ${b.winRate}%`)
+                            .join('  ·  ')}
+                          {`  (${t('adviceBaseline')} ${single.advice.baselineWinRate}%)`}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="advice-main">{t('adviceThin')}</p>
+                    )}
+                    <p className="hint">{t('adviceCaveat')}</p>
+                  </div>
                 )}
 
                 {/* 시간대: 하루 시간대 / 요일별 */}
@@ -1733,10 +1926,8 @@ export default function Home() {
                   rowHl={
                     mode === 'compare' && hlOn ? makeRowHighlighter(current) : null
                   }
-                  // 한 명 모드의 상대전적에서만 '나와 비교'가 성립한다
-                  onCompare={
-                    mode === 'single' && single ? compareWithMe : undefined
-                  }
+                  // 한 명 모드의 상대전적에서만 '비교 목록에 담기'가 성립한다
+                  onCompare={mode === 'single' && single ? addPick : undefined}
                 />
               </>
             )

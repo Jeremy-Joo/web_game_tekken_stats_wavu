@@ -337,6 +337,89 @@ button.ghost,
   flex-wrap: wrap;
 }
 
+/* 흐름 탭의 권장 판수 안내 */
+.advice {
+  margin-bottom: 0.7rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: rgba(110, 168, 254, 0.06);
+}
+
+.advice-main {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.advice-bands {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.advice .hint {
+  margin: 0.35rem 0 0;
+}
+
+/* 상대전적에서 눌러 담은 비교 목록 — 검색칸 바로 아래 */
+.pick-box {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: rgba(110, 168, 254, 0.07);
+}
+
+.pick-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.pick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.pick-chips .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.pick-chips .chip.me {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.chip-x {
+  all: unset;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 1.05em;
+  line-height: 1;
+  padding: 0 0.1rem;
+}
+
+.chip-x:hover {
+  color: var(--loss);
+}
+
+.pick-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
 /* 버튼 줄 앞에 붙는 설명 라벨 (예: "최소 경기", "만난 시기") */
 .ctl-label {
   color: var(--muted);
