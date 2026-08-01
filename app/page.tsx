@@ -929,6 +929,36 @@ export default function Home() {
   };
 
   /**
+   * 기간(시즌·월·연·직접입력)을 바꾸면 **자동으로 다시 조회한다.**
+   *
+   * 예전에는 S2 를 눌러도 화면이 그대로라 조회 버튼을 또 눌러야 했다.
+   * 버튼을 눌렀는데 아무 일도 안 일어나면 고장으로 보인다.
+   *
+   * 주의한 것들:
+   *  - 조회 결과가 없으면(첫 조회 전) 아무것도 하지 않는다. 빈 입력으로 요청이 나간다.
+   *  - 400ms 묶어서 보낸다. 직접입력은 시작일·종료일을 연달아 고르는데,
+   *    그때마다 조회하면 요청이 두 번 나간다.
+   *  - 이미 조회 중이면 건너뛴다(loadingRef — 타임아웃 안에서 loading 은 옛 값이다).
+   */
+  const loadingRef = useRef(false);
+  loadingRef.current = loading;
+  const periodSig = `${periodMode}|${month}|${year}|${seasonSel}|${start}|${end}`;
+  const periodFirstRef = useRef(true);
+  useEffect(() => {
+    if (periodFirstRef.current) {
+      periodFirstRef.current = false;
+      return;
+    }
+    if (mode === 'single' ? !single : !compare) return;
+    const t = setTimeout(() => {
+      if (!loadingRef.current) run();
+    }, 400);
+    return () => clearTimeout(t);
+    // periodSig 하나만 본다 — run/single 을 넣으면 조회할 때마다 다시 조회한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodSig]);
+
+  /**
    * 상대전적에서 상대를 눌렀을 때 — **비교 목록에 담기만 한다.**
    *
    * 예전에는 곧바로 비교 조회로 넘어갔는데, 보던 상대전적 표가 사라지고
