@@ -807,8 +807,12 @@ export default function Home() {
     const counted = sessionStorage.getItem('tkwavu_visited');
     fetch('/api/visit', { method: counted ? 'GET' : 'POST' })
       .then((r) => r.json())
-      .then((d: { total?: number; today?: number }) => {
-        if (typeof d.total === 'number')
+      .then((d: { total?: number; today?: number; stale?: boolean }) => {
+        // stale=true 는 값을 **모른다**는 뜻이다 ('0명'이 아니다).
+        // 저장소가 막히면 total 이 0 으로 오는데, 그대로 그리면
+        // "방문 0" 이라는 없는 사실을 푸터에 박아두게 된다. 그럴 땐 아예 감춘다.
+        // (운영자용 신호는 /api/probe 의 blob 항목과 서버 로그가 맡는다)
+        if (!d.stale && typeof d.total === 'number')
           setVisits({ total: d.total, today: d.today ?? 0 });
         sessionStorage.setItem('tkwavu_visited', '1');
       })
