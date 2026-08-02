@@ -2217,7 +2217,8 @@ export default function Home() {
                     {/* 조언은 유머와 독립이다 — 유머를 꺼도 이건 볼 수 있어야 한다 */}
                     {showCoach && (
                       <p className="advice-coach">
-                        🎬{' '}
+                        {/* 아이콘은 붙이지 않는다 — 배경색과 글자색만으로 이미
+                            농담 줄과 구분되고, 문장 앞의 그림이 읽기를 방해했다. */}
                         {pickCoach(
                           single.advice.mood,
                           lang,
