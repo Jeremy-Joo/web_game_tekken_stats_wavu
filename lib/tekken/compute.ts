@@ -99,7 +99,11 @@ export function computeFromRecords(
 
   const { table: trend, chars: trendChars } = buildRatingTrend(records);
 
+  // 순서 = 탭 줄에 보이는 순서이자 **기본으로 열리는 탭**이다 (화면이 tabs[0] 을 연다).
+  // '흐름'을 맨 앞에 둔 이유: 조회하자마자 궁금한 건 캐릭터별 누적이 아니라
+  // "지금 상태가 어떤가 / 더 해도 되나"다. 누적 통계는 그다음에 찾아본다.
   const tabs: TabData[] = [
+    tab('flow', '흐름', buildFlow(records)),
     tab('total', '캐릭터', buildTotal(records)),
     tab('matches', '전적 목록', buildMatches(records, opts?.matchesLimit)),
     tab('season', '시즌', summaryBy(records, (r) => r.season, 'Season')),
@@ -108,7 +112,6 @@ export function computeFromRecords(
     tab('weak', '약점 매치업', buildWeak(records)),
     tab('round', '라운드', buildRound(records)),
     tab('vs_rating', '레이팅대', buildVsRating(records)),
-    tab('flow', '흐름', buildFlow(records)),
     tab('time', '시간대', buildTimePatterns(records)),
     tab('rank', '승단 이력', buildRankHistory(records)),
     tab('h2h', '상대전적', buildH2h(records)),
