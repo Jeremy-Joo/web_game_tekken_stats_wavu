@@ -9,10 +9,11 @@
 // (문서상 "한 번에 하나씩이면 레이트리밋에 안 걸린다"),
 // 기간 필터는 받아온 뒤 서버 메모리에서 하므로 캐시 키를 오염시키지 않는다.
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { normalizePolarisId, WavuError } from '@/lib/wavu/client';
 import { getRecords } from '@/lib/wavu/cache';
 import { filterByDate } from '@/lib/wavu/normalize';
+import { logPlayerLookup } from '@/lib/stats-log';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { seasonSpans } from '@/lib/tekken/seasons';
 import { sessionAdvice } from '@/lib/tekken/advice';
@@ -79,6 +80,9 @@ export async function GET(
       matchesLimit: 1000,
       tzShiftMinutes,
     });
+
+    // 조회 기록은 응답을 보낸 뒤에 남긴다 (after) — 사용자 대기시간에 영향 없음
+    after(() => logPlayerLookup(id, myName));
 
     return NextResponse.json({
       ...result,
