@@ -29,6 +29,23 @@ const MAX_PLAYERS = 4;
  */
 const COLLECT_BUDGET_MS = 45_000;
 
+/**
+ * 비교에 쓸 수 있는 **전체 경기 수** 상한.
+ *
+ * 시간이 아니라 메모리 때문에 필요하다. 비교는 참가자 전원의 레코드를 동시에 들고
+ * h2h·공통 상대를 교차 계산해야 해서, 큰 사람이 끼면 함수가 그냥 죽는다.
+ * 죽으면 500 + **본문 0바이트**가 나가고 화면에는 "Unexpected end of JSON input"만
+ * 뜬다 — 사용자는 원인을 알 길이 없다.
+ *
+ * 실측 경계:
+ *   30,233 + 44,306 =  74,539  →  7.4초, 정상
+ *   21,190 + 138,560 = 159,750 →  14.1초, HTTP 500 (본문 없음)
+ * 확인된 정상치와 사고치 사이에서 잡았다. 넘으면 죽는 대신 이유를 말한다.
+ *
+ * 한 명 조회는 138,560경기도 잘 돌아간다(14.1초, 7.6MB) — 그래서 안내에 그 길을 알려준다.
+ */
+const MAX_TOTAL_GAMES = 100_000;
+
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const ids = (sp.get('ids') ?? '')
@@ -56,6 +73,7 @@ export async function GET(req: NextRequest) {
   const players: ComparePlayer[] = [];
   const spans: SeasonSpan[][] = []; // 시즌 버튼용 — 사람별 요약만 모은다(레코드 아님)
   let anyStale = false;
+  let totalGames = 0;
   try {
     const startedAt = Date.now();
     for (const id of uniq) {
@@ -74,6 +92,23 @@ export async function GET(req: NextRequest) {
       const { replays, stale } = await getReplays(id);
       if (stale) anyStale = true;
       const { records, myName } = normalizeReplays(replays, id);
+
+      // 이 사람까지 더하면 감당이 안 되는가. 계산에 들어가기 **전에** 막는다 —
+      // 들어간 뒤에 죽으면 본문 없는 500 이 나가서 원인을 알 수 없다.
+      totalGames += records.length;
+      if (totalGames > MAX_TOTAL_GAMES) {
+        return NextResponse.json(
+          {
+            error:
+              `비교하기엔 전적이 너무 많습니다 (합계 ${totalGames.toLocaleString()}경기, ` +
+              `상한 ${MAX_TOTAL_GAMES.toLocaleString()}경기). ` +
+              `'${myName || id}' 님만 ${records.length.toLocaleString()}경기입니다. ` +
+              `한 명씩 조회하면 정상 동작합니다.`,
+          },
+          { status: 413 },
+        );
+      }
+
       players.push({
         polarisId: id,
         name: myName || id,

@@ -46,6 +46,30 @@ import {
  *   COACH  조언 — 리플레이·확정딜캐·유튜브 권유. 유머는 싫지만 이건 원하는 경우가 있다.
  * 둘을 한 스위치로 묶으면 그 조합을 만들 수 없다.
  */
+/**
+ * 응답을 JSON 으로 읽되, **JSON 이 아닐 때 무슨 일이 있었는지 말해준다.**
+ *
+ * 그냥 res.json() 을 쓰면 본문이 비었을 때 "Unexpected end of JSON input" 이 뜬다.
+ * 실제로 그랬다 — 138,560경기 플레이어를 비교하다 서버가 죽어 500 + 본문 0바이트를
+ * 돌려줬는데, 화면에는 파서 오류만 떠서 원인을 짐작할 수 없었다.
+ * 게다가 파싱이 res.ok 검사보다 **먼저** 터져 상태 코드조차 못 보고 있었다.
+ */
+async function readJson<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (text) {
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      /* 아래 공통 메시지로 떨어진다 */
+    }
+  }
+  throw new Error(
+    res.status >= 500
+      ? `서버가 응답하지 못했습니다 (HTTP ${res.status}). 조회 대상이 너무 크거나 일시적인 문제일 수 있습니다.`
+      : `응답을 읽지 못했습니다 (HTTP ${res.status}).`,
+  );
+}
+
 const QUIPS_KEY = 'tkwavu_quips';
 const COACH_KEY = 'tkwavu_coach';
 
@@ -841,7 +865,7 @@ export default function Home() {
     const res = await fetch(
       `/api/search?q=${encodeURIComponent(tok)}${inclHistory ? '&history=1' : ''}`,
     );
-    const data = (await res.json()) as { results?: Favorite[]; error?: string };
+    const data = await readJson<{ results?: Favorite[]; error?: string }>(res);
     if (!res.ok) return { error: data.error ?? `HTTP ${res.status}` };
     const found = data.results ?? [];
     if (found.length === 0)
@@ -947,7 +971,7 @@ export default function Home() {
             res = await fetch(`/api/replays/${encodeURIComponent(alt.id)}?${q}`);
           }
 
-          const data = (await res.json()) as PlayerResponse;
+          const data = await readJson<PlayerResponse>(res);
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
           setSingle(data);
           setCompare(null);
@@ -981,7 +1005,7 @@ export default function Home() {
           const q = periodQuery();
           q.set('ids', resolved.join(','));
           const res = await fetch(`/api/compare?${q}`);
-          const data = (await res.json()) as CompareResponse;
+          const data = await readJson<CompareResponse>(res);
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
           setCompare(data);
           setSingle(null);
