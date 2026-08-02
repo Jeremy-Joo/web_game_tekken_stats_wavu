@@ -89,6 +89,17 @@ npm run build
 `npx vercel link --yes --scope teamjeremio --project tekken8stats` —
 **`--project` 를 빼면 새 프로젝트가 만들어져 URL 이 바뀐다.**
 
+### 알려진 상태 (2026-08-02)
+
+**Blob 스토어가 정지돼 있다** — `/api/probe` 의 `blob.error` 가
+`"This store has been suspended."`. 무료 한도(Advanced Operations 2,000/월 —
+put·copy·list)를 넘긴 것으로 보인다. 한도는 30일 주기로 풀린다.
+
+그동안 사이트는 **정상 동작하되 캐시가 없다** — 조회마다 wavu 에서 전체 이력을
+새로 받는다(138,560경기면 매번 14초). 고장이 아니라 성능만 떨어진 상태다.
+`list()` 제거와 컬럼 캐시(쓰기 9.5MB→2.7MB)로 사용량은 이미 크게 줄여뒀으니,
+다음 주기에는 여유가 있을 것이다. 풀린 뒤 `/api/probe` 로 `blob.ok` 를 확인할 것.
+
 배포 직후 확인할 것:
 
 1. **`/api/probe` 하나면 된다.** `ok: true` 가 아니면 `hint` 에 뭘 고쳐야 하는지 나온다.

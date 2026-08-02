@@ -91,7 +91,21 @@ async function readBlob(id: string): Promise<Stored | null> {
   }
 }
 
+/**
+ * 쓰기가 막혀 있으면 한동안 시도하지 않는다.
+ *
+ * 스토어가 정지되면(무료 한도 초과 등) `put` 은 매번 실패하는데, 실패를 알기까지
+ * **gzip + 업로드 시도**를 다 한다. 실측 2.7MB 압축에만 수백 ms 가 든다.
+ * 요청마다 그 시간을 버리는 대신, 한 번 막히면 몇 분 쉬었다 다시 본다.
+ *
+ * 인스턴스별 메모리라 정확한 차단은 아니다 — 목적이 그게 아니라 '헛일 줄이기'다.
+ * 스토어가 살아나면 다음 확인 때 자동으로 복구된다(사람 손이 필요 없다).
+ */
+const WRITE_RETRY_MS = 5 * 60_000;
+let writeBlockedUntil = 0;
+
 async function writeBlob(id: string, stored: Stored): Promise<void> {
+  if (Date.now() < writeBlockedUntil) return; // 막힌 걸 아는 동안은 조용히 건너뛴다
   try {
     const body = await gz(Buffer.from(JSON.stringify(stored)));
     const res = await put(keyFor(id), body, {
@@ -113,7 +127,10 @@ async function writeBlob(id: string, stored: Stored): Promise<void> {
     // 이 자리가 매번 실패하면서 캐시가 통째로 없는 상태가 되는데, 응답은 정상이라
     // 몇 달을 모른 채 지날 수 있다(실제로 그랬다 — 조회할 때마다 wavu 에서
     // 15MB 를 새로 받고 있었다). 상태 확인은 /api/probe 의 blob 항목으로 한다.
-    console.warn(`[cache] Blob 저장 실패 — 캐시 없이 동작 중: ${(e as Error).message}`);
+    writeBlockedUntil = Date.now() + WRITE_RETRY_MS;
+    console.warn(
+      `[cache] Blob 저장 실패 — ${WRITE_RETRY_MS / 60000}분간 캐시 없이 동작: ${(e as Error).message}`,
+    );
   }
 }
 
