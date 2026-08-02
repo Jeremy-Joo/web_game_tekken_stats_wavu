@@ -1550,12 +1550,24 @@ export default function Home() {
     return ys;
   })();
 
-  /** 메인(초기 화면)으로 — 결과를 닫고 맨 위로. 입력값과 즐겨찾기는 유지. */
+  /**
+   * 메인(초기 화면)으로 — 결과를 닫고 맨 위로. 입력값과 즐겨찾기는 유지.
+   *
+   * 주소도 루트로 되돌린다. 조회 중에는 주소가 /player/<식별코드> 로 바뀌어 있는데,
+   * 결과만 닫고 주소를 그대로 두면 화면은 초기 상태인데 새로고침하면 그 사람이
+   * 다시 조회된다 — 눈에 보이는 것과 주소가 어긋난다.
+   *
+   * replaceState 를 쓰는 이유: 히스토리를 늘리지 않으려는 것이다(주소창 동기화와 같은 방침).
+   * 전체 새로고침(location.href)이 아니라서 입력칸과 최근 조회가 살아 있다.
+   */
   const goHome = () => {
     setSingle(null);
     setCompare(null);
     setError('');
     setActiveTab('');
+    setPicked([]);
+    setPickMsg('');
+    window.history.replaceState(null, '', '/');
     window.scrollTo({ top: 0 });
   };
 
