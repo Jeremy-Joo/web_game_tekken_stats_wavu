@@ -26,6 +26,35 @@ export function roundTo(value: number, digits: number): number {
   return r / f;
 }
 
+/**
+ * 배열에서 최대/최소 뽑기. **`Math.max(...arr)` 를 쓰지 말 것.**
+ *
+ * 스프레드는 원소를 하나씩 **함수 인자로 펼친다.** V8 의 인자 개수 한계(대략 6.5만)를
+ * 넘으면 "Maximum call stack size exceeded" 로 죽는다. 메모리와 무관하고, 배열이
+ * 일정 크기를 넘는 순간 갑자기 터지는 종류의 버그다.
+ *
+ * 실제 사고: 138,560경기 플레이어를 비교할 때 최고 레이팅을 구하는 자리에서
+ * 서버가 죽어 **본문 없는 500** 이 나갔고, 화면에는 파서 오류만 떴다.
+ * (30,233 + 44,306 은 각자 한계 아래라 멀쩡히 돌아가서 더 늦게 발견됐다)
+ */
+export function maxBy<T>(items: readonly T[], pick: (x: T) => number): number {
+  let m = -Infinity;
+  for (const it of items) {
+    const v = pick(it);
+    if (v > m) m = v;
+  }
+  return m;
+}
+
+export function minBy<T>(items: readonly T[], pick: (x: T) => number): number {
+  let m = Infinity;
+  for (const it of items) {
+    const v = pick(it);
+    if (v < m) m = v;
+  }
+  return m;
+}
+
 export const wr = (w: number, total: number): number =>
   total > 0 ? roundTo((w * 100) / total, 2) : 0.0;
 

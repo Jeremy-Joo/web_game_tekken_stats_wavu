@@ -5,7 +5,7 @@
 import type { MatchRecord } from './models';
 import { formatDt, dateKey } from './models';
 import { Table } from './table';
-import { wr, roundTo, cmpOIC } from './aggregations';
+import { wr, roundTo, cmpOIC, maxBy, minBy } from './aggregations';
 import type { TabData } from './compute';
 
 /**
@@ -115,7 +115,7 @@ export function computeCompare(players: ComparePlayer[]): TabData[] {
   });
   row('사용 캐릭터 수', (p) => new Set(p.records.map((r) => r.myChar)).size);
   row('최고 레이팅', (p) =>
-    p.records.length ? Math.max(...p.records.map((r) => r.myRating)) : 0,
+    p.records.length ? maxBy(p.records, (r) => r.myRating) : 0,
   );
   // 최고 레이팅은 '전성기 기록'이라 지금 누가 센지는 말해주지 않는다.
   // 비교에서 정작 궁금한 건 현재 값이라 나란히 둔다.
@@ -131,7 +131,7 @@ export function computeCompare(players: ComparePlayer[]): TabData[] {
     return wr(last20.filter((r) => r.result === 'W').length, last20.length);
   });
   row('최고 텍켄파워', (p) =>
-    p.records.length ? Math.max(...p.records.map((r) => r.myPower)) : 0,
+    p.records.length ? maxBy(p.records, (r) => r.myPower) : 0,
   );
   row('경기당 평균/일', (p) => {
     if (!p.records.length) return 0;
@@ -140,9 +140,8 @@ export function computeCompare(players: ComparePlayer[]): TabData[] {
   });
   row('데이터 기간', (p) => {
     if (!p.records.length) return '-';
-    const ts = p.records.map((r) => r.dt.getTime());
-    const lo = new Date(Math.min(...ts));
-    const hi = new Date(Math.max(...ts));
+    const lo = new Date(minBy(p.records, (r) => r.dt.getTime()));
+    const hi = new Date(maxBy(p.records, (r) => r.dt.getTime()));
     return `${dateKey(lo)} ~ ${dateKey(hi)}`;
   });
 
@@ -168,7 +167,7 @@ export function computeCompare(players: ComparePlayer[]): TabData[] {
       '최고 레이팅',
       ...players.map((p) => {
         const rs = sub(p);
-        return rs.length ? Math.max(...rs.map((r) => r.myRating)) : 0;
+        return rs.length ? maxBy(rs, (r) => r.myRating) : 0;
       }),
     );
   }
@@ -219,26 +218,42 @@ export function computeCompare(players: ComparePlayer[]): TabData[] {
     'opp_name', 'opp_polaris',
     ...players.flatMap((p) => [`${L(p)}_games`, `${L(p)}_wr(%)`]),
   );
-  const oppSets = players.map(
-    (p) =>
-      new Set(
-        p.records
-          .filter((r) => r.oppPolaris && r.oppPolaris !== p.polarisId)
-          .map((r) => r.oppPolaris),
-      ),
-  );
-  let common = oppSets[0] ?? new Set<string>();
-  for (const s of oppSets.slice(1)) common = new Set([...common].filter((x) => s.has(x)));
-  // 자기들끼리는 맞대결 시트가 따로 있으니 공통 상대에서 뺀다
-  for (const p of players) common.delete(p.polarisId);
+  // 상대 식별코드로 한 번만 색인한다. 예전에는 공통 상대마다 전원의 레코드를
+  // 처음부터 훑어서 `공통상대수 × 전체경기수` 였다 — 실측으로 159,750경기에서
+  // computeCompare 하나가 29.8초 걸렸다(함수 제한 60초). 색인을 만들면
+  // `전체경기수 + 공통상대수` 로 떨어진다. 레코드를 복사하지 않고 참조만 담는다.
+  const byOpp = players.map((p) => {
+    const m = new Map<string, MatchRecord[]>();
+    for (const r of p.records) {
+      if (!r.oppPolaris || r.oppPolaris === p.polarisId) continue;
+      const arr = m.get(r.oppPolaris);
+      if (arr) arr.push(r);
+      else m.set(r.oppPolaris, [r]);
+    }
+    return m;
+  });
 
-  const commonRows = [...common]
+  // 전원이 만나본 상대만. 가장 작은 목록부터 훑어야 비교 횟수가 최소가 된다.
+  const smallest = byOpp.reduce((a, b) => (a.size <= b.size ? a : b));
+  const common: string[] = [];
+  for (const pol of smallest.keys()) {
+    if (players.some((p) => p.polarisId === pol)) continue; // 자기들끼리는 맞대결 시트로
+    if (byOpp.every((m) => m.has(pol))) common.push(pol);
+  }
+
+  const commonRows = common
     .map((pol) => {
+      // 이름은 그 상대와의 경기에서만 세면 된다 (개명 이력이 있어 최빈값을 쓴다)
       const names = new Map<string, number>();
-      for (const p of players)
-        for (const r of p.records)
-          if (r.oppPolaris === pol && r.oppName)
-            names.set(r.oppName, (names.get(r.oppName) ?? 0) + 1);
+      const per = byOpp.map((m) => {
+        const rs = m.get(pol) ?? [];
+        for (const r of rs)
+          if (r.oppName) names.set(r.oppName, (names.get(r.oppName) ?? 0) + 1);
+        return {
+          games: rs.length,
+          wr: wr(rs.filter((r) => r.result === 'W').length, rs.length),
+        };
+      });
       let name = pol;
       let bn = -1;
       for (const [n, c] of names)
@@ -246,10 +261,6 @@ export function computeCompare(players: ComparePlayer[]): TabData[] {
           bn = c;
           name = n;
         }
-      const per = players.map((p) => {
-        const rs = p.records.filter((r) => r.oppPolaris === pol);
-        return { games: rs.length, wr: wr(rs.filter((r) => r.result === 'W').length, rs.length) };
-      });
       return { pol, name, per, total: per.reduce((s, x) => s + x.games, 0) };
     })
     .sort((a, b) => b.total - a.total || cmpOIC(a.name, b.name));

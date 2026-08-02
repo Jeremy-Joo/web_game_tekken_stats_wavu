@@ -36,6 +36,17 @@ const D = {
   },
   query: { ko: '조회', en: 'Search', ja: '照会' },
   querying: { ko: '수집 중…', en: 'Loading…', ja: '取得中…' },
+  // 오래 걸리는 조회에서 화면이 멈춘 것처럼 보이지 않게 초를 센다.
+  queryingSec: {
+    ko: (s: number) => `수집 중… ${s}초`,
+    en: (s: number) => `Loading… ${s}s`,
+    ja: (s: number) => `取得中… ${s}秒`,
+  },
+  longWait: {
+    ko: '전적이 많은 플레이어는 시간이 걸립니다. 그대로 기다려 주세요 — 다음 조회부터는 훨씬 빠릅니다.',
+    en: 'Players with huge histories take a while. Please wait — the next lookup will be much faster.',
+    ja: '対戦数が多いプレイヤーは時間がかかります。そのままお待ちください — 次回はずっと速くなります。',
+  },
   addLabel: { ko: '검색해서 목록에 추가', en: 'Search and add to list', ja: '検索してリストに追加' },
   addPlaceholder: { ko: '닉네임 또는 ID', en: 'Nickname or ID', ja: 'ニックネームまたはID' },
   addBtn: { ko: '검색·추가', en: 'Add', ja: '検索・追加' },

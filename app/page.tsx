@@ -739,6 +739,22 @@ export default function Home() {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [loading, setLoading] = useState(false);
+
+  /**
+   * 조회에 걸린 시간(초). 전적이 많은 사람은 10초 넘게 걸리는데, 그동안 화면이
+   * 멈춘 것처럼 보이면 사람들은 새로고침하거나 버튼을 다시 누른다.
+   * 숫자가 올라가는 것만 보여줘도 "돌아가는 중"이라는 게 전달된다.
+   */
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!loading) {
+      setElapsed(0);
+      return;
+    }
+    const t0 = Date.now();
+    const iv = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 300);
+    return () => clearInterval(iv);
+  }, [loading]);
   const [error, setError] = useState('');
   const [single, setSingle] = useState<PlayerResponse | null>(null);
   const [compare, setCompare] = useState<CompareResponse | null>(null);
@@ -1683,7 +1699,7 @@ export default function Home() {
                 spellCheck={false}
               />
               <button onClick={() => run()} disabled={loading}>
-                {loading ? t('querying') : t('query')}
+                {loading ? (elapsed ? t('queryingSec')(elapsed) : t('querying')) : t('query')}
               </button>
             </div>
 
@@ -1758,7 +1774,7 @@ export default function Home() {
                 spellCheck={false}
               />
               <button onClick={() => run()} disabled={loading}>
-                {loading ? t('querying') : t('query')}
+                {loading ? (elapsed ? t('queryingSec')(elapsed) : t('querying')) : t('query')}
               </button>
             </div>
 
@@ -1949,6 +1965,8 @@ export default function Home() {
         {staleMinutes !== null && (
           <p className="warn">{t('staleWarn')(staleMinutes)}</p>
         )}
+        {/* 8초를 넘기면 "멈췄나?" 싶어진다. 그때부터 기다려도 된다고 말해준다. */}
+        {loading && elapsed >= 8 && <p className="warn">{t('longWait')}</p>}
         <p className="hint">{t('firstHint')}</p>
         {mode === 'compare' && <p className="hint">{t('compareHint')}</p>}
       </div>
