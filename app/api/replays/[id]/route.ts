@@ -11,14 +11,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizePolarisId, WavuError } from '@/lib/wavu/client';
-import { getReplays } from '@/lib/wavu/cache';
-import { normalizeReplays, filterByDate } from '@/lib/wavu/normalize';
+import { getRecords } from '@/lib/wavu/cache';
+import { filterByDate } from '@/lib/wavu/normalize';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { seasonSpans } from '@/lib/tekken/seasons';
 import { sessionAdvice } from '@/lib/tekken/advice';
 import {
   guessTimezone,
-  hourHistogramUtc,
+  hourHistogramUtcFromRecords,
   formatOffset,
   KST_MINUTES,
 } from '@/lib/wavu/region';
@@ -46,12 +46,11 @@ export async function GET(
   const season = sp.get('season') ?? undefined;
 
   try {
-    const { replays, fetchedAt, stale, region } = await getReplays(id);
-    const { records, myName, stats } = normalizeReplays(replays, id);
+    const { records, myName, stats, fetchedAt, stale, region } = await getRecords(id);
 
     // 시간대 추정은 **전체 이력**으로 한다 — 기간 필터를 좁혀도 추정이 흔들리면
     // 같은 사람의 시간축이 조회할 때마다 달라진다.
-    const tz = guessTimezone(region, hourHistogramUtc(replays));
+    const tz = guessTimezone(region, hourHistogramUtcFromRecords(records));
     const tzShiftMinutes = tz.offsetMinutes - KST_MINUTES;
 
     if (records.length === 0) {

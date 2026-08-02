@@ -157,6 +157,21 @@ export function hourHistogramUtc(replays: Replay[]): number[] {
   return h;
 }
 
+/**
+ * 정규화된 레코드로 같은 히스토그램을 만든다.
+ *
+ * 캐시가 원본이 아니라 정규화 레코드를 들고 있어서 필요하다(lib/tekken/codec.ts).
+ * `dt` 는 **KST 벽시계를 UTC 필드에 담고 있으므로**(models.ts 규약) 9시간을
+ * 되돌리면 진짜 UTC 시각이 된다.
+ */
+export function hourHistogramUtcFromRecords(
+  records: readonly { dt: Date }[],
+): number[] {
+  const h = new Array(24).fill(0);
+  for (const r of records) h[(((r.dt.getUTCHours() - 9) % 24) + 24) % 24]++;
+  return h;
+}
+
 /** UTC 히스토그램을 offsetHours 만큼 돌려 '현지시간별'로 만든다. */
 function toLocal(utc: readonly number[], offsetHours: number): number[] {
   return utc.map((_, i) => utc[(((i - offsetHours) % 24) + 24) % 24]);

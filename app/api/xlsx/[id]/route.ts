@@ -4,13 +4,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizePolarisId, WavuError } from '@/lib/wavu/client';
-import { getReplays } from '@/lib/wavu/cache';
-import { normalizeReplays, filterByDate } from '@/lib/wavu/normalize';
+import { getRecords } from '@/lib/wavu/cache';
+import { filterByDate } from '@/lib/wavu/normalize';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { computeCompare, type ComparePlayer } from '@/lib/tekken/compare';
 import { tabsToXlsx } from '@/lib/tekken/xlsx';
 import type { MatchRecord } from '@/lib/tekken/models';
-import { guessTimezone, hourHistogramUtc, KST_MINUTES } from '@/lib/wavu/region';
+import { guessTimezone, hourHistogramUtcFromRecords, KST_MINUTES } from '@/lib/wavu/region';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -98,8 +98,7 @@ export async function GET(
       const players: ComparePlayer[] = [];
       for (const id of ids) {
         // wavu 지침대로 순차 수집
-        const { replays } = await getReplays(id);
-        const { records, myName } = normalizeReplays(replays, id);
+        const { records, myName } = await getRecords(id);
         players.push({
           polarisId: id,
           name: myName || id,
@@ -119,8 +118,7 @@ export async function GET(
     if (!id) {
       return NextResponse.json({ error: '식별코드가 비었습니다.' }, { status: 400 });
     }
-    const { replays, region } = await getReplays(id);
-    const { records, myName } = normalizeReplays(replays, id);
+    const { records, myName, region } = await getRecords(id);
     const char = sp.get('char') ?? undefined;
     const dated = applyPeriod(records);
     const filtered = char ? dated.filter((r) => r.myChar === char) : dated;
@@ -129,7 +127,7 @@ export async function GET(
     }
     // 엑셀은 레이팅 추이를 캐릭터별 컬럼으로 펼친다 — 시트에서 바로 차트를 만들 수 있게.
     // (JSON 응답은 좁은 포맷이다. compute.ts 의 wideTrend 주석 참조)
-    const tz = guessTimezone(region, hourHistogramUtc(replays));
+    const tz = guessTimezone(region, hourHistogramUtcFromRecords(records));
     const result = computeFromRecords(filtered, id, myName, {
       wideTrend: true,
       tzShiftMinutes: tz.offsetMinutes - KST_MINUTES,

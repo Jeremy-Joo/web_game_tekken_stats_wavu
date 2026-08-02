@@ -13,6 +13,7 @@ import {
 } from '../lib/tekken/aggregations';
 import { seasonOf, kstFromEpoch, dateKey, type MatchRecord } from '../lib/tekken/models';
 import { seasonSpans, mergeSeasonSpans } from '../lib/tekken/seasons';
+import { packRecords, unpackRecords } from '../lib/tekken/codec';
 
 let failed = 0;
 const eq = (name: string, got: unknown, want: unknown) => {
@@ -32,11 +33,13 @@ function rec(o: Partial<MatchRecord> & { kst: string; result: 'W' | 'L' }): Matc
     battleId: `b${seq++}`,
     player: 'ME', myPolaris: 'MEMEMEMEMEME', myChar: 'Jin',
     myRating: 1500, myDelta: 0, myPower: 0, myRank: 25,
-    score: '3-0', myRounds: 3, oppRounds: 0,
+    myRounds: 3, oppRounds: 0,
     oppName: 'OPP', oppPolaris: 'OPPOPPOPPOP1', oppChar: 'Kazuya',
     oppRating: 1500, oppDelta: 0, oppPower: 0, oppRank: 25,
     season: 'S2', gameVersion: 20101, stageId: 1,
     ...rest,
+    // score 는 라운드 수에서 파생한다 — 따로 주면 서로 어긋난 픽스처가 만들어진다
+    score: `${rest.myRounds ?? 3}-${rest.oppRounds ?? 0}`,
   } as MatchRecord;
 }
 
@@ -161,6 +164,41 @@ eq('seasonOf 0', seasonOf(0), '?');
   eq('02시 버킷에 들어간다 (UTC 로 밀리지 않음)', hour?.[2], 1);
   const dow = t.rows.find((r) => r[0] === '요일' && r[1] === '목');
   eq('목요일 버킷', dow?.[2], 1);
+}
+
+// ── 캐시 코덱 왕복: 넣은 값이 그대로 나와야 한다 ──
+// 컬럼으로 접었다 펴는 과정에서 필드가 밀리거나 빠지면, 통계가 조용히 틀린다.
+// 저장 전 레코드와 복원 레코드를 필드 단위로 대조한다.
+{
+  const df = [
+    rec({ kst: '2026-01-01T10:00', result: 'W', myChar: 'Jin', oppChar: 'Law',
+          myRating: 1520, myDelta: 20, myPower: 3000, myRank: 30,
+          myRounds: 3, oppRounds: 1, oppName: 'A', oppPolaris: 'AAAAAAAAAAAA',
+          oppRating: 1480, oppDelta: -20, oppPower: 2900, oppRank: 29,
+          season: 'S2', gameVersion: 20101, stageId: 7 }),
+    rec({ kst: '2026-01-02T11:30', result: 'L', myChar: 'Law', oppChar: 'Jin',
+          myRating: 1500, myDelta: -20, myPower: 3010, myRank: 30,
+          myRounds: 0, oppRounds: 3, oppName: 'B&C', oppPolaris: 'BBBBBBBBBBBB',
+          oppRating: 1600, oppDelta: 20, oppPower: 3100, oppRank: 31,
+          season: 'S3', gameVersion: 30101, stageId: null }),
+  ];
+  const back = unpackRecords(packRecords(df, 'ME', 'MEMEMEMEMEME'));
+  eq('코덱 왕복: 건수 보존', back?.length, df.length);
+  if (back) {
+    // battleId 는 정규화 전용 키라 저장하지 않는다(코덱 주석 참조) — 그것만 빼고 전부 일치
+    // 키 순서는 의미가 없으므로 정렬해서 비교한다
+    const strip = (r: MatchRecord) => {
+      const o: Record<string, unknown> = { ...r, battleId: '', dt: r.dt.getTime() };
+      return Object.fromEntries(Object.keys(o).sort().map((k) => [k, o[k]]));
+    };
+    eq('코덱 왕복: 모든 필드 일치', back.map(strip), df.map(strip));
+    eq('코덱 왕복: score 재구성', back[0].score, '3-1');
+    eq('코덱 왕복: stageId null 보존', back[1].stageId, null);
+    eq('코덱 왕복: 특수문자 이름 보존', back[1].oppName, 'B&C');
+  }
+  eq('버전이 다르면 null (옛 사본 무시)',
+     unpackRecords({ ...packRecords(df, 'ME', 'M'), v: 1 }), null);
+  eq('망가진 사본이면 null', unpackRecords(null), null);
 }
 
 // ── 승단 이력: 오름/내림 둘 다, 최신 우선 ──

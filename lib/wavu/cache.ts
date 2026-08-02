@@ -24,7 +24,14 @@ import { gzip, gunzip } from 'node:zlib';
 import { promisify } from 'node:util';
 import { fetchReplays, fetchRegion } from './client';
 import { readPublicBlob, rememberOriginFrom, blobOrigin } from './blob';
-import type { Replay } from './types';
+import { normalizeReplays, type NormalizeStats } from './normalize';
+import {
+  packRecords,
+  unpackRecords,
+  CODEC_VERSION,
+  type PackedRecords,
+} from '../tekken/codec';
+import type { MatchRecord } from '../tekken/models';
 import type { Region } from './region';
 
 const gz = promisify(gzip);
@@ -33,10 +40,18 @@ const gunz = promisify(gunzip);
 /** 사본을 신선하다고 볼 시간. */
 export const CACHE_SECONDS = 600;
 
-const keyFor = (id: string) => `cache/replays/${id}.json.gz`;
+/**
+ * 경로에 코덱 버전이 들어간다. 형식이 바뀌면 새 경로에 쓰고 옛 사본은 그냥 안 읽힌다 —
+ * 마이그레이션도 삭제 작업도 없고, 옛 파일은 다음 갱신 때 자연히 쓸모없어진다.
+ */
+const keyFor = (id: string) => `cache/records/v${CODEC_VERSION}/${id}.json.gz`;
 
-export interface CachedReplays {
-  replays: Replay[];
+export interface CachedRecords {
+  /** 이미 정규화된 레코드. 호출부는 normalizeReplays 를 다시 부르지 않는다. */
+  records: MatchRecord[];
+  myName: string;
+  /** 정규화 때 걸러진 건수 — 화면이 '조용한 누락'을 드러내는 데 쓴다. */
+  stats: NormalizeStats;
   /** wavu 에서 실제로 받아온 시각(epoch ms). */
   fetchedAt: number;
   /** wavu 수집에 실패해 낡은 사본을 내주는 중이면 true. */
@@ -50,7 +65,8 @@ export interface CachedReplays {
 
 interface Stored {
   fetchedAt: number;
-  replays: Replay[];
+  packed: PackedRecords;
+  stats: NormalizeStats;
   /**
    * 지역은 나중에 추가된 필드다. 그 전에 쓰인 사본에는 없어서 undefined 가 온다 —
    * 이때는 null 로 다뤄 '지역 모름'(KST 유지)이 되고, 사본이 만료되는 대로
@@ -67,7 +83,7 @@ async function readBlob(id: string): Promise<Stored | null> {
     if (!r.body) return null; // 없거나 못 읽음 — 어느 쪽이든 wavu 에서 새로 받으면 된다
     const raw = await gunz(Buffer.from(r.body));
     const d = JSON.parse(raw.toString('utf8')) as Stored;
-    if (!Array.isArray(d?.replays) || typeof d.fetchedAt !== 'number') return null;
+    if (typeof d?.fetchedAt !== 'number' || !d.packed) return null;
     return d;
   } catch {
     // 사본을 못 읽는 것은 치명적이지 않다 — wavu 에서 새로 받으면 된다.
@@ -146,42 +162,58 @@ export async function probeBlob(): Promise<{
 }
 
 /** 같은 인스턴스에서 같은 식별코드 요청이 겹치면 한 번만 일하게 합친다. */
-const inflight = new Map<string, Promise<CachedReplays>>();
+const inflight = new Map<string, Promise<CachedRecords>>();
 
-async function load(id: string): Promise<CachedReplays> {
+/** 사본에서 복원. 형식이 안 맞으면 null 을 돌려 wavu 재수집으로 떨어진다. */
+function fromCache(cached: Stored, stale: boolean): CachedRecords | null {
+  const records = unpackRecords(cached.packed);
+  if (!records) return null;
+  return {
+    records,
+    myName: cached.packed.player,
+    stats: cached.stats,
+    fetchedAt: cached.fetchedAt,
+    stale,
+    region: cached.region ?? null,
+  };
+}
+
+async function load(id: string): Promise<CachedRecords> {
   const cached = await readBlob(id);
-  if (cached && Date.now() - cached.fetchedAt < CACHE_SECONDS * 1000)
-    return {
-      replays: cached.replays,
-      fetchedAt: cached.fetchedAt,
-      stale: false,
-      region: cached.region ?? null,
-    };
+  if (cached && Date.now() - cached.fetchedAt < CACHE_SECONDS * 1000) {
+    const hit = fromCache(cached, false);
+    if (hit) return hit;
+  }
 
   try {
     const replays = await fetchReplays(id);
     // ★ 순차 — wavu 레이트리밋 원칙("요청을 한 번에 하나씩")을 따른다.
     //   Promise.all 로 묶지 말 것. 지역은 실패해도 null 이라 조회를 막지 않는다.
     const region = await fetchRegion(id);
+    const { records, myName, stats } = normalizeReplays(replays, id);
     const fetchedAt = Date.now();
-    await writeBlob(id, { fetchedAt, replays, region });
-    return { replays, fetchedAt, stale: false, region };
+    // 원본이 아니라 **정규화된 레코드**를 저장한다 — 읽는 쪽이 다시 정규화하지 않게.
+    // (크기·속도 실측은 lib/tekken/codec.ts 주석 참조)
+    await writeBlob(id, {
+      fetchedAt,
+      packed: packRecords(records, myName, id),
+      stats,
+      region,
+    });
+    return { records, myName, stats, fetchedAt, stale: false, region };
   } catch (e) {
     // wavu 가 막혔거나 느리다. 낡았더라도 사본이 있으면 그것을 준다 —
     // '10분 지난 데이터'가 '서비스 불가'보다 낫다. 사본이 없을 때만 에러를 올린다.
-    if (cached)
-      return {
-        replays: cached.replays,
-        fetchedAt: cached.fetchedAt,
-        stale: true,
-        region: cached.region ?? null,
-      };
+    if (cached) {
+      const old = fromCache(cached, true);
+      if (old) return old;
+    }
     throw e;
   }
 }
 
-/** 전체 이력을 가져온다 (Blob 사본 우선, 없거나 낡았으면 wavu). */
-export function getReplays(id: string): Promise<CachedReplays> {
+/** 전체 이력을 정규화된 상태로 가져온다 (Blob 사본 우선, 없거나 낡았으면 wavu). */
+export function getRecords(id: string): Promise<CachedRecords> {
   const running = inflight.get(id);
   if (running) return running;
   const p = load(id).finally(() => inflight.delete(id));

@@ -6,8 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizePolarisId, WavuError } from '@/lib/wavu/client';
-import { getReplays } from '@/lib/wavu/cache';
-import { normalizeReplays, filterByDate } from '@/lib/wavu/normalize';
+import { getRecords } from '@/lib/wavu/cache';
+import { filterByDate } from '@/lib/wavu/normalize';
 import { computeCompare, type ComparePlayer } from '@/lib/tekken/compare';
 import { seasonSpans, mergeSeasonSpans, type SeasonSpan } from '@/lib/tekken/seasons';
 
@@ -87,9 +87,8 @@ export async function GET(req: NextRequest) {
         );
       }
       // 의도적 순차 — 주석 참조
-      const { replays, stale } = await getReplays(id);
+      const { records, myName, stale } = await getRecords(id);
       if (stale) anyStale = true;
-      const { records, myName } = normalizeReplays(replays, id);
 
       // 이 사람까지 더하면 감당이 안 되는가. 계산에 들어가기 **전에** 막는다 —
       // 들어간 뒤에 죽으면 본문 없는 500 이 나가서 원인을 알 수 없다.

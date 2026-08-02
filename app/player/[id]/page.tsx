@@ -6,7 +6,7 @@
 
 import type { Metadata } from 'next';
 import Home from '../../page';
-import { getReplays } from '@/lib/wavu/cache';
+import { getRecords } from '@/lib/wavu/cache';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -25,14 +25,13 @@ const normalize = (raw: string) =>
  * 게다가 next.revalidate 도 2MB 한도에 걸려 실질적으로 안 걸렸다.
  * 공용 캐시(Blob)를 쓰면 사본 한 벌을 나눠 쓰고, 이 호출이 그 사본을 데워준다.
  *
- * wavu 는 최신 경기를 배열 맨 앞에 준다(실측) — arr[0] 이 현재 이름이다.
+ * 이름은 캐시가 이미 들고 있다 — 정규화 때 '가장 최근 경기의 내 이름'으로 정해진다
+ * (normalize.ts). 원본을 뒤질 필요가 없다.
  */
 async function fetchName(id: string): Promise<string | null> {
   try {
-    const { replays } = await getReplays(id);
-    const b = replays[0];
-    if (!b) return null;
-    return (b.p1_polaris_id === id ? b.p1_name : b.p2_name) ?? null;
+    const { myName } = await getRecords(id);
+    return myName || null;
   } catch {
     return null;
   }
