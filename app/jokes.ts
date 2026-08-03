@@ -202,6 +202,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       // cold 의 한강 규칙과 같은 선이다: 한강은 라면·자전거 쪽이고 수온 밈은 안 쓴다.
       () => `순풍입니다. 돛만 펴 두면 됩니다.`,
       () => `파도를 타고 계십니다. 노를 더 저을 필요도 없네요.`,
+      // 시험·마감 회피 — 공부 안 하고 하는 그 재미. 나무라지 않고 인정한다.
+      () => `시험 기간에 치는 철권이 제일 잘 맞습니다. 이유는 아무도 모릅니다.`,
+      () => `해야 할 일을 미룰수록 승률이 오르는 건 통계학의 미스터리입니다.`,
+      () => `오늘 이 폼은 마감이 가까울 때만 나오는 폼입니다.`,
     ],
     en: [
       (pp) => `If only stocks moved like this — last 20 games are ${pp}%p above your usual.`,
@@ -324,6 +328,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       // Same line as the Han River rule in cold: food and bikes, never the water itself.
       () => `Tailwind. Just keep the sail up.`,
       () => `You are riding the wave. No need to row.`,
+      // Procrastination — the specific joy of playing instead of studying. No scolding.
+      () => `Tekken during exam season always feels this good. Nobody knows why.`,
+      () => `The more you postpone, the better the win rate. Statistics has no explanation.`,
+      () => `This form only shows up when a deadline is near.`,
     ],
     ja: [
       (pp) => `株もこう上がってほしい… 直近20試合が平均より${pp}%p 高いです。`,
@@ -446,6 +454,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       // coldの漢江ルールと同じ線（ラーメン・自転車まで、水温ネタは使わない）。
       () => `追い風です。帆を張っておけば十分です。`,
       () => `波に乗っています。漕ぐ必要もありません。`,
+      // 試験・締切からの逃避 — 勉強せずにやる楽しさ。責めずに認める。
+      () => `試験期間の鉄拳が一番手に馴染む。理由は誰にも分かりません。`,
+      () => `やるべきことを後回しにするほど勝率が上がる。統計学の謎です。`,
+      () => `この調子は締切が近いときにしか出ません。`,
     ],
   },
 
@@ -559,6 +571,14 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `중간고사 같은 하루였습니다. 기말이 진짜죠.`,
       () => `잔잔합니다. 뱃사람은 이런 날을 제일 좋아합니다.`,
       () => `오늘은 입질이 없는 날입니다. 그래도 앉아 있는 게 낚시죠.`,
+      // 실연 — 이 파일은 원래 이별을 소재로 안 쓴다(위 '주변 사람' 주석 참조).
+      // 여기는 예외지만 방향이 반대다: 놀리는 게 아니라 **면제해주는** 쪽이다.
+      // 헤어진 일 자체를 웃음거리로 만들지 않는다. 오늘은 해도 된다고 말할 뿐이다.
+      () => `차이셨다면 오늘은 몇 판이든 괜찮습니다. 통계도 봐드리겠습니다.`,
+      () => `마음이 시끄러운 날엔 손이 바쁜 게 낫습니다. 오늘은 허락입니다.`,
+      () => `공부 안 하고 하는 철권이 제일 재밌긴 하죠. 아무도 부정 못 합니다.`,
+      () => `해야 할 게 있으니까 이게 재밌는 겁니다. 다 끝나면 안 재밌어요.`,
+      () => `지금 이 시간에 해야 할 다른 게 있으시죠. 그래서 켜신 거고요.`,
     ],
     en: [
       () => `No swings. Generously: consistent. Honestly: not improving either.`,
@@ -667,6 +687,13 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `A midterm sort of day. Finals are what count.`,
       () => `Calm water. Sailors like these days best.`,
       () => `No bites today. Sitting there is still fishing.`,
+      // Heartbreak — this file normally avoids breakups. The exception runs the other way:
+      // it grants permission instead of mocking. The breakup is never the punchline.
+      () => `If you got dumped, play as many as you like today. The stats will look away.`,
+      () => `When the head is loud, busy hands help. Tonight you have a pass.`,
+      () => `Tekken hits hardest when you should be studying. Nobody disputes this.`,
+      () => `It is fun *because* something else is due. It stops being fun when you are free.`,
+      () => `There is something else you should be doing right now. That is why you opened this.`,
     ],
     ja: [
       () => `波がありません。よく言えば安定、悪く言えば伸びもなし。`,
@@ -775,6 +802,13 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `中間試験のような一日でした。本番は期末です。`,
       () => `凪です。船乗りはこういう日が一番好きです。`,
       () => `今日は当たりがありません。それでも座っているのが釣りです。`,
+      // 失恋 — このファイルは普段、別れを素材にしない。ここは例外だが方向が逆で、
+      // からかうのではなく『今日はいい』と免除する。別れ自体は笑い物にしない。
+      () => `振られたのなら今日は何戦でも構いません。統計も見逃します。`,
+      () => `心がうるさい日は手が忙しいほうがいい。今日は許可します。`,
+      () => `勉強せずにやる鉄拳が一番面白い。誰も否定できません。`,
+      () => `やることがあるから面白いんです。全部片付くと面白くなくなります。`,
+      () => `今この時間にやるべき別のことがありますね。だから起動したんです。`,
     ],
   },
 
@@ -895,6 +929,17 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `문제가 어려워진 게 아니라 복습을 안 하신 겁니다.`,
       () => `조류가 바뀌었습니다. 거스르면 체력만 나갑니다.`,
       () => `파도가 조금씩 높아지고 있습니다.`,
+      // 몸이 힘든 날 — 음주·야근·과로. **일하는 걸 비웃지 않는다.**
+      // 탓하는 건 '오늘'이지 사람이 아니고, 결론은 늘 '그러니 쉬어라'다.
+      () => `한잔 하고 오셨다면 오늘 승률은 술이 가져갑니다.`,
+      () => `야근하고 와서 켜신 거라면, 지금 지고 있는 건 손이 아니라 하루입니다.`,
+      () => `피곤한 날의 반응속도는 원래 이렇습니다. 실력이 준 게 아닙니다.`,
+      () => `오늘 몸이 무거우면 판단도 무겁습니다. 한 판만 더는 위험합니다.`,
+      () => `오늘은 승률을 안 봐도 됩니다. 그럴 만한 일이 있었잖습니까.`,
+      () => `지는 것보다 아픈 일을 이미 겪으셨습니다. 편하게 하세요.`,
+      () => `이별한 날의 승률은 통계에서 빼드리고 싶습니다. 규칙상 안 되지만요.`,
+      () => `미뤄둔 일이 뒤에서 보고 있습니다. 승률도 그걸 아는 것 같고요.`,
+      () => `도망친 곳에서까지 지면 갈 데가 없습니다.`,
     ],
     en: [
       () => `At this rate, buy a lottery ticket instead. That might work out.`,
@@ -1009,6 +1054,17 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `The questions did not get harder. You stopped revising.`,
       () => `The current turned. Fighting it only costs stamina.`,
       () => `The swell is building.`,
+      // Rough days — drinking, overtime, exhaustion. Never mock the work itself;
+      // blame the day, and always land on 'so rest'.
+      () => `If you had a drink first, the drink is taking today's win rate.`,
+      () => `Straight from overtime? What is losing right now is the day, not your hands.`,
+      () => `Reactions look like this when you are tired. Your skill did not drop.`,
+      () => `Heavy body, heavy decisions. "One more" is a bad idea tonight.`,
+      () => `You can skip the win rate today. Something bigger happened.`,
+      () => `You already took a worse loss than any of these. Play loose.`,
+      () => `I would drop today from the record if the rules let me.`,
+      () => `The thing you postponed is watching. The win rate seems to know too.`,
+      () => `If you lose in the place you escaped to, there is nowhere left.`,
     ],
     ja: [
       () => `この勝率なら宝くじでも買いましょう。そっちは当たるかも。`,
@@ -1123,6 +1179,17 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `問題が難しくなったのではなく、復習をやめただけです。`,
       () => `潮が変わりました。逆らうと体力だけ削られます。`,
       () => `うねりが少しずつ高くなっています。`,
+      // しんどい日 — 飲酒・残業・過労。仕事そのものは笑い物にしない。
+      // 責めるのは『今日』であって人ではなく、結論は必ず『だから休め』。
+      () => `一杯やってきたなら、今日の勝率は酒が持っていきます。`,
+      () => `残業帰りに起動したなら、負けているのは手ではなく一日のほうです。`,
+      () => `疲れた日の反応速度は元々こうです。実力が落ちたわけではありません。`,
+      () => `体が重い日は判断も重い。「あと1戦」は危険です。`,
+      () => `今日は勝率を見なくて結構です。それどころではなかったでしょう。`,
+      () => `負けよりつらいことを既に経験済みです。気楽にどうぞ。`,
+      () => `別れた日の勝率は記録から外してあげたい。規則上できませんが。`,
+      () => `先送りにした用事が後ろで見ています。勝率も気づいているようです。`,
+      () => `逃げ込んだ先でも負けると、行き場がなくなります。`,
     ],
   },
 
@@ -1318,6 +1385,19 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `같은 유형에서 계속 걸리고 있습니다. 그게 답입니다.`,
       () => `오늘은 배를 띄울 날씨가 아닙니다. 항구에 두세요.`,
       () => `만선은 다음에. 오늘은 그물만 정리하시죠.`,
+      () => `술 마시고 랭크를 도는 건 자유지만, 통계는 그걸 기억합니다.`,
+      () => `야근하고 온 사람의 승률입니다. 회사가 가져간 게 하나 더 있네요.`,
+      () => `과로한 날엔 이깁니다. 잠하고요.`,
+      () => `오늘은 실력이 아니라 체력이 진 겁니다. 그건 자면 회복됩니다.`,
+      () => `몸이 보내는 신호를 컨트롤러로 무시하고 계십니다.`,
+      () => `이런 날 이기려고 애쓰는 게 제일 손해입니다. 내일 하세요.`,
+      () => `차인 날이라면 이 성적은 정상입니다. 통계가 이해합니다.`,
+      () => `오늘만큼은 몇 연패를 하든 아무 말 안 하겠습니다.`,
+      () => `지금 지고 있는 건 게임뿐입니다. 그건 다시 이길 수 있습니다.`,
+      () => `이런 날 켜는 게임은 이기려고 켜는 게 아닙니다. 그거면 됩니다.`,
+      () => `통계는 오늘 당신 편입니다. 숫자만 빼고요.`,
+      () => `공부도 안 하고 이기지도 못했습니다. 오늘 수확이 없네요.`,
+      () => `차라리 공부를 하셨으면 하나는 남았을 겁니다.`,
     ],
     en: [
       () => `The lottery didn't hit and neither did anything else. Luck called in sick.`,
@@ -1498,6 +1578,19 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `You keep failing the same question type. That is the answer.`,
       () => `Not a day to take the boat out. Leave it in the harbour.`,
       () => `A full haul another day. Today, just mend the nets.`,
+      () => `Playing ranked after drinking is your call. The stats remember it either way.`,
+      () => `This is the win rate of someone who came from overtime. Work took one more thing.`,
+      () => `On a day this tired you can still win — against sleep.`,
+      () => `Today your stamina lost, not your skill. That one comes back after sleeping.`,
+      () => `Your body is signalling and you are answering with a controller.`,
+      () => `Grinding on a night like this costs the most. Do it tomorrow.`,
+      () => `If today is the day you got dumped, this score is normal. The stats understand.`,
+      () => `However many you lose tonight, I will say nothing.`,
+      () => `The only thing you are losing right now is a game. That one you can win back.`,
+      () => `You did not open this to win tonight. That is fine.`,
+      () => `The stats are on your side today. Everything except the numbers.`,
+      () => `You did not study and you did not win. Nothing to show for tonight.`,
+      () => `Studying would have left you with at least one thing.`,
     ],
     ja: [
       () => `宝くじも当たらず勝率も上がらず。今日は運が欠勤です。`,
@@ -1678,6 +1771,19 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `同じ形式で毎回つまずいています。それが答えです。`,
       () => `今日は船を出す天気ではありません。港に置きましょう。`,
       () => `大漁は次の機会に。今日は網の手入れだけ。`,
+      () => `飲んでからランクを回すのは自由です。統計は覚えていますが。`,
+      () => `残業帰りの人の勝率です。会社が持っていったものがもう一つありますね。`,
+      () => `過労の日でも勝てます。睡眠には。`,
+      () => `今日は実力ではなく体力が負けました。それは寝れば戻ります。`,
+      () => `体が出している信号を、コントローラーで無視しています。`,
+      () => `こういう日に粘るのが一番の損です。明日にしましょう。`,
+      () => `振られた日なら、この成績は正常です。統計も分かっています。`,
+      () => `今日だけは何連敗しても何も言いません。`,
+      () => `今負けているのはゲームだけです。それは取り返せます。`,
+      () => `こんな日に起動したのは勝つためではないはずです。それでいいんです。`,
+      () => `今日は統計もあなたの味方です。数字を除いては。`,
+      () => `勉強もせず、勝ちもしませんでした。今日は収穫ゼロです。`,
+      () => `いっそ勉強していれば一つは残ったはずです。`,
     ],
   },
 };
