@@ -4,13 +4,15 @@
 // (주소를 직접 복사하게 두면 아무도 공유하지 않는다).
 
 import { useState } from 'react';
+import { R, type Lang } from './strings';
 
-export default function ShareBar({ name }: { name: string }) {
+export default function ShareBar({ name, lang }: { name: string; lang: Lang }) {
   const [msg, setMsg] = useState('');
 
   const share = async () => {
+    // location.href 를 쓰므로 지금 보고 있는 범위·언어가 그대로 공유된다
     const url = window.location.href;
-    const title = `${name} — 철권8 전적 리포트`;
+    const title = R.shareTitle[lang](name);
     // 폰에서는 OS 공유 시트가 훨씬 자연스럽다. 없으면 클립보드로 떨어진다.
     if (navigator.share) {
       try {
@@ -22,9 +24,9 @@ export default function ShareBar({ name }: { name: string }) {
     }
     try {
       await navigator.clipboard.writeText(url);
-      setMsg('링크를 복사했습니다');
+      setMsg(R.shareCopied[lang]);
     } catch {
-      setMsg('복사하지 못했습니다. 주소창에서 직접 복사해 주세요.');
+      setMsg(R.shareFailed[lang]);
     }
     setTimeout(() => setMsg(''), 2500);
   };
@@ -32,10 +34,10 @@ export default function ShareBar({ name }: { name: string }) {
   return (
     <div className="rp-share">
       <button className="rp-share-btn" onClick={share}>
-        🔗 공유
+        {R.share[lang]}
       </button>
       <button className="rp-share-btn" onClick={() => window.print()}>
-        🖨 인쇄 · PDF
+        {R.print[lang]}
       </button>
       {msg && <span className="rp-share-msg">{msg}</span>}
     </div>

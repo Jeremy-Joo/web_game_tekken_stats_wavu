@@ -83,7 +83,11 @@ export default async function Image({ params }: { params: Promise<{ id: string }
 
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 40 }}>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', fontSize: 26, color: '#9aa1ad' }}>승률</div>
+            {/* '전체 기간'을 못 박아 둔다. 리포트 화면은 시즌·기간으로 좁혀 볼 수 있는데
+                OG 라우트에는 searchParams 가 들어오지 않아 카드가 항상 전체로 그려진다.
+                범위별 카드를 만들 수도 있지만, 공유 링크가 대표해야 할 단위는 '한 조각'이
+                아니라 '그 사람'이라 전체로 두고 기준만 밝히는 쪽을 골랐다. */}
+            <div style={{ display: 'flex', fontSize: 26, color: '#9aa1ad' }}>승률 · 전체 기간</div>
             <div
               style={{
                 display: 'flex',

@@ -847,3 +847,20 @@ footer a {
   background: var(--accent);
   color: #0b1020;
 }
+
+/* 요약 바로 아래의 리포트 입구 — 아래쪽 버튼과 중복이지만 위치가 다르다.
+   여기는 접힌 화면에서도 보이는 자리다. */
+.report-inline {
+  margin: 0.5rem 0 0;
+  font-size: 0.88rem;
+}
+
+.report-inline a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.report-inline a:hover {
+  text-decoration: underline;
+}

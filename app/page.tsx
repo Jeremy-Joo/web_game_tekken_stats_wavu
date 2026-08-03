@@ -2029,6 +2029,16 @@ export default function Home() {
               <span className="quips-off">{t('quipsOff')}</span>
             </p>
           )}
+          {/* 리포트 입구를 요약 바로 아래에도 둔다. 아래쪽 버튼 하나만 있을 때는
+              탭 16개를 지나쳐 내려가야 보여서, 공유 링크로 들어온 사람이 리포트가
+              있다는 걸 모르고 나갔다. */}
+          {mode === 'single' && single && (
+            <p className="report-inline">
+              <a href={`/player/${single.polarisId}/report${lang === 'ko' ? '' : `?lang=${lang}`}`}>
+                📋 {t('reportBtn')} →
+              </a>
+            </p>
+          )}
           {single.charCounts && single.charCounts.length > 1 && (
             <div className="char-chips">
               <span className="hint" style={{ margin: 0 }}>{t('charLabel')}:</span>
@@ -2075,8 +2085,12 @@ export default function Home() {
         <>
           <div className="row dl-row">
             {/* 리포트는 한 명 조회일 때만 — 비교는 대상이 여럿이라 한 장으로 요약되지 않는다 */}
+            {/* 리포트는 서버 렌더라 localStorage 의 언어를 못 읽는다 — 링크로 넘겨준다 */}
             {mode === 'single' && single && (
-              <a className="btn-link report-btn" href={`/player/${single.polarisId}/report`}>
+              <a
+                className="btn-link report-btn"
+                href={`/player/${single.polarisId}/report${lang === 'ko' ? '' : `?lang=${lang}`}`}
+              >
                 📋 {t('reportBtn')}
               </a>
             )}

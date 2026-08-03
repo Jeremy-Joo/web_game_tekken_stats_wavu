@@ -628,3 +628,58 @@
     min-width: 0;
   }
 }
+
+/* ── 컨디션·멘트 ─────────────────────────────────────────────────
+   조회 화면에만 있던 한 줄을 리포트에도 붙였다. 숫자 옆에서 튀지 않게
+   본문보다 한 단계 흐리고, 왼쪽 선으로 '이건 코멘트'라고 표시한다. */
+.rp-condition {
+  margin: 0.9rem 0 0;
+  padding-left: 0.7rem;
+  border-left: 2px solid var(--accent);
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.rp-quip {
+  margin: 0.7rem 0 0;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.rp-coach {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* ── 시즌 막대는 눌러서 그 시즌으로 좁힐 수 있다 ── */
+.rp-bar-link {
+  text-decoration: none;
+  color: inherit;
+  border-radius: 8px;
+  padding: 0.15rem 0.3rem;
+  margin: -0.15rem -0.3rem;
+}
+
+.rp-bar-link:hover {
+  background: rgba(110, 168, 254, 0.08);
+}
+
+.rp-bar-link.on {
+  background: rgba(110, 168, 254, 0.14);
+}
+
+.rp-best {
+  margin-left: 0.35rem;
+  font-style: normal;
+  font-size: 0.7rem;
+  color: var(--win);
+}
+
+/* 언제 강한가 — 값이 시간/요일이라 숫자보다 짧다. 색으로 좋고 나쁨만 구분. */
+.rp-cell-value.good { color: var(--win); }
+.rp-cell-value.bad { color: var(--loss); }
