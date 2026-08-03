@@ -1,6 +1,6 @@
 'use client';
 
-// /admin — 조회 로그 열람 (관리자 전용).
+// /admin — 조회 기록 열람 (관리자 전용). 데이터 출처는 Google Analytics.
 //
 // 비밀번호는 화면에 담기지 않는다. 입력값을 서버로 보내 대조하고, 맞을 때만
 // 서버가 데이터를 돌려준다. 즉 이 페이지 소스를 열어봐도 통계는 볼 수 없다.
@@ -11,53 +11,56 @@ import { useEffect, useState } from 'react';
 interface PlayerRow {
   id: string;
   name: string;
-  count: number;
-  last: number;
+  views: number;
+  users: number;
 }
-interface SearchRow {
-  query: string;
-  count: number;
-  hits: number;
-  last: number;
+interface DayRow {
+  date: string;
+  views: number;
+  users: number;
+}
+interface SourceRow {
+  source: string;
+  users: number;
 }
 interface Stats {
-  stale?: boolean; // true = Blob 을 읽지 못함 (숫자를 사실로 믿으면 안 됨)
-  total: number;
-  today: number;
+  days: number;
+  totalViews: number;
   uniquePlayers: number;
   players: PlayerRow[];
-  searches: SearchRow[];
-  days: { date: string; count: number }[];
+  daily: DayRow[];
+  sources: SourceRow[];
   error?: string;
+  setup?: boolean; // true = 환경변수/권한 등 설정이 덜 된 상태
 }
 
 const PW_KEY = 'tkwavu_admin_pw';
-
-/** epoch(초) → 'MM-DD HH:mm' (KST). */
-function fmt(ts: number): string {
-  const d = new Date(ts * 1000 + 9 * 3600 * 1000);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
-}
+const RANGES = [7, 28, 90, 365];
 
 export default function AdminPage() {
   const [pw, setPw] = useState('');
+  const [days, setDays] = useState(28);
   const [data, setData] = useState<Stats | null>(null);
   const [err, setErr] = useState('');
+  const [setupHelp, setSetupHelp] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const load = async (password: string) => {
+  const load = async (password: string, range: number) => {
     if (!password) return;
     setBusy(true);
     setErr('');
+    setSetupHelp(false);
     try {
       const res = await fetch('/api/admin/stats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, days: range }),
       });
       const d = (await res.json()) as Stats;
-      if (!res.ok) throw new Error(d.error ?? `HTTP ${res.status}`);
+      if (!res.ok) {
+        setSetupHelp(!!d.setup);
+        throw new Error(d.error ?? `HTTP ${res.status}`);
+      }
       setData(d);
       sessionStorage.setItem(PW_KEY, password);
     } catch (e) {
@@ -73,12 +76,18 @@ export default function AdminPage() {
     const saved = sessionStorage.getItem(PW_KEY);
     if (saved) {
       setPw(saved);
-      load(saved);
+      load(saved, 28);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pct = (n: number) => (data?.total ? ((n * 100) / data.total).toFixed(1) : '0.0');
+  const pickRange = (r: number) => {
+    setDays(r);
+    if (data || pw) load(pw, r);
+  };
+
+  const pct = (n: number) =>
+    data?.totalViews ? ((n * 100) / data.totalViews).toFixed(1) : '0.0';
 
   return (
     <main>
@@ -90,6 +99,7 @@ export default function AdminPage() {
           <span style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>관리자</span>
         </h1>
       </div>
+
       <div className="panel">
         <label htmlFor="pw">관리자 비밀번호</label>
         <div className="row id-row">
@@ -99,10 +109,10 @@ export default function AdminPage() {
             type="password"
             value={pw}
             onChange={(e) => setPw(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !busy && load(pw)}
+            onKeyDown={(e) => e.key === 'Enter' && !busy && load(pw, days)}
             autoComplete="current-password"
           />
-          <button onClick={() => load(pw)} disabled={busy}>
+          <button onClick={() => load(pw, days)} disabled={busy}>
             {busy ? '불러오는 중…' : '열람'}
           </button>
           {data && (
@@ -118,30 +128,49 @@ export default function AdminPage() {
             </button>
           )}
         </div>
-        {err && <p className="error">{err}</p>}
-      </div>
 
-      {data?.stale && (
-        <p className="error">
-          저장소를 읽지 못했습니다 — 아래 숫자는 실제 기록이 아닙니다.
-          (Vercel Blob 스토어 상태를 확인하세요)
-        </p>
-      )}
+        <label style={{ marginTop: '0.8rem' }}>기간</label>
+        <div className="mode-switch period">
+          {RANGES.map((r) => (
+            <button key={r} className={days === r ? 'on' : ''} onClick={() => pickRange(r)}>
+              {r === 365 ? '1년' : `${r}일`}
+            </button>
+          ))}
+        </div>
+
+        {err && <p className="error">{err}</p>}
+        {setupHelp && (
+          <div className="hint" style={{ lineHeight: 1.7 }}>
+            Google Analytics 연결이 필요합니다:
+            <br />
+            1. Google Cloud Console → <b>Google Analytics Data API</b> 사용 설정
+            <br />
+            2. 서비스 계정 생성 → JSON 키 발급
+            <br />
+            3. GA4 → 관리 → <b>속성 액세스 관리</b> → 그 서비스 계정 이메일을 <b>뷰어</b>로 추가
+            <br />
+            4. Vercel 환경변수에 <code>GA_PROPERTY_ID</code>(숫자 속성 ID) 와{' '}
+            <code>GA_SERVICE_ACCOUNT</code>(JSON 전체) 등록
+          </div>
+        )}
+      </div>
 
       {data && (
         <>
           <div className="sum-card">
             <div className="sum-block">
-              <span className="sum-label">총 조회</span>
-              <span className="sum-value">{data.total.toLocaleString()}</span>
-            </div>
-            <div className="sum-block">
-              <span className="sum-label">오늘</span>
-              <span className="sum-value">{data.today.toLocaleString()}</span>
+              <span className="sum-label">조회수</span>
+              <span className="sum-value">{data.totalViews.toLocaleString()}</span>
             </div>
             <div className="sum-block">
               <span className="sum-label">조회된 플레이어</span>
               <span className="sum-value">{data.uniquePlayers.toLocaleString()}</span>
+            </div>
+            <div className="sum-block">
+              <span className="sum-label">기간</span>
+              <span className="sum-value sum-date">
+                최근 {data.days === 365 ? '1년' : `${data.days}일`}
+              </span>
             </div>
           </div>
 
@@ -153,9 +182,9 @@ export default function AdminPage() {
                   <th>#</th>
                   <th>이름</th>
                   <th>식별코드</th>
-                  <th>조회</th>
+                  <th>조회수</th>
                   <th>비율</th>
-                  <th>마지막</th>
+                  <th>사용자</th>
                 </tr>
               </thead>
               <tbody>
@@ -163,60 +192,64 @@ export default function AdminPage() {
                   <tr key={p.id}>
                     <td>{i + 1}</td>
                     <td>
-                      <a className="plink" href={`/player/${p.id}`} target="_blank" rel="noreferrer">
+                      <a
+                        className="plink"
+                        href={`/player/${p.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
                         {p.name}
                       </a>
                     </td>
                     <td>{p.id}</td>
-                    <td>{p.count}</td>
-                    <td>{pct(p.count)}%</td>
-                    <td>{fmt(p.last)}</td>
+                    <td>{p.views}</td>
+                    <td>{pct(p.views)}%</td>
+                    <td>{p.users}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {data.players.length === 0 && <p className="hint">아직 기록이 없습니다.</p>}
+          {data.players.length === 0 && (
+            <p className="hint">이 기간에 조회된 플레이어가 없습니다.</p>
+          )}
 
-          <h2 className="admin-h2">닉네임 검색어 ({data.searches.length})</h2>
+          <h2 className="admin-h2">유입 경로</h2>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>검색어</th>
-                  <th>횟수</th>
-                  <th>결과있음</th>
-                  <th>마지막</th>
+                  <th>출처 / 매체</th>
+                  <th>사용자</th>
                 </tr>
               </thead>
               <tbody>
-                {data.searches.map((s) => (
-                  <tr key={s.query}>
-                    <td>{s.query}</td>
-                    <td>{s.count}</td>
-                    <td>{s.hits}</td>
-                    <td>{fmt(s.last)}</td>
+                {data.sources.map((s) => (
+                  <tr key={s.source}>
+                    <td>{s.source}</td>
+                    <td>{s.users}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {data.searches.length === 0 && <p className="hint">아직 기록이 없습니다.</p>}
 
-          <h2 className="admin-h2">일별 조회</h2>
+          <h2 className="admin-h2">일별</h2>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>날짜</th>
-                  <th>조회 수</th>
+                  <th>조회수</th>
+                  <th>사용자</th>
                 </tr>
               </thead>
               <tbody>
-                {data.days.map((d) => (
+                {data.daily.map((d) => (
                   <tr key={d.date}>
                     <td>{d.date}</td>
-                    <td>{d.count}</td>
+                    <td>{d.views}</td>
+                    <td>{d.users}</td>
                   </tr>
                 ))}
               </tbody>
@@ -227,7 +260,7 @@ export default function AdminPage() {
 
       <footer>
         <span className="byline">
-          이 페이지는 검색엔진에 노출되지 않으며, 비밀번호 없이는 데이터가 전송되지 않습니다.
+          데이터 출처: Google Analytics · 비밀번호 없이는 전송되지 않으며 검색엔진에도 노출되지 않습니다.
         </span>
       </footer>
     </main>

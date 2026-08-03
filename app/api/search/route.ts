@@ -4,8 +4,7 @@
 // 파싱 규칙과 실패 판정은 lib/wavu/search.ts 에 있다(네트워크 없이 테스트되는 순수 함수).
 // 이 라우트는 가져오기와 필터링만 한다.
 
-import { NextRequest, NextResponse, after } from 'next/server';
-import { logSearch } from '@/lib/stats-log';
+import { NextRequest, NextResponse } from 'next/server';
 import { WAVU_BASE } from '@/lib/wavu/client';
 import { parseSearchHtml } from '@/lib/wavu/search';
 
@@ -75,9 +74,6 @@ export async function GET(req: NextRequest) {
   const results = (
     includeHistory ? all : matched.length > 0 ? matched : all
   ).slice(0, MAX_RESULTS);
-
-  // 닉네임 검색어는 URL 에 안 남아 페이지뷰 분석으로는 못 보는 정보 — 여기서만 기록된다
-  after(() => logSearch(q, results.length));
 
   return NextResponse.json({ query: q, results, history: includeHistory });
 }
