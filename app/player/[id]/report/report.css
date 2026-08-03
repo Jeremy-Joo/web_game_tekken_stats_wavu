@@ -683,3 +683,12 @@
 /* 언제 강한가 — 값이 시간/요일이라 숫자보다 짧다. 색으로 좋고 나쁨만 구분. */
 .rp-cell-value.good { color: var(--win); }
 .rp-cell-value.bad { color: var(--loss); }
+
+/* 리포트 고지 — 인쇄본에도 남아야 한다(공유·PDF 로 도는 문서라 더 필요하다). */
+.rp-disclaimer {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  opacity: 0.8;
+}

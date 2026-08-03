@@ -255,6 +255,12 @@ export const R = {
     en: 'See all 16 stat tabs →',
     ja: '全16項目の統計を見る →',
   } as S,
+  // 리포트는 공유·인쇄되는 문서라 고지가 더 필요하다. 짧게 줄인 판을 쓴다.
+  disclaimer: {
+    ko: '비공식 팬 사이트입니다. TEKKEN™ 은 반다이남코 엔터테인먼트의 상표이며 이 사이트는 반다이남코와 관련이 없습니다.',
+    en: 'Unofficial fan site. TEKKEN™ is a trademark of Bandai Namco Entertainment; not affiliated with or endorsed by Bandai Namco.',
+    ja: '非公式ファンサイトです。TEKKEN™ はバンダイナムコエンターテインメントの商標であり、当サイトとは関係ありません。',
+  } as S,
   credit: {
     ko: `데이터: wank.wavu.wiki (랭크전) · ${SITE_HOST}`,
     en: `Data: wank.wavu.wiki (ranked) · ${SITE_HOST}`,

@@ -115,6 +115,13 @@ const D = {
     en: 'Open this player (new tab)',
     ja: 'このプレイヤーを開く (新規タブ)',
   },
+  // 비공식 팬사이트 고지. 상표권자와 무관하다는 것과 데이터 출처를 함께 밝힌다 —
+  // 둘을 붙여 두는 게 "누가 만들었고 자료가 어디서 왔나"를 한 번에 답한다.
+  disclaimer: {
+    ko: '비공식 팬 사이트입니다. TEKKEN™ 은 반다이남코 엔터테인먼트의 상표이며 이 사이트는 반다이남코와 아무 관련이 없습니다. 전적 자료의 출처는 wank.wavu.wiki 입니다.',
+    en: 'An unofficial fan site. TEKKEN™ is a trademark of Bandai Namco Entertainment; this site is not affiliated with or endorsed by Bandai Namco. Match data comes from wank.wavu.wiki.',
+    ja: '非公式のファンサイトです。TEKKEN™ はバンダイナムコエンターテインメントの商標であり、当サイトはバンダイナムコとは一切関係ありません。戦績データの出典は wank.wavu.wiki です。',
+  },
   minGames: { ko: '최소 경기', en: 'Min games', ja: '最低試合数' },
   showTop: { ko: '보여줄 수', en: 'Show top', ja: '表示人数' },
   // ── 권장 판수 (lib/tekken/advice.ts) ──

@@ -2554,6 +2554,8 @@ export default function Home() {
         <span className="byline">by Jeremio, Jinho.ju@live.com</span>
         <br />
         <span className="footer-joke">{t('footerJoke')}</span>
+        <br />
+        <span className="disclaimer">{t('disclaimer')}</span>
       </footer>
     </main>
   );

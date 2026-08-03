@@ -891,6 +891,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
           {R.cta[lang]}
         </a>
         <p className="rp-credit">{R.credit[lang]}</p>
+        <p className="rp-disclaimer">{R.disclaimer[lang]}</p>
       </footer>
     </main>
   );

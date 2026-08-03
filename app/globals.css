@@ -829,10 +829,13 @@ footer a {
 }
 
 /* 푸터 농담 — 서명줄(.byline)보다 한 단계 더 흐리게 */
+/* 푸터 농담 — 아는 사람만 읽으면 되는 줄이다. 눈에 먼저 들어오면 안 된다.
+   opacity 만 낮추면 배경 대비가 애매하게 남아서, 글자색도 muted 로 내린다. */
 .footer-joke {
   display: inline-block;
   margin-top: 0.25rem;
-  opacity: 0.45;
+  color: var(--muted);
+  opacity: 0.3;
   font-size: 0.95em;
 }
 
@@ -880,4 +883,15 @@ footer a {
   align-self: center;
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+/* 비공식 고지 — 읽을 수는 있되 화면을 차지하지 않는다. 법적 문구는 조용해야 한다. */
+.disclaimer {
+  display: block;
+  margin-top: 0.6rem;
+  max-width: 60ch;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  opacity: 0.75;
 }
