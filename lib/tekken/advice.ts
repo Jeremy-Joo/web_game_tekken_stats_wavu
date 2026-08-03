@@ -46,6 +46,17 @@ export interface SessionAdvice {
   goodUpTo: number | null;
   /** 이 판수를 넘기면 성적이 꺾였다. 없으면 null(꺾이는 지점을 못 찾음). */
   stopAfter: number | null;
+  /** 꺾이는 폭(%p). stopAfter 가 null 이면 null. */
+  dropPp: number | null;
+  /**
+   * 첫 구간부터 평균 이하인가. `stopAfter === 0` 과 같은 뜻이지만 **불리언으로 따로 낸다** —
+   * 0 은 falsy 라 화면에서 `stopAfter ? A : B` 로 갈리면 조용히 B 로 떨어진다(실제 버그였다).
+   */
+  dropsFromStart: boolean;
+  /** 승률은 평균 이상인데 레이팅이 안 붙는 구간들. */
+  noGainBands: { from: number; to: number }[];
+  /** reliable=false 인 이유. 'short' 면 표본 부족이 아니라 '짧게 자주 하는 사람'이다. */
+  thinReason: 'few' | 'short' | null;
   /** 판단에 쓸 만한 표본이 있었는가. false 면 화면에서 단정하지 말 것. */
   reliable: boolean;
   /**
@@ -140,13 +151,50 @@ export function sessionAdvice(
   const usable = bands.filter((b) => b.enough);
   let goodUpTo: number | null = null;
   let stopAfter: number | null = null;
+  let dropPp: number | null = null;
   for (const b of usable) {
     if (b.winRate < baselineWinRate - DROP_PP) {
       stopAfter = b.from - 1; // 이 구간 직전까지
+      dropPp = roundTo(baselineWinRate - b.winRate, 1); // 얼마나 꺾이는가
       break;
     }
     goodUpTo = b.to;
   }
+
+  /**
+   * 첫 구간부터 평균 이하인가.
+   *
+   * 이게 별도 갈래여야 하는 이유는 문장 다양성이 아니라 **버그**였다.
+   * `stopAfter === 0` 은 falsy 라 화면이 `adviceNoDrop` 으로 떨어져
+   * "꺾이는 지점이 없었습니다"를 출력했다 — 첫 구간부터 꺾인 사람에게 정반대 말이다.
+   * 실측 4명 중 2명이 여기 해당했다.
+   */
+  const dropsFromStart = stopAfter === 0;
+
+  /**
+   * 승률은 평균 이상인데 레이팅은 안 붙는 구간.
+   *
+   * 약한 상대를 만나 이기면 승률은 오르는데 레이팅은 제자리다. 승률만 봐서는
+   * 절대 안 보이고, `avgDelta` 는 계산만 해두고 아무도 안 쓰던 값이었다.
+   *
+   * 기준을 `>= baseline` 이 아니라 `> baseline` 으로 잡은 이유: 평균과 같은 구간까지
+   * 넣으면 레이팅이 전반적으로 내려가는 사람은 거의 모든 구간이 걸려서
+   * "이기는데 안 오른다"가 그 사람의 특징이 아니라 배경 소음이 된다.
+   */
+  const noGainBands = usable
+    .filter((b) => b.winRate > baselineWinRate && b.avgDelta <= 0)
+    .map((b) => ({ from: b.from, to: b.to }));
+
+  /**
+   * 판단할 표본이 없는 이유.
+   *
+   *  'few'   — 경기 자체가 적다. 더 하면 계산된다.
+   *  'short' — 경기는 많은데 **세션이 짧아** 뒷구간에 표본이 안 쌓인다.
+   *            이건 실패가 아니라 "짧게 자주 하는 사람"이라는 정보인데,
+   *            지금까지 '표본 부족'으로 뭉개서 알고 있는 걸 모른다고 말하고 있었다.
+   */
+  const thinReason: 'few' | 'short' | null =
+    usable.length >= 3 ? null : ordered.length >= 300 ? 'short' : 'few';
 
   // ── 최근 폼과 연패 (농담 수위를 고르는 근거) ──
   const recent = ordered.slice(-RECENT_N);
@@ -187,6 +235,10 @@ export function sessionAdvice(
     bands,
     goodUpTo,
     stopAfter,
+    dropPp,
+    dropsFromStart,
+    noGainBands,
+    thinReason,
     // 구간 셋은 있어야 '추세'라고 부를 수 있다
     reliable: usable.length >= 3,
     recentDeltaPp,

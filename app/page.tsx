@@ -137,6 +137,10 @@ interface PlayerResponse {
     bands: { from: number; to: number; games: number; winRate: number; avgDelta: number; enough: boolean }[];
     goodUpTo: number | null;
     stopAfter: number | null;
+    dropPp: number | null;
+    dropsFromStart: boolean;
+    noGainBands: { from: number; to: number }[];
+    thinReason: 'few' | 'short' | null;
     reliable: boolean;
     recentDeltaPp: number;
     losingStreak: number;
@@ -2316,14 +2320,37 @@ export default function Home() {
                     )}
                     {single.advice.reliable ? (
                       <>
+                        {/* 판정 갈래마다 문장이 하나씩 대응한다 — 여기서는 씨앗을 쓰지 않는다.
+                            같은 데이터에 두 문장이 후보로 남는 순간 분석문이 농담이 된다.
+                            dropsFromStart 를 불리언으로 받는 이유: stopAfter===0 이 falsy 라
+                            예전에는 "꺾이는 지점이 없었습니다"(정반대)로 조용히 떨어졌다. */}
                         <p className="advice-main">
-                          {single.advice.stopAfter
-                            ? t('adviceStop')(
-                                single.advice.goodUpTo ?? single.advice.stopAfter,
-                                single.advice.stopAfter,
-                              )
-                            : t('adviceNoDrop')(single.advice.goodUpTo ?? 0)}
+                          {single.advice.dropsFromStart
+                            ? t('adviceFromStart')(single.advice.dropPp ?? 0)
+                            : single.advice.stopAfter
+                              ? (single.advice.dropPp ?? 0) >= 6
+                                ? t('adviceStopSharp')(
+                                    single.advice.goodUpTo ?? single.advice.stopAfter,
+                                    single.advice.stopAfter,
+                                    single.advice.dropPp ?? 0,
+                                  )
+                                : t('adviceStopMild')(
+                                    single.advice.goodUpTo ?? single.advice.stopAfter,
+                                    single.advice.stopAfter,
+                                    single.advice.dropPp ?? 0,
+                                  )
+                              : t('adviceNoDrop')(single.advice.goodUpTo ?? 0)}
                         </p>
+                        {/* 승률만 봐서는 안 보이는 구간. 여러 개면 첫 구간만 말한다 —
+                            나열하면 문장이 길어지고 요지가 흐려진다. */}
+                        {single.advice.noGainBands.length > 0 && (
+                          <p className="advice-main advice-sub">
+                            {t('adviceNoGain')(
+                              single.advice.noGainBands[0].from,
+                              single.advice.noGainBands[0].to,
+                            )}
+                          </p>
+                        )}
                         {/* 구간 12개를 텍스트로 나열하면 화면을 넘어가고 꺾이는
                             지점이 안 보인다. 같은 값을 납작한 선 그래프로 낸다. */}
                         <AdviceChart
@@ -2334,7 +2361,11 @@ export default function Home() {
                         />
                       </>
                     ) : (
-                      <p className="advice-main">{t('adviceThin')}</p>
+                      <p className="advice-main">
+                        {single.advice.thinReason === 'short'
+                          ? t('adviceThinShort')(single.recordCount)
+                          : t('adviceThin')}
+                      </p>
                     )}
                     <p className="hint">{t('adviceCaveat')}</p>
                     {(showQuips || showCoach) && (

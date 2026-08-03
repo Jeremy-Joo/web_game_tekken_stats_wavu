@@ -14,11 +14,11 @@ import { sessionAdvice } from '../lib/tekken/advice';
 import { kstFromEpoch, type MatchRecord } from '../lib/tekken/models';
 
 let failed = 0;
-const eq = (name: string, got: unknown, want: unknown) => {
+const eq = (name: string, got: unknown, want: unknown, extra = '') => {
   const ok = JSON.stringify(got) === JSON.stringify(want);
   if (!ok) failed++;
   console.log(
-    `${ok ? 'ok  ' : 'FAIL'}  ${name}${ok ? '' : `  기대=${JSON.stringify(want)} 실제=${JSON.stringify(got)}`}`,
+    `${ok ? 'ok  ' : 'FAIL'}  ${name}${ok ? '' : `  기대=${JSON.stringify(want)} 실제=${JSON.stringify(got)} ${extra}`}`,
   );
 };
 
@@ -153,6 +153,102 @@ const moodOf = (recs: MatchRecord[], days = 0) => sessionAdvice(recs, undefined,
 
 // ── (8) 입구 조건 ────────────────────────────────────────────────
 eq('99판이면 아예 말하지 않는다', sessionAdvice(history([{ n: 99, winRate: 50 }])), null);
+
+// ── 판정 갈래 (docs/advice-text.md) ─────────────────────────────
+//
+// 분석문은 **틀려도 화면이 멀쩡하다** — 문장은 나오는데 내용이 데이터와 안 맞는다.
+// 특히 stopAfter===0 은 falsy 라 조건식에서 조용히 반대편으로 떨어졌었다.
+
+/**
+ * 세션 길이를 지정해 이력을 만든다.
+ * 세션 안 순번별 승률을 다르게 주려면 세션 경계(120분)를 넘겨 끊어야 한다.
+ */
+function sessions(count: number, perSession: number, wrAt: (pos: number) => number): MatchRecord[] {
+  const out: MatchRecord[] = [];
+  let t = Date.parse('2024-01-01T00:00:00Z') / 1000;
+  let seq = 0;
+  const acc: number[] = [];
+  for (let s = 0; s < count; s++) {
+    for (let i = 0; i < perSession; i++) {
+      const pos = i + 1;
+      acc[pos] = (acc[pos] ?? 0) + wrAt(pos);
+      const win = acc[pos] >= 100;
+      if (win) acc[pos] -= 100;
+      out.push({
+        dt: kstFromEpoch(t),
+        battleId: `s${seq++}`,
+        player: 'ME', myPolaris: 'MEMEMEMEMEME', myChar: 'Jin',
+        myRating: 1500, myDelta: win ? 5 : -5, myPower: 0, myRank: 25,
+        score: win ? '3-1' : '1-3', myRounds: win ? 3 : 1, oppRounds: win ? 1 : 3,
+        result: win ? 'W' : 'L',
+        oppName: 'OPP', oppPolaris: 'OPPOPPOPPOP1', oppChar: 'Kazuya',
+        oppRating: 1500, oppDelta: win ? -5 : 5, oppPower: 0, oppRank: 25,
+        season: 'S2', gameVersion: 20101, stageId: 1,
+      });
+      t += 10 * 60; // 세션 안: 10분 간격
+    }
+    t += 5 * 3600; // 세션 사이: 5시간 (경계 120분 초과)
+  }
+  return out;
+}
+
+// ④ 첫 구간부터 평균 이하 — 예전에는 "꺾이는 지점이 없었습니다"가 나갔다
+{
+  const recs = sessions(40, 30, (pos) => (pos <= 5 ? 20 : 70));
+  const a = sessionAdvice(recs)!;
+  eq('첫 구간부터 나쁨 — dropsFromStart', a.dropsFromStart, true);
+  eq('첫 구간부터 나쁨 — stopAfter 는 0', a.stopAfter, 0);
+  eq('첫 구간부터 나쁨 — 폭이 계산된다', typeof a.dropPp, 'number');
+  eq('첫 구간부터 나쁨 — goodUpTo 는 null', a.goodUpTo, null);
+}
+
+// ① 꺾이는 폭 — 완만/급락이 갈리는가
+{
+  const mild = sessionAdvice(sessions(40, 30, (pos) => (pos <= 20 ? 60 : 55)))!;
+  eq('완만한 하락은 폭이 작다', mild.dropPp != null && mild.dropPp < 6, true, `dropPp=${mild.dropPp}`);
+  const sharp = sessionAdvice(sessions(40, 30, (pos) => (pos <= 20 ? 70 : 25)))!;
+  eq('급락은 폭이 크다', sharp.dropPp != null && sharp.dropPp >= 6, true, `dropPp=${sharp.dropPp}`);
+  eq('급락도 첫 구간부터는 아니다', sharp.dropsFromStart, false);
+}
+
+// 꺾이는 지점이 없으면 폭도 없다
+{
+  const flat = sessionAdvice(sessions(40, 30, () => 55))!;
+  eq('평탄하면 stopAfter 없음', flat.stopAfter, null);
+  eq('평탄하면 dropPp 도 null', flat.dropPp, null);
+  eq('평탄하면 dropsFromStart 아님', flat.dropsFromStart, false);
+}
+
+// ⑥ 표본 부족의 이유가 갈리는가
+{
+  const short = sessionAdvice(sessions(63, 8, () => 50))!;
+  eq('짧게 자주 하면 reliable=false', short.reliable, false);
+  eq('  → 사유는 short (표본 부족 아님)', short.thinReason, 'short');
+  const few = sessionAdvice(sessions(20, 6, () => 50))!;
+  eq('경기가 적으면 사유는 few', few.thinReason, 'few');
+  eq('충분하면 사유 없음', sessionAdvice(sessions(40, 30, () => 55))!.thinReason, null);
+}
+
+// ⑤ avgDelta — 이기는데 레이팅이 안 붙는 구간
+{
+  // 11~15판째만 **승률이 평균보다 높고** 레이팅은 안 붙는 구간으로 만든다.
+  // 전 구간 승률이 같으면 '평균 초과'가 없어서 이 갈래가 아예 안 열린다 —
+  // 그게 의도한 동작이다(레이팅이 전반적으로 내려가는 사람에게 배경 소음이 되지 않게).
+  const recs = sessions(40, 30, (pos) => (pos >= 11 && pos <= 15 ? 80 : 55));
+  let pos = 0;
+  for (let i = 0; i < recs.length; i++) {
+    if (i > 0 && recs[i].dt.getTime() - recs[i - 1].dt.getTime() > 120 * 60_000) pos = 0;
+    pos++;
+    if (pos >= 11 && pos <= 15) recs[i].myDelta = recs[i].result === 'W' ? 0 : -6;
+  }
+  const a = sessionAdvice(recs)!;
+  eq(
+    '이겨도 레이팅이 안 붙는 구간을 잡는다',
+    a.noGainBands.some((b) => b.from === 11 && b.to === 15),
+    true,
+    JSON.stringify(a.noGainBands),
+  );
+}
 
 console.log(failed ? `\n${failed}건 실패` : '\n전부 통과');
 process.exit(failed ? 1 : 0);

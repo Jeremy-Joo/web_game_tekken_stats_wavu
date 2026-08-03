@@ -138,6 +138,29 @@ export const R = {
     en: (good: number) => `No drop-off found even out to game ${good}.`,
     ja: (good: number) => `${good}戦まで見ても落ち込む地点はありませんでした。`,
   } as F<[number]>,
+  bandFromStart: {
+    ko: (pp: number) => `세션 길이 문제가 아닙니다. 첫 5판부터 평균보다 ${pp}%p 낮습니다.`,
+    en: (pp: number) => `Not a session-length problem — the first 5 games already sit ${pp}%p below your average.`,
+    ja: (pp: number) => `試合数の問題ではありません。最初の5戦から平均より${pp}%p 低いです。`,
+  } as F<[number]>,
+  bandSharp: {
+    ko: (good: number, stop: number, pp: number) =>
+      `한 세션 ${good}판까지는 평균 이상이었고, ${stop}판을 넘기면 ${pp}%p 급락합니다.`,
+    en: (good: number, stop: number, pp: number) =>
+      `Above average through ${good} games; past ${stop} it drops ${pp}%p.`,
+    ja: (good: number, stop: number, pp: number) =>
+      `1セッション${good}試合までは平均以上、${stop}試合を超えると${pp}%p 急落します。`,
+  } as F<[number, number, number]>,
+  bandNoGain: {
+    ko: (from: number, to: number) => `${from}~${to}판째는 이겨도 레이팅이 거의 안 오릅니다.`,
+    en: (from: number, to: number) => `Games ${from}–${to} win but barely move your rating.`,
+    ja: (from: number, to: number) => `${from}〜${to}戦目は勝ってもレートがほぼ動きません。`,
+  } as F<[number, number]>,
+  bandThinShort: {
+    ko: (games: number) => `${games}판을 하셨지만 세션이 짧아 뒷구간 표본이 없습니다. 짧게 자주 하시는 편입니다.`,
+    en: (games: number) => `${games} games, but short sessions leave the later buckets empty — you play in bursts.`,
+    ja: (games: number) => `${games}試合ありますが、1回が短く後半のサンプルがありません。短時間を頻繁に遊ぶ型です。`,
+  } as F<[number]>,
   bandThin: {
     ko: '권장 판수를 말하기엔 표본이 부족합니다.',
     en: 'Not enough data to recommend a session length.',

@@ -129,6 +129,54 @@ const D = {
     ja: (good: number) =>
       `${good}試合まで成績の落ち込みは見られません。試合数自体は足を引っ張っていないようです。`,
   },
+  // 꺾이는 폭에 따라 나눈다. 3%p 나 8%p 나 같은 문장이면 숫자를 보여주는 의미가 없다.
+  // (실측 4명: 3.6 / 3.7 / 4.4 / 7.6%p — 6%p 를 경계로 잡으면 실제로 갈린다)
+  adviceStopMild: {
+    ko: (good: number, stop: number, pp: number) =>
+      `한 세션 ${good}판까지는 평균 이상이었고, ${stop}판을 넘기면 ${pp}%p 내려갑니다. 폭이 작아 오차에 가깝습니다.`,
+    en: (good: number, stop: number, pp: number) =>
+      `Above your average through ${good} games; past ${stop} it slips ${pp}%p — small enough to be noise.`,
+    ja: (good: number, stop: number, pp: number) =>
+      `1セッション${good}試合までは平均以上、${stop}試合を超えると${pp}%p 下がります。幅が小さく誤差に近い範囲です。`,
+  },
+  adviceStopSharp: {
+    ko: (good: number, stop: number, pp: number) =>
+      `한 세션 ${good}판까지는 평균 이상이었고, ${stop}판을 넘기면 ${pp}%p 급락합니다. 뚜렷한 한계선입니다.`,
+    en: (good: number, stop: number, pp: number) =>
+      `Above your average through ${good} games; past ${stop} it drops ${pp}%p. That is a hard ceiling.`,
+    ja: (good: number, stop: number, pp: number) =>
+      `1セッション${good}試合までは平均以上、${stop}試合を超えると${pp}%p 急落します。明確な限界線です。`,
+  },
+  // 첫 구간부터 평균 이하 — 예전에는 stopAfter===0 이 falsy 라
+  // "꺾이는 지점이 없었습니다"(정반대 말)가 나갔다.
+  adviceFromStart: {
+    ko: (pp: number) =>
+      `세션 길이 문제가 아닙니다. 첫 5판부터 평균보다 ${pp}%p 낮습니다 — 시작이 안 풀리는 쪽입니다.`,
+    en: (pp: number) =>
+      `This is not about session length. The first 5 games already sit ${pp}%p below your average — you start cold.`,
+    ja: (pp: number) =>
+      `試合数の問題ではありません。最初の5戦から平均より${pp}%p 低いです — 立ち上がりが課題です。`,
+  },
+  // 승률은 평균 이상인데 레이팅은 안 붙는 구간. avgDelta 는 계산만 되고
+  // 아무도 안 쓰던 값이었다 — 승률만 봐서는 절대 안 보이는 정보다.
+  adviceNoGain: {
+    ko: (from: number, to: number) =>
+      `${from}~${to}판째는 이겨도 레이팅이 거의 안 오릅니다. 승률만 보면 안 보이는 구간입니다.`,
+    en: (from: number, to: number) =>
+      `Games ${from}–${to} win but barely move your rating. The win rate alone hides this.`,
+    ja: (from: number, to: number) =>
+      `${from}〜${to}戦目は勝ってもレートがほぼ動きません。勝率だけでは見えない区間です。`,
+  },
+  // 표본이 없는 '이유'를 나눈다. 경기가 많은데 뒷구간이 빈 건 실패가 아니라
+  // '짧게 자주 하는 사람'이라는 정보다 — 알고 있는 걸 모른다고 말하면 안 된다.
+  adviceThinShort: {
+    ko: (games: number) =>
+      `${games}판을 하셨지만 세션이 짧아 뒷구간 표본이 없습니다. 짧게 자주 하시는 편이라 판수 한계가 안 잡힙니다.`,
+    en: (games: number) =>
+      `${games} games, but your sessions are short so the later buckets stay empty. You play in short bursts — no length limit shows up.`,
+    ja: (games: number) =>
+      `${games}試合ありますが、1回が短く後半区間のサンプルがありません。短時間を頻繁に遊ぶ型なので上限が出ません。`,
+  },
   adviceThin: {
     ko: '권장 판수를 말하기엔 표본이 부족합니다. 경기가 더 쌓이면 계산됩니다.',
     en: 'Not enough data yet to suggest a session length.',

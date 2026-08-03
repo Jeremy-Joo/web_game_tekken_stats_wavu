@@ -634,13 +634,29 @@ export default async function ReportPage({ params, searchParams }: Props) {
               </span>
             </div>
             <p className="rp-form-body">
-              {advice.reliable && advice.goodUpTo
-                ? advice.stopAfter
-                  ? R.bandBoth[lang](advice.goodUpTo, advice.stopAfter)
-                  : R.bandGood[lang](advice.goodUpTo)
-                : R.bandThin[lang]}
+              {/* 조회 화면과 같은 갈래를 쓴다 — 두 화면이 같은 데이터에 다른 말을 하면 안 된다.
+                  dropsFromStart 를 먼저 보는 이유: stopAfter===0 이 falsy 라 그냥 두면
+                  "꺾이는 지점이 없었습니다"로 조용히 떨어진다(실제 버그였다). */}
+              {!advice.reliable
+                ? advice.thinReason === 'short'
+                  ? R.bandThinShort[lang](games)
+                  : R.bandThin[lang]
+                : advice.dropsFromStart
+                  ? R.bandFromStart[lang](advice.dropPp ?? 0)
+                  : advice.stopAfter && advice.goodUpTo
+                    ? (advice.dropPp ?? 0) >= 6
+                      ? R.bandSharp[lang](advice.goodUpTo, advice.stopAfter, advice.dropPp ?? 0)
+                      : R.bandBoth[lang](advice.goodUpTo, advice.stopAfter)
+                    : advice.goodUpTo
+                      ? R.bandGood[lang](advice.goodUpTo)
+                      : R.bandThin[lang]}
               {advice.losingStreak >= 3 && R.streakNow[lang](advice.losingStreak)}
             </p>
+            {advice.noGainBands.length > 0 && (
+              <p className="rp-form-body rp-form-sub">
+                {R.bandNoGain[lang](advice.noGainBands[0].from, advice.noGainBands[0].to)}
+              </p>
+            )}
             {quip && (
               <p className="rp-quip">
                 {quip}
