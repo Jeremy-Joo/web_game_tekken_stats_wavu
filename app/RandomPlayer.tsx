@@ -2,8 +2,11 @@
 
 // 랜덤 플레이어 조회.
 //
-// 조회 폼 아래에 접어둔다. 이 사이트의 첫 동작은 "내 전적 보기"이고 이건 곁가지다 —
-// 펼쳐두면 입력칸과 경쟁한다.
+// 조회 폼 아래에 **펼친 채로** 둔다.
+// 처음에는 접어뒀는데(곁가지라 입력칸과 경쟁한다는 이유였다), 접어두면 이 기능이
+// 있다는 걸 아무도 모른다. 식별코드를 모르는 사람에게는 이쪽이 첫 동작이라
+// 보이는 게 맞다. 접기 버튼은 남겨뒀다 — 자기 전적만 보는 사람에게는 매번
+// 지나쳐야 하는 줄이다.
 //
 // 서버는 식별코드만 준다. 조회는 화면이 평소 경로로 하므로 캐시·집계·멘트가
 // 그대로 동작한다(자세한 건 app/api/random/route.ts 주석).
@@ -40,7 +43,10 @@ export default function RandomPlayer({
   /** 뽑힌 식별코드로 평소 조회 흐름을 태운다. */
   onPick: (id: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  // 기본은 펼침. 접어두면 이 기능이 있다는 걸 아무도 모른다 — 조회할 식별코드가
+  // 없는 사람에게는 이쪽이 첫 동작이 되어야 한다. 접기는 남겨둔다(자기 전적만 보는
+  // 사람에게는 매번 지나쳐야 하는 줄이라).
+  const [open, setOpen] = useState(true);
   const [region, setRegion] = useState<PoolRegion>('all');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
