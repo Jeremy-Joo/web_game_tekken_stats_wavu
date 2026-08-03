@@ -2555,12 +2555,23 @@ export default function Home() {
           wank.wavu.wiki
         </a>{' '}
         {t('footer2')}
-        <br />
-        <span className="byline">by Jeremio, Jinho.ju@live.com</span>
-        <br />
-        <span className="footer-joke">{t('footerJoke')}</span>
-        <br />
+        {/* 크레딧은 번역하지 않는다 — 이름·이메일이고, 감사 문구도 원문이 영어다.
+            언어를 바꿔도 같은 사람을 같은 표기로 부르는 게 맞다. */}
+        <span className="credits">
+          <span className="credit-block">
+            Developed by Jeremio
+            <br />
+            Jinho.ju@live.com
+          </span>
+          <span className="credit-block">
+            Special thanks to 물방개하영훈
+            <br />
+            for the original idea and invaluable support.
+          </span>
+        </span>
         <span className="disclaimer">{t('disclaimer')}</span>
+        {/* 맨 마지막 줄. 아는 사람만 읽으면 되는 농담이라 제일 흐리게 둔다. */}
+        <span className="footer-joke">{t('footerJoke')}</span>
       </footer>
     </main>
   );
