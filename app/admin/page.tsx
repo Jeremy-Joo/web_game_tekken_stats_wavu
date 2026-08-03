@@ -21,6 +21,7 @@ interface SearchRow {
   last: number;
 }
 interface Stats {
+  stale?: boolean; // true = Blob 을 읽지 못함 (숫자를 사실로 믿으면 안 됨)
   total: number;
   today: number;
   uniquePlayers: number;
@@ -121,6 +122,13 @@ export default function AdminPage() {
         </div>
         {err && <p className="error">{err}</p>}
       </div>
+
+      {data?.stale && (
+        <p className="error">
+          저장소를 읽지 못했습니다 — 아래 숫자는 실제 기록이 아닙니다.
+          (Vercel Blob 스토어 상태를 확인하세요)
+        </p>
+      )}
 
       {data && (
         <>

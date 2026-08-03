@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '비밀번호가 틀렸습니다.' }, { status: 401 });
   }
 
-  const log = await readLog();
+  const { ok, log } = await readLog();
 
   const players = Object.entries(log.players)
     .map(([id, p]) => ({ id, ...p }))
@@ -47,6 +47,9 @@ export async function POST(req: NextRequest) {
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 
   return NextResponse.json({
+    // ok=false 는 '기록 0건'이 아니라 '읽지 못함'이다. 화면이 둘을 구분해야
+    // 없는 숫자를 사실처럼 띄우지 않는다 (Blob 정지 중에는 읽기도 막힌다).
+    stale: !ok,
     total: log.total,
     today: log.byDay[todayKst()] ?? 0,
     uniquePlayers: players.length,
