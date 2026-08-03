@@ -145,10 +145,18 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return {
     title: t,
     description: d,
-    // 범위·언어를 바꾼 주소는 같은 내용의 변형이라 색인 대상이 아니다.
-    // canonical 은 항상 기본 주소를 가리킨다.
+    // canonical 은 범위·언어와 무관하게 기본 주소를 가리킨다.
     alternates: { canonical: `/player/${id}/report` },
-    robots: scope.kind === 'all' && lang === 'ko' ? undefined : { index: false, follow: true },
+    /**
+     * 리포트도 색인하지 않는다 — /player/<id> 와 같은 이유다(그쪽 주석 참조).
+     *
+     * 예전에는 '전체 기간 + 한국어'만 색인하고 나머지 변형만 뺐다. 그때는 중복
+     * 색인을 막는 게 목적이었는데, 이제는 플레이어 페이지 전체를 검색에서 빼기로
+     * 했으므로 조건 없이 뺀다.
+     *
+     * 공유는 그대로 된다. OG 카드·카톡 미리보기는 robots 메타를 보지 않는다.
+     */
+    robots: { index: false, follow: true },
     openGraph: { title: t, description: d, url: `/player/${id}/report` },
   };
 }

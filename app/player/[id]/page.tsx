@@ -45,6 +45,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${who} — 철권8 전적 통계`,
     description: `${who} 의 철권8 랭크전 전적 · 캐릭터별 승률, 매치업, 레이팅 추이, 세션 분석.`,
     alternates: { canonical: `/player/${id}` },
+    /**
+     * 검색결과에 올리지 않는다.
+     *
+     * sitemap 에 플레이어 주소를 넣지 않기로 한 것과 같은 결정이다. 그런데
+     * sitemap 에서 빼는 것만으로는 부족했다 — 누가 링크를 공개 게시판에 올리면
+     * 크롤러가 따라와 색인한다. 남의 닉네임으로 검색했을 때 그 사람 전적 페이지가
+     * 뜨는 상태가 된다.
+     *
+     * 원본(wavu wank)이 공개한 데이터라 열람 자체는 문제가 없지만, **검색으로
+     * 발견되게 만드는 건 다른 일이다.** 그 판단은 우리 몫이라 빼는 쪽을 골랐다.
+     *
+     * follow 는 남긴다 — 색인은 안 하되 링크를 따라가는 것까지 막을 이유는 없다.
+     * 공유·미리보기(OG 카드)는 이 설정과 무관하게 그대로 동작한다.
+     */
+    robots: { index: false, follow: true },
     openGraph: {
       title: `${who} — 철권8 전적 통계`,
       description: `${who} 의 철권8 랭크전 전적·승률·레이팅 추이`,
