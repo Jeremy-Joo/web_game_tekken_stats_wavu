@@ -17,11 +17,13 @@ import type { Lang } from './i18n';
 import { POOL_REGIONS, type PoolRegion } from '@/lib/wavu/pool';
 
 const TXT = {
-  title: { ko: '남의 전적 구경하기', en: 'Look at someone else', ja: '他人の戦績を見る' },
+  // 제목은 두지 않는다 — 아래 안내문이 무슨 기능인지 이미 말한다.
+  // 안내문에서도 '지금 랭크전을 돌고 있는 사람 중'을 뺐다. 출처 설명이라
+  // 읽는 사람에게는 군더더기이고, 실제 고르는 기준은 판수 하나다.
   note: {
-    ko: '지금 랭크전을 돌고 있는 사람 중 1,000판 이상인 사람을 무작위로 골라 보여줍니다.',
-    en: 'Picks someone with 1,000+ games at random from players currently in ranked.',
-    ja: 'ランクマッチ中のプレイヤーから1,000戦以上の人を無作為に選びます。',
+    ko: '플레이 수가 1,000판 이상인 사람을 무작위로 골라 보여줍니다.',
+    en: 'Picks someone with 1,000+ games at random.',
+    ja: 'プレイ数1,000戦以上の人を無作為に選んで表示します。',
   },
   go: { ko: '무작위로 보기', en: 'Show me someone', ja: 'ランダムで見る' },
   loading: { ko: '고르는 중…', en: 'Picking…', ja: '選択中…' },
@@ -64,10 +66,6 @@ export default function RandomPlayer({
 
   return (
     <section className="random">
-      <div className="random-head">
-        <span className="random-title">{TXT.title[lang]}</span>
-      </div>
-
       <div className="random-body">
         <p className="hint" style={{ margin: 0 }}>
           {TXT.note[lang]}

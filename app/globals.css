@@ -1017,17 +1017,6 @@ footer a {
   margin: -0.6rem 0 1.25rem;
 }
 
-.random-head {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.random-title {
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
 .random-body {
   margin-top: 0.5rem;
   padding: 0.7rem 0.85rem;
