@@ -864,3 +864,20 @@ footer a {
 .report-inline a:hover {
   text-decoration: underline;
 }
+
+/* 공유 버튼 — 다운로드 줄에 같이 선다. 강조하지 않는다(주인공은 통계다). */
+.share-btn {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.share-btn:hover {
+  background: var(--accent);
+  color: #0b1020;
+}
+
+.share-msg {
+  align-self: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}

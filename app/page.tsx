@@ -32,6 +32,7 @@ import {
 } from './jokes';
 import { seasonOf } from './season-jokes';
 import type { QuipFacts } from '@/lib/tekken/quip-facts';
+import ShareButton from './ShareButton';
 import {
   pickCompareSummary,
   pickH2hQuip,
@@ -2183,6 +2184,17 @@ export default function Home() {
                 📋 {t('reportBtn')}
               </a>
             )}
+            {/* 공유 — 주소창에 이미 상태가 들어가 있지만(replaceState) 폰에서는
+                주소를 복사하기가 번거롭다. 버튼 하나로 그 마찰을 없앤다.
+                한 명·여러 명 모드 모두에 둔다. */}
+            <ShareButton
+              lang={lang}
+              title={
+                mode === 'single' && single
+                  ? `${single.myName || single.polarisId} — ${t('title')}`
+                  : t('title')
+              }
+            />
             {xlsxHref && (
               <button className="ghost" onClick={downloadXlsx} disabled={xlsxBusy}>
                 {xlsxBusy ? t('xlsxBusy') : t('xlsxBtn')}
