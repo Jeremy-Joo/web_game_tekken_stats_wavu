@@ -146,7 +146,7 @@ interface PlayerResponse {
     reliable: boolean;
     recentDeltaPp: number;
     losingStreak: number;
-    mood: 'hot' | 'steady' | 'cooling' | 'cold';
+    mood: 'blazing' | 'hot' | 'steady' | 'cooling' | 'cold' | 'frozen';
   } | null;
   /** 농담이 인용할 사실 (서버에서 계산해 실어 보낸다). 못 재면 null. */
   quipFacts?: QuipFacts | null;

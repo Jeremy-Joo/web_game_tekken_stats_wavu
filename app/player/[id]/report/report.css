@@ -209,10 +209,12 @@
   padding: 1rem 1.1rem;
 }
 
+.rp-mood-blazing { border-left-color: #fbbf24; }
 .rp-mood-hot { border-left-color: var(--win); }
 .rp-mood-steady { border-left-color: var(--accent); }
 .rp-mood-cooling { border-left-color: #e0a640; }
 .rp-mood-cold { border-left-color: var(--loss); }
+.rp-mood-frozen { border-left-color: #93c5fd; }
 
 .rp-form-head {
   display: flex;
@@ -227,9 +229,11 @@
   font-weight: 800;
 }
 
+.rp-mood-blazing .rp-form-mood { color: #fbbf24; }
 .rp-mood-hot .rp-form-mood { color: var(--win); }
 .rp-mood-cooling .rp-form-mood { color: #e0a640; }
 .rp-mood-cold .rp-form-mood { color: var(--loss); }
+.rp-mood-frozen .rp-form-mood { color: #93c5fd; }
 
 .rp-form-delta {
   color: var(--muted);

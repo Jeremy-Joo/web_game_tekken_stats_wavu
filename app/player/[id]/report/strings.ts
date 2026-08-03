@@ -121,9 +121,30 @@ export const R = {
 
   // ── 최근 흐름 ──
   mood: {
-    ko: { hot: '물이 올랐다', steady: '평소만큼', cooling: '내려가는 중', cold: '많이 식었다' },
-    en: { hot: 'On fire', steady: 'Usual self', cooling: 'Cooling off', cold: 'Ice cold' },
-    ja: { hot: '絶好調', steady: 'いつも通り', cooling: '下降中', cold: '完全に冷えた' },
+    ko: {
+      blazing: '폼이 미쳤다',
+      hot: '물이 올랐다',
+      steady: '평소만큼',
+      cooling: '내려가는 중',
+      cold: '많이 식었다',
+      frozen: '얼어붙었다',
+    },
+    en: {
+      blazing: 'Unreal',
+      hot: 'On fire',
+      steady: 'Usual self',
+      cooling: 'Cooling off',
+      cold: 'Ice cold',
+      frozen: 'Frozen solid',
+    },
+    ja: {
+      blazing: '手がつけられない',
+      hot: '絶好調',
+      steady: 'いつも通り',
+      cooling: '下降中',
+      cold: '完全に冷えた',
+      frozen: '凍りついた',
+    },
   } as Record<Lang, Record<string, string>>,
   vsAverage: {
     ko: (pp: string) => `최근 20판이 직전 200판 대비 ${pp}%p`,

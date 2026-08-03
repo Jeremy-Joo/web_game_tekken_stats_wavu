@@ -285,7 +285,7 @@ function clock(f: QuipFacts, lang: Lang, mood: Mood): string[] {
   // 금요일 밤
   if (dow === 5 && hour >= 20) {
     const p: Pool =
-      mood === 'hot'
+      mood === 'hot' || mood === 'blazing'
         ? {
             ko: [`금요일 밤에 이 폼이면 주말이 위험합니다.`, `금요일 밤, 물이 올랐습니다. 토요일 일정은 비우시죠.`],
             en: [`This form on a Friday night puts the weekend at risk.`, `Friday night and you are hot. Clear Saturday.`],

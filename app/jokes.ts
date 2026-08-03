@@ -40,7 +40,12 @@ import { seasonPool, type Season } from './season-jokes';
 import { factPools } from './fact-jokes';
 import type { QuipFacts } from '@/lib/tekken/quip-facts';
 
-export type Mood = 'hot' | 'steady' | 'cooling' | 'cold';
+/**
+ * 농담 수위 6단계. lib/tekken/advice.ts 의 SessionAdvice['mood'] 와 **같은 값**이어야 한다 —
+ * 두 곳에 적혀 있는 건 advice 가 lib(서버 계산), jokes 가 app(화면 문구)이라
+ * 서로를 import 하면 층이 꼬이기 때문이다. 한쪽만 고치면 타입 오류로 바로 걸린다.
+ */
+export type Mood = 'blazing' | 'hot' | 'steady' | 'cooling' | 'cold' | 'frozen';
 
 /**
  * 계절 문구를 몇 번에 한 번 쓸 것인가.
@@ -48,6 +53,9 @@ export type Mood = 'hot' | 'steady' | 'cooling' | 'cold';
  * 계절 농담은 '지금 그 계절이라서' 재밌는 것이므로 묻히면 의미가 없다.
  * 씨앗은 이미 안정적이라(같은 조회 = 같은 문구) 이 나눗셈도 결과를 흔들지 않는다.
  */
+/** 계절 문구의 밝은 쪽을 쓰는 무드. 6단계로 늘면서 매번 나열하기 번거로워 모아둔다. */
+const UP_MOODS = new Set<Mood>(['blazing', 'hot', 'steady']);
+
 const SEASON_EVERY = 4;
 /**
  * 특성 문구가 나올 확률(1/N). 특성은 **늘 참**이라 사건처럼 우선하면 141개짜리
@@ -72,6 +80,72 @@ const abs = (n: number) => Math.abs(n);
 
 const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
   /* ═══════════════ 🔥 물 올랐을 때 ═══════════════ */
+  /* ═══════════════ 🔥 미쳤을 때 ═══════════════
+     실측 6% 로 드물게 나온다. 축하가 아니라 **경고**에 가깝게 쓴다 —
+     "이건 오래 못 간다"가 핵심이다. 드문 만큼 한 줄 한 줄이 세야 한다. */
+  blazing: {
+    ko: [
+      () => `이건 폼이 아니라 사고입니다. 좋은 쪽 사고요.`,
+      () => `지금 끄십시오. 이 기록으로 오늘을 끝내는 게 최선입니다.`,
+      () => `통계가 계산을 다시 하고 있습니다.`,
+      () => `이 구간은 설명이 안 됩니다. 설명하려 들면 깨집니다.`,
+      () => `평소의 당신이 이걸 보면 안 믿을 겁니다.`,
+      () => `어 이건 저도 처음 보는 숫자인데요.`,
+      () => `오늘의 당신은 오늘만 존재합니다. 그러니 지금 끄세요.`,
+      () => `실력으로 설명되는 범위를 넘었습니다. 남은 건 운인데, 운은 통보 없이 갑니다.`,
+      () => `이런 날에 사람들이 장비를 삽니다. 참으세요.`,
+      () => `지금 이 상태를 저장할 수 있으면 좋겠는데, 그런 기능은 없습니다.`,
+      () => `상대들이 오늘 당신을 만난 걸 기억할 겁니다. 좋은 기억은 아니고요.`,
+      () => `이 폼이 일주일 가면 랭킹이 바뀝니다. 안 갑니다만.`,
+      () => `기록해 두세요. 증거가 없으면 나중에 본인도 안 믿습니다.`,
+      () => `더 하면 평균으로 돌아갑니다. 그게 통계의 유일한 약속입니다.`,
+      () => `오늘은 상대가 약했던 게 아닙니다. 그쪽이 더 무섭습니다.`,
+      () => `이 정도면 자랑해도 됩니다. 딱 오늘까지만요.`,
+      () => `어디까지 가나 보고 싶은데, 보고 싶은 마음이 드는 순간이 꺾이는 자리입니다.`,
+      () => `통계가 할 말을 잃었습니다. 좋은 쪽으로요.`,
+    ],
+    en: [
+      () => `This is not form. This is an incident. The good kind.`,
+      () => `Close it now. Ending the day on this record is the best available move.`,
+      () => `The stats are recalculating.`,
+      () => `This stretch does not explain. Try to explain it and it breaks.`,
+      () => `Your usual self would not believe this.`,
+      () => `I have not seen numbers like this before, honestly.`,
+      () => `Today's version of you exists only today. So stop now.`,
+      () => `You are past what skill accounts for. The rest is luck, and luck leaves without notice.`,
+      () => `This is the day people buy new hardware. Do not.`,
+      () => `I wish this state could be saved. There is no such feature.`,
+      () => `Your opponents will remember meeting you today. Not fondly.`,
+      () => `A week of this form would move the rankings. It will not be a week.`,
+      () => `Write it down. Without evidence you will not believe it later either.`,
+      () => `Keep playing and you return to the mean. That is the only promise statistics makes.`,
+      () => `The opponents were not weak today. That is the more frightening part.`,
+      () => `This is worth bragging about. Strictly today.`,
+      () => `I want to see how far it goes — and wanting that is exactly where it breaks.`,
+      () => `The stats have nothing to say. In a good way.`,
+    ],
+    ja: [
+      () => `これは調子ではなく事故です。良いほうの事故ですが。`,
+      () => `今すぐ閉じてください。この記録で今日を終えるのが最善です。`,
+      () => `統計が計算をやり直しています。`,
+      () => `この区間は説明がつきません。説明しようとすると崩れます。`,
+      () => `普段のあなたがこれを見たら信じないでしょう。`,
+      () => `この数字は私も初めて見ますね。`,
+      () => `今日のあなたは今日だけ存在します。だから今やめましょう。`,
+      () => `実力で説明できる範囲を超えました。残りは運ですが、運は予告なく去ります。`,
+      () => `こういう日に人は機材を買います。こらえてください。`,
+      () => `この状態を保存できたらいいのですが、そんな機能はありません。`,
+      () => `相手は今日あなたに当たったことを覚えているでしょう。良い記憶ではなく。`,
+      () => `この調子が一週間続けばランキングが動きます。続きませんが。`,
+      () => `記録を。証拠がないと後で自分も信じません。`,
+      () => `続ければ平均に戻ります。統計が約束するのはそれだけです。`,
+      () => `今日は相手が弱かったのではありません。そちらのほうが怖い話です。`,
+      () => `これは自慢していい数字です。今日限りで。`,
+      () => `どこまで行くか見たいのですが、見たくなった時点がもう折れ目です。`,
+      () => `統計が言葉を失いました。良い意味で。`,
+    ],
+  },
+
   hot: {
     ko: [
       (pp) => `주식도 이렇게 올라야 하는 건데… 최근 20경기가 평소보다 ${pp}%p 높습니다.`,
@@ -2087,6 +2161,66 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `才能の問題ではないと思います。その話はここまでにしましょう。`,
     ],
   },
+
+  /* ═══════════════ 🧊 얼어붙었을 때 ═══════════════
+     cold 보다 아래. 여기서는 놀리지 않는다 — 놀림이 안 통하는 구간이라
+     **말을 줄이고 끄라고만** 한다. 짧은 문장과 침묵이 제일 세다. */
+  frozen: {
+    ko: [
+      () => `오늘은 여기까지 하십시오.`,
+      () => `더 할 말이 없습니다. 끄세요.`,
+      () => `이건 놀릴 수 있는 구간이 아닙니다.`,
+      () => `농담을 준비했는데 오늘은 안 쓰겠습니다.`,
+      () => `숫자를 더 보여드리지 않겠습니다.`,
+      () => `지금 필요한 건 분석이 아니라 종료입니다.`,
+      () => `여기서 더 하면 내일까지 갑니다. 그건 막아야 합니다.`,
+      () => `실력 얘기를 할 단계가 아닙니다. 오늘은 그냥 안 되는 날입니다.`,
+      () => `어 이건 저도 뭐라 말씀드리기가.`,
+      () => `통계는 여기서 입을 닫겠습니다.`,
+      () => `지금 이기려고 하는 게 제일 위험합니다.`,
+      () => `한 판만 더가 오늘을 여기까지 끌고 왔습니다.`,
+      () => `오늘 남길 건 기록이 아니라 교훈뿐입니다. 그것도 하나면 충분하고요.`,
+      () => `이 상태로 계속하면 내일 폼까지 가져갑니다.`,
+      () => `자리를 뜨는 게 오늘의 유일한 승리입니다.`,
+      () => `아무 말도 안 하는 게 예의인 것 같습니다.`,
+    ],
+    en: [
+      () => `Stop here for today.`,
+      () => `Nothing more to say. Close it.`,
+      () => `This is not a stretch anyone should be joking about.`,
+      () => `I had a line ready. I will not use it today.`,
+      () => `I am not going to show you any more numbers.`,
+      () => `What is needed now is not analysis. It is an ending.`,
+      () => `Push further and this carries into tomorrow. That has to be prevented.`,
+      () => `This is past talking about skill. Today simply is not working.`,
+      () => `I genuinely do not know what to tell you here.`,
+      () => `The stats will stay quiet from here.`,
+      () => `Trying to win right now is the most dangerous thing available.`,
+      () => `"One more" is what dragged today this far.`,
+      () => `The only thing worth keeping from today is one lesson. One is enough.`,
+      () => `Continue like this and it takes tomorrow's form too.`,
+      () => `Walking away is the only win on offer today.`,
+      () => `Saying nothing feels like the polite option.`,
+    ],
+    ja: [
+      () => `今日はここまでにしましょう。`,
+      () => `これ以上言うことはありません。閉じてください。`,
+      () => `これは茶化していい区間ではありません。`,
+      () => `一言用意していましたが、今日は使いません。`,
+      () => `これ以上の数字はお見せしません。`,
+      () => `今必要なのは分析ではなく終了です。`,
+      () => `ここで続けると明日まで引きずります。それは防がないと。`,
+      () => `実力の話をする段階ではありません。今日はただ噛み合わない日です。`,
+      () => `これは私も何と申し上げていいか。`,
+      () => `統計はここから黙ります。`,
+      () => `今勝とうとするのが一番危険です。`,
+      () => `「あと1戦」が今日をここまで引っ張ってきました。`,
+      () => `今日残すのは記録ではなく教訓だけです。それも一つで十分で。`,
+      () => `この状態で続けると明日の調子まで持っていかれます。`,
+      () => `席を立つことが今日唯一の勝ちです。`,
+      () => `何も言わないのが礼儀な気がします。`,
+    ],
+  },
 };
 
 /* ═══════════════ 조회 직후 컨디션 한 줄 ═══════════════
@@ -2452,6 +2586,27 @@ const CONDITIONS: Record<Condition, Record<Lang, CondFn[]>> = {
    놀리기만 하고 끝내지 않으려고 붙였다 — 다음에 뭘 할지가 있어야 조언이다. */
 
 const COACH: Record<Mood, Record<Lang, string[]>> = {
+  blazing: {
+    ko: [
+      `지금 리플레이를 저장하세요. 이런 판은 다시 안 옵니다.`,
+      `오늘 통한 걸 한 줄로 적어두세요. 내일이면 사라집니다.`,
+      `여기서 끄는 것까지가 오늘의 실력입니다.`,
+      `이 감각으로 어려운 매치업을 한 판만 해보세요. 딱 한 판만.`,
+    ],
+    en: [
+      `Save the replays now. Sets like this do not come back.`,
+      `Write down what worked in one line. It is gone by tomorrow.`,
+      `Stopping here is part of today's skill.`,
+      `Take this feeling into your worst matchup. One set only.`,
+    ],
+    ja: [
+      `今すぐリプレイを保存してください。こういう試合は二度と来ません。`,
+      `今日効いたものを一行で書き留めましょう。明日には消えます。`,
+      `ここでやめるところまでが今日の実力です。`,
+      `この感覚で苦手マッチアップを一戦だけ。一戦だけです。`,
+    ],
+  },
+
   hot: {
     ko: [
       '오늘 리플레이는 저장해두세요. 나중에 당신의 교본이 됩니다.',
@@ -2620,6 +2775,27 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       `今日は答案を閉じ、明日は間違いノートから開きましょう。`,
     ],
   },
+
+  frozen: {
+    ko: [
+      `오늘은 아무것도 하지 마세요. 연습 모드도요.`,
+      `리플레이도 내일 보십시오. 오늘 보면 더 나빠집니다.`,
+      `끄고 자는 게 오늘의 유일한 연습입니다.`,
+      `내일 딱 하나만 고치세요. 오늘 고르지는 마시고요.`,
+    ],
+    en: [
+      `Do nothing today. Not even practice mode.`,
+      `Watch the replays tomorrow. Watching them today makes it worse.`,
+      `Closing the game and sleeping is today's only practice.`,
+      `Fix exactly one thing tomorrow. Do not pick it today.`,
+    ],
+    ja: [
+      `今日は何もしないでください。トレモもです。`,
+      `リプレイも明日見ましょう。今日見ると悪化します。`,
+      `閉じて寝ることが今日唯一の練習です。`,
+      `明日ひとつだけ直しましょう。今日は選ばないこと。`,
+    ],
+  },
 };
 
 /** 안정적인 씨앗으로 배열에서 하나 고르기. */
@@ -2654,7 +2830,7 @@ export function pickJoke(
   // 계절 문구는 mood 가 아니라 **날짜**가 여는 축이라 pool 을 따로 본다.
   // 계절을 모르면(=null) 이 갈래는 통째로 건너뛴다 — 없는 근거로 계절을 말하지 않는다.
   if (season) {
-    const sp = seasonPool(season, mood === 'hot' || mood === 'steady' ? 'up' : 'down', lang);
+    const sp = seasonPool(season, UP_MOODS.has(mood) ? 'up' : 'down', lang);
     // 언어에 계절 문구가 없으면(en) 비어 있다 → 자동으로 기본 농담으로 떨어진다.
     if (sp.length > 0 && seed % SEASON_EVERY === 0) return pick(sp, seed);
   }

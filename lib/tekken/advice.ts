@@ -66,8 +66,17 @@ export interface SessionAdvice {
   recentDeltaPp: number;
   /** 현재 연패 수 (연승 중이면 0). */
   losingStreak: number;
-  /** 농담 수위: 좋음 → 보통 → 하락 → 심각. */
-  mood: 'hot' | 'steady' | 'cooling' | 'cold';
+  /**
+   * 농담 수위 6단계. 위아래 끝은 드물게만 나온다.
+   *
+   * 예전에는 4단계였는데 위쪽이 열려 있었다 — +7%p 나 +41%p 나 똑같이 hot 이었고,
+   * 실측상 hot 이 31% 라 '최상위'라는 느낌이 안 났다. 아래도 마찬가지로
+   * cold 하나가 −12%p 아래 전부를 담고 있었다.
+   *
+   * 실측 분포(4명·2,577시점): blazing 6.1 · hot 25.1 · steady 27.9 ·
+   * cooling 20.8 · cold 14 · frozen 5.9 (%). 양 끝이 6% 로 대칭이다.
+   */
+  mood: 'blazing' | 'hot' | 'steady' | 'cooling' | 'cold' | 'frozen';
 }
 
 /** 최근 폼을 잴 표본 크기. 너무 작으면 그날 운에 흔들린다. */
@@ -218,8 +227,12 @@ export function sessionAdvice(
   // 합성 sd 는 11.2 → 11.7%p, 5% 증가에 그친다. mood 분포는 사실상 그대로다.
   //
   // 최근 폼이 주(主), 연패는 보(補). 연패는 짧아도 체감이 커서 한 단계 끌어내린다.
+  // 위에서부터 좁은 조건 순으로 본다. 연패 임계도 한 단계 늘렸다 —
+  // 3연패 cooling / 5연패 cold / 7연패 frozen.
   const raw: SessionAdvice['mood'] =
-    recentDeltaPp >= 7 ? 'hot'
+    recentDeltaPp >= 20 ? 'blazing'
+    : recentDeltaPp >= 7 ? 'hot'
+    : recentDeltaPp <= -20 || losingStreak >= 7 ? 'frozen'
     : recentDeltaPp <= -12 || losingStreak >= 5 ? 'cold'
     : recentDeltaPp <= -5 || losingStreak >= 3 ? 'cooling'
     : 'steady';

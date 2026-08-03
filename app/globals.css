@@ -379,10 +379,13 @@ button.ghost,
   line-height: 1.45;
 }
 
+/* 6단계. 양 끝은 색을 한 단계 더 밀어 '드문 등급'이라는 걸 색으로도 알린다. */
+.mood-blazing { color: #fbbf24; text-shadow: 0 0 12px rgba(251, 191, 36, 0.35); }
 .mood-hot { color: var(--win); }
 .mood-steady { color: var(--text); }
 .mood-cooling { color: #e0a640; }
 .mood-cold { color: var(--loss); }
+.mood-frozen { color: #93c5fd; text-shadow: 0 0 12px rgba(147, 197, 253, 0.3); }
 
 /* 연습 조언 — 유머와 다른 트랙이라 시각적으로도 분리한다 */
 .advice-coach {

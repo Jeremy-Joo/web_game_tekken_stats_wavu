@@ -107,7 +107,13 @@ const moodOf = (recs: MatchRecord[], days = 0) => sessionAdvice(recs, undefined,
     { n: 1000, winRate: 40 },
     { n: 20, winRate: 75 },
   ]);
-  eq('실제 상승 — hot', moodOf(recs), 'hot');
+  // +35%p 라 blazing 이다. hot 은 아래 케이스에서 따로 본다.
+  eq('큰 상승 — blazing', moodOf(recs), 'blazing');
+  eq(
+    '중간 상승 — hot',
+    moodOf(history([{ n: 1000, winRate: 40 }, { n: 20, winRate: 50 }])),
+    'hot',
+  );
 }
 
 // ── (4) 진짜로 식었으면 cold 여야 한다 ───────────────────────────
@@ -116,7 +122,13 @@ const moodOf = (recs: MatchRecord[], days = 0) => sessionAdvice(recs, undefined,
     { n: 1000, winRate: 60 },
     { n: 20, winRate: 25 },
   ]);
-  eq('실제 하락 — cold', moodOf(recs), 'cold');
+  // -35%p 라 frozen 이다. cold 는 편차를 줄여 따로 본다.
+  eq('큰 하락 — frozen', moodOf(recs), 'frozen');
+  eq(
+    '중간 하락 — cold',
+    moodOf(history([{ n: 1000, winRate: 60 }, { n: 20, winRate: 45 }])),
+    'cold',
+  );
 }
 
 // ── (5) 기준선에 최근 20판이 섞이면 안 된다 ─────────────────────
@@ -128,7 +140,8 @@ const moodOf = (recs: MatchRecord[], days = 0) => sessionAdvice(recs, undefined,
   ]);
   const a = sessionAdvice(recs)!;
   eq('기준선에서 recent 제외 — 기준선은 45% 근처', Math.abs(a.formBaseline - 45) < 3, true);
-  eq('기준선에서 recent 제외 — hot', a.mood, 'hot');
+  // 섞였다면 편차가 눌려 blazing 까지 못 올라간다 — 그게 이 테스트의 요지다.
+  eq('기준선에서 recent 제외 — blazing', a.mood, 'blazing');
 }
 
 // ── (6) 오래 쉰 사람은 단정하지 않는다 ───────────────────────────
@@ -137,7 +150,7 @@ const moodOf = (recs: MatchRecord[], days = 0) => sessionAdvice(recs, undefined,
     { n: 1000, winRate: 40 },
     { n: 20, winRate: 75 },
   ]);
-  eq('30일 이내면 그대로', moodOf(recs, 30), 'hot');
+  eq('30일 이내면 그대로', moodOf(recs, 30), 'blazing');
   eq('31일 지나면 steady 로 내린다', moodOf(recs, 31), 'steady');
   eq('반년 쉬었으면 steady', moodOf(recs, 180), 'steady');
 }
@@ -248,6 +261,33 @@ function sessions(count: number, perSession: number, wrAt: (pos: number) => numb
     true,
     JSON.stringify(a.noGainBands),
   );
+}
+
+// ── 6단계 mood 경계 ─────────────────────────────────────────────
+//
+// 경계가 조용히 밀리면 최상위/최하위 등급이 안 나오거나 남발된다. 화면은 멀쩡하다.
+{
+  // 기준선 40%, 최근 20판을 바꿔가며 각 등급이 나오는지 본다.
+  const at = (recentWr: number) =>
+    sessionAdvice(history([{ n: 1000, winRate: 40 }, { n: 20, winRate: recentWr }]))!.mood;
+
+  eq('+25%p → blazing', at(65), 'blazing');
+  eq('+15%p → hot (blazing 아님)', at(55), 'hot');
+  eq('+5%p → steady', at(45), 'steady');
+  eq('-10%p → cooling', at(30), 'cooling');
+  eq('-15%p → cold', at(25), 'cold');
+  eq('-25%p → frozen', at(15), 'frozen');
+
+  // 연패도 한 단계씩 끌어내린다 (승률 편차와 무관하게)
+  const streak = (n: number) =>
+    sessionAdvice(history([{ n: 1000, winRate: 50 }, { n, winRate: 0 }]))!.mood;
+  eq('3연패 → cooling', streak(3), 'cooling');
+  eq('5연패 → cold', streak(5), 'cold');
+  eq('7연패 → frozen', streak(7), 'frozen');
+
+  // 오래 쉬면 등급을 단정하지 않는다 — 양 끝도 예외가 아니다
+  const recs = history([{ n: 1000, winRate: 40 }, { n: 20, winRate: 65 }]);
+  eq('blazing 도 31일 지나면 steady', sessionAdvice(recs, undefined, 31)!.mood, 'steady');
 }
 
 console.log(failed ? `\n${failed}건 실패` : '\n전부 통과');
