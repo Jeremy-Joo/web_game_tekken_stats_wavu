@@ -207,12 +207,19 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `해야 할 일을 미룰수록 승률이 오르는 건 통계학의 미스터리입니다.`,
       () => `오늘 이 폼은 마감이 가까울 때만 나오는 폼입니다.`,
       // 관상 풀이 형식 — 실제 방송 발화의 구조를 빌렸다(실명은 쓰지 않는다).
+      //   **태도까지 빌린다.** 화제성은 면전에서 단정하는 데서 나온다.
+      //   비웃는 게 아니라 보이는 대로 말할 뿐이고, 악의가 없어서 더 아프다.
+      //   대상은 여전히 '오늘의 성적'이다 — "당신은 ~한 사람"이 아니라
+      //   "이 숫자는 ~한 상"이라고 말한다.
       //   부위 → 형태 → 의미 3단 / 한자어 술어 / 마지막에 명사구로 닫기 / 평가 뒤 처방.
       // 부위 자리에 지표(초반·후반·접전·완승·연패)를 넣는다.
       // 사주나 운세를 진짜로 주장하지 않는다. 승률을 읽는 놀이다.
       () => `초반이 단단하고 후반이 두텁습니다. 오늘은 격이 느껴지는 승률입니다.`,
       () => `기세가 얼굴에 드러나듯 숫자에도 드러납니다. 지금이 그 구간입니다.`,
       () => `타고난 실력보다 오늘의 운이 앞서 있습니다. 운이 실력을 이겨낸 날입니다.`,
+      () => `오늘 숫자는 격이 있습니다. 이 격이 내일도 있을지는 다른 문제고요.`,
+      () => `기세가 좋습니다. 기세는 원래 오래 안 갑니다.`,
+      () => `잘 나올 때 찍어두십시오. 이런 상은 자주 안 옵니다.`,
     ],
     en: [
       (pp) => `If only stocks moved like this — last 20 games are ${pp}%p above your usual.`,
@@ -345,6 +352,9 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `Strong at the start, thick at the finish. Today the numbers carry weight.`,
       () => `Momentum shows in the record the way it shows on a face. This is that stretch.`,
       () => `Today your luck is running ahead of your skill. Luck won that one.`,
+      () => `These numbers have weight today. Whether they still do tomorrow is another matter.`,
+      () => `Good momentum. Momentum is not known for staying.`,
+      () => `Save it while it lasts. This reading does not come around often.`,
     ],
     ja: [
       (pp) => `株もこう上がってほしい… 直近20試合が平均より${pp}%p 高いです。`,
@@ -476,6 +486,9 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `序盤が固く、終盤に厚みがあります。今日の数字には格があります。`,
       () => `勢いは顔に出るように数字にも出ます。今がその区間です。`,
       () => `実力より今日の運が先を行っています。運が実力を上回った日です。`,
+      () => `今日の数字には格があります。明日もあるかは別の話ですが。`,
+      () => `勢いがあります。勢いというものは元々長続きしません。`,
+      () => `出ているうちに残しておきましょう。この相はそう頻繁には来ません。`,
     ],
   },
 
@@ -600,6 +613,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `초반도 후반도 고릅니다. 크게 무너지지 않는 대신 크게 솟지도 않는 형국입니다.`,
       () => `기복이 얕은 것은 흠이 아닙니다. 다만 오래 가려면 한 곳은 뾰족해야 합니다.`,
       () => `숫자에 위세는 없지만 안정이 있습니다. 안정은 나중에 값을 합니다.`,
+      () => `무난합니다. 무난하다는 건 아무도 기억 안 한다는 뜻이기도 합니다.`,
+      () => `균형은 잡혀 있습니다. 균형만 잡혀 있고요.`,
+      () => `나쁘지 않은 상입니다. 좋다고는 안 했습니다.`,
+      () => `크게 무너지지 않는 대신 크게 솟지도 않습니다. 그게 이 숫자의 전부입니다.`,
     ],
     en: [
       () => `No swings. Generously: consistent. Honestly: not improving either.`,
@@ -718,6 +735,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `Even at the start, even at the end. Nothing collapses, nothing spikes either.`,
       () => `A flat curve is not a flaw. But something has to be sharp to go far.`,
       () => `No swagger in these numbers, but there is stability. That pays later.`,
+      () => `Perfectly fine. Fine is also what nobody remembers.`,
+      () => `Well balanced. Balanced, and that is all.`,
+      () => `Not a bad reading. I did not say good.`,
+      () => `Never collapses, never spikes. That is the whole of it.`,
     ],
     ja: [
       () => `波がありません。よく言えば安定、悪く言えば伸びもなし。`,
@@ -836,6 +857,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `序盤も終盤も均一です。大きく崩れない代わりに大きく伸びもしない形です。`,
       () => `起伏が浅いのは欠点ではありません。ただ遠くへ行くには一点は尖る必要があります。`,
       () => `数字に威勢はありませんが安定があります。安定は後で効きます。`,
+      () => `無難です。無難とは誰も覚えていないという意味でもあります。`,
+      () => `バランスは取れています。取れているだけですが。`,
+      () => `悪くない相です。良いとは言っていません。`,
+      () => `大きく崩れない代わりに大きく伸びもしない。それがこの数字の全部です。`,
     ],
   },
 
@@ -970,6 +995,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `초반은 살아 있는데 후반이 얇습니다. 시작은 좋고 마무리가 부족한 상입니다.`,
       () => `접전에는 버티는데 큰 판에서 무너집니다. 힘이 아니라 호흡의 문제입니다.`,
       () => `기세가 빠지는 자리가 보입니다. 여기서 무리하면 자리를 잃습니다.`,
+      () => `초반은 살아 있는데 후반이 얇습니다. 시작만 좋은 상입니다.`,
+      () => `접전에는 버티는데 큰 판에서 무너집니다. 근성이 아니라 습관의 문제입니다.`,
+      () => `기세가 빠지는 자리가 보입니다. 본인만 못 보고 계시고요.`,
+      () => `지금 이 흐름은 실력이 아니라 고집이 만들고 있습니다.`,
     ],
     en: [
       () => `At this rate, buy a lottery ticket instead. That might work out.`,
@@ -1098,6 +1127,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `The opening is alive but the back half is thin. Starts well, finishes short.`,
       () => `You hold in close sets and fold in big ones. That is pacing, not power.`,
       () => `There is a point where the momentum leaves. Push past it and you lose the ground.`,
+      () => `The opening is alive, the back half is thin. Good at starting, that is the reading.`,
+      () => `You hold in close sets and fold in big ones. That is habit, not grit.`,
+      () => `There is a point where the momentum leaves. You are the only one not seeing it.`,
+      () => `What is driving this stretch is not skill. It is stubbornness.`,
     ],
     ja: [
       () => `この勝率なら宝くじでも買いましょう。そっちは当たるかも。`,
@@ -1226,6 +1259,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `序盤は生きていますが終盤が薄い。始まりは良く、締めが足りない相です。`,
       () => `接戦では耐えるのに大きな場面で崩れます。力ではなく呼吸の問題です。`,
       () => `勢いが抜ける箇所が見えます。ここで無理をすると足場を失います。`,
+      () => `序盤は生きていますが終盤が薄い。始まりだけが良い相です。`,
+      () => `接戦では耐えるのに大きな場面で崩れます。根性ではなく癖の問題です。`,
+      () => `勢いが抜ける箇所が見えます。本人だけが見えていませんが。`,
+      () => `今の流れを作っているのは実力ではなく意地です。`,
     ],
   },
 
@@ -1438,6 +1475,12 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `연패가 이어지는 것은 실력이 사라져서가 아니라 흐름이 등을 돌려서입니다.`,
       () => `오늘의 숫자는 당신의 격이 아닙니다. 격은 하루로 정해지지 않습니다.`,
       () => `흐름이 나쁠 때는 버티는 게 아니라 피하는 것이 처방입니다. 오늘은 끄십시오.`,
+      () => `숫자에 격이 없습니다. 오늘만 그렇다고 믿으십시오.`,
+      () => `흐름이 등을 돌렸습니다. 붙잡는 사람이 제일 크게 다칩니다.`,
+      () => `실력이 사라진 게 아니라 오늘 쓰지 못하고 있는 겁니다. 위로는 여기까지입니다.`,
+      () => `이 상으로 계속하면 결과는 정해져 있습니다. 처방은 하나, 끄십시오.`,
+      () => `보이는 대로 말하면 오늘은 아닙니다. 내일은 모르고요.`,
+      () => `연패는 운이 아니라 자리입니다. 자리를 옮기셔야 합니다.`,
     ],
     en: [
       () => `The lottery didn't hit and neither did anything else. Luck called in sick.`,
@@ -1635,6 +1678,12 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `The streak is not skill disappearing. It is the flow turning its back.`,
       () => `Today's numbers are not your measure. A measure is not set in one day.`,
       () => `When the flow is against you the remedy is not endurance but distance. Close it.`,
+      () => `These numbers have no weight. Believe that it is only today.`,
+      () => `The flow has turned its back. Whoever grabs at it gets hurt worst.`,
+      () => `Your skill has not gone; you just cannot reach it today. That is the whole consolation.`,
+      () => `Continue with this reading and the ending is already written. One remedy: close it.`,
+      () => `Read plainly, today is not it. Tomorrow, who knows.`,
+      () => `A losing streak is not luck, it is a position. Move.`,
     ],
     ja: [
       () => `宝くじも当たらず勝率も上がらず。今日は運が欠勤です。`,
@@ -1832,6 +1881,12 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `連敗が続くのは実力が消えたからではなく、流れが背を向けたからです。`,
       () => `今日の数字はあなたの格ではありません。格は一日では決まりません。`,
       () => `流れが悪いときの処方は耐えることではなく離れることです。今日は閉じましょう。`,
+      () => `数字に格がありません。今日だけだと信じてください。`,
+      () => `流れが背を向けました。しがみつく人が一番大きく怪我をします。`,
+      () => `実力が消えたのではなく今日は使えていないだけです。慰めはここまでです。`,
+      () => `この相のまま続ければ結末は決まっています。処方は一つ、閉じることです。`,
+      () => `見えたまま言えば、今日ではありません。明日は分かりませんが。`,
+      () => `連敗は運ではなく位置です。位置を変えてください。`,
     ],
   },
 };

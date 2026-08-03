@@ -110,9 +110,13 @@ export const R = {
   secTrend: { ko: '레이팅 추이', en: 'Rating trend', ja: 'レート推移' } as S,
   secChars: { ko: '캐릭터별 성적', en: 'By character', ja: 'キャラ別成績' } as S,
   secMatchups: { ko: '매치업', en: 'Matchups', ja: 'マッチアップ' } as S,
-  secSeasons: { ko: '시즌별', en: 'By season', ja: 'シーズン別' } as S,
-  secWhen: { ko: '언제 강한가', en: 'When you play best', ja: '強い時間帯' } as S,
-  secGap: { ko: '실력차별 성적', en: 'By opponent strength', ja: '格上・格下との成績' } as S,
+  secSeasons: { ko: '시즌별 성적', en: 'By season', ja: 'シーズン別成績' } as S,
+  // '언제 강한가' → '시간대별 성적'. 조회 화면의 '시간대' 탭과 같은 데이터인데
+  // 이름이 달라서 둘을 같은 것으로 읽기 어려웠다. 제목 형식도 「X별 성적」으로 맞춘다.
+  secWhen: { ko: '시간대별 성적', en: 'By time of day', ja: '時間帯別成績' } as S,
+  // '실력차별' 은 구어에 가깝고 무엇의 차이인지도 모호했다.
+  // 조회 화면의 '레이팅대' 탭과 같은 기준(상대와의 레이팅 차)이므로 그 말을 쓴다.
+  secGap: { ko: '레이팅대별 성적', en: 'By rating gap', ja: 'レート差別成績' } as S,
   secDetail: { ko: '세부 지표', en: 'Details', ja: '詳細指標' } as S,
 
   // ── 최근 흐름 ──
@@ -183,19 +187,21 @@ export const R = {
 
   // ── 캐릭터·매치업 ──
   charsNote: {
-    ko: '가운데가 50%입니다. 오른쪽으로 길수록 잘 쓰는 캐릭터입니다.',
+    ko: '가운데가 50%입니다. 오른쪽으로 길수록 성적이 좋은 캐릭터입니다.',
     en: 'Center is 50%. The farther right, the better that character performs.',
     ja: '中央が50%です。右に長いほど得意なキャラです。',
   } as S,
-  strongOpp: { ko: '강한 상대', en: 'You beat', ja: '得意な相手' } as S,
-  weakOpp: { ko: '까다로운 상대', en: 'You struggle with', ja: '苦手な相手' } as S,
+  // 조회 화면의 탭 이름이 '강점 매치업 / 약점 매치업' 이다. 같은 값을 리포트에서만
+  // '강한 상대 / 까다로운 상대' 로 부르고 있었다 — 탭 쪽 이름으로 통일한다.
+  strongOpp: { ko: '강점 매치업', en: 'Strong matchups', ja: '得意マッチアップ' } as S,
+  weakOpp: { ko: '약점 매치업', en: 'Weak matchups', ja: '苦手マッチアップ' } as S,
   matchupsNote: {
-    ko: '5판 이상 붙어본 상대 캐릭터 기준입니다.',
+    ko: '5판 이상 상대해 본 캐릭터만 집계했습니다.',
     en: 'Opponent characters you have faced at least 5 times.',
     ja: '5戦以上対戦した相手キャラが対象です。',
   } as S,
   matchupsEmpty: {
-    ko: '같은 캐릭터를 5판 이상 만난 기록이 아직 없습니다. 상대별 유불리는 표본이 쌓여야 의미가 생깁니다.',
+    ko: '같은 캐릭터를 5판 이상 상대한 기록이 아직 없습니다. 매치업 유불리는 표본이 쌓여야 의미가 생깁니다.',
     en: "You haven't faced any single character 5+ times yet. Matchup numbers only mean something once samples build up.",
     ja: '同じキャラと5戦以上した記録がまだありません。相性はサンプルが貯まって初めて意味を持ちます。',
   } as S,
@@ -210,29 +216,33 @@ export const R = {
   seasonBest: { ko: '최고 승률', en: 'best', ja: '最高勝率' } as S,
 
   // ── 시간대 ──
-  bestHour: { ko: '가장 강한 시간대', en: 'Best hour', ja: '最も強い時間帯' } as S,
-  worstHour: { ko: '가장 약한 시간대', en: 'Worst hour', ja: '最も弱い時間帯' } as S,
-  bestDay: { ko: '가장 강한 요일', en: 'Best day', ja: '最も強い曜日' } as S,
-  worstDay: { ko: '가장 약한 요일', en: 'Worst day', ja: '最も弱い曜日' } as S,
+  // '가장 강한/약한' 은 네 항목에 반복되면 길다. 강세·약세로 줄이면 표가 정돈되고
+  // 네 라벨의 길이도 같아진다.
+  bestHour: { ko: '강세 시간대', en: 'Strongest hour', ja: '得意な時間帯' } as S,
+  worstHour: { ko: '약세 시간대', en: 'Weakest hour', ja: '苦手な時間帯' } as S,
+  bestDay: { ko: '강세 요일', en: 'Strongest day', ja: '得意な曜日' } as S,
+  worstDay: { ko: '약세 요일', en: 'Weakest day', ja: '苦手な曜日' } as S,
   whenNote: {
     ko: (min: number) => `${min}판 이상 뛴 구간만 비교했습니다. 표본이 적은 시간대는 제외됩니다.`,
     en: (min: number) => `Only buckets with ${min}+ games are compared. Thin slots are excluded.`,
     ja: (min: number) => `${min}戦以上の区間のみ比較しています。サンプルの少ない時間帯は除外されます。`,
   } as F<[number]>,
   whenEmpty: {
-    ko: '시간대별로 나누기엔 경기가 부족합니다.',
+    ko: '시간대별로 나누기에는 경기가 부족합니다.',
     en: 'Not enough matches to break down by time of day.',
     ja: '時間帯で分けるには試合が足りません。',
   } as S,
 
   // ── 실력차 ──
-  gapUp: { ko: '나보다 위', en: 'Stronger', ja: '格上' } as S,
-  gapEven: { ko: '비슷한 상대', en: 'Even', ja: '互角' } as S,
-  gapDown: { ko: '나보다 아래', en: 'Weaker', ja: '格下' } as S,
+  // '나보다 위/아래' 는 말이 길고 구어체다. 상위·동급·하위로 줄인다 —
+  // 세 개가 같은 길이라 표에서 눈이 덜 흔들린다.
+  gapUp: { ko: '상위 상대', en: 'Higher-rated', ja: '格上' } as S,
+  gapEven: { ko: '동급 상대', en: 'Similar rating', ja: '同格' } as S,
+  gapDown: { ko: '하위 상대', en: 'Lower-rated', ja: '格下' } as S,
   gapNote: {
-    ko: '레이팅 차 50 기준입니다. 위쪽 상대 승률이 전체 승률보다 그 사람의 실력을 잘 보여줍니다.',
-    en: 'Split at a 50-point rating gap. Your rate against stronger opponents says more than the overall number.',
-    ja: 'レート差50を基準に分けています。格上相手の勝率のほうが総合勝率より実力を表します。',
+    ko: '레이팅 차 50을 경계로 나눴습니다. 상위 상대 승률이 전체 승률보다 실력을 정확히 보여줍니다.',
+    en: 'Split at a 50-point rating gap. Your rate against higher-rated opponents is the truer measure.',
+    ja: 'レート差50を境に分けています。格上相手の勝率のほうが総合勝率より実力を正確に表します。',
   } as S,
   gapEmpty: {
     ko: '레이팅이 붙은 경기가 부족해 실력차를 나눌 수 없습니다.',
@@ -246,7 +256,7 @@ export const R = {
   closeNote: { ko: '1라운드 차 승부', en: 'decided by one round', ja: '1ラウンド差の勝負' } as S,
   shutoutWr: { ko: '완승 비율', en: 'Shutout rate', ja: '完封率' } as S,
   shutoutNote: { ko: '3-0 승리', en: '3-0 wins', ja: '3-0での勝利' } as S,
-  charsUsed: { ko: '사용 캐릭터', en: 'Characters used', ja: '使用キャラ数' } as S,
+  charsUsed: { ko: '사용 캐릭터 수', en: 'Characters used', ja: '使用キャラ数' } as S,
   bestStreak: { ko: '최장 연승', en: 'Longest win streak', ja: '最長連勝' } as S,
 
   // ── 꼬리말 ──
