@@ -12,6 +12,22 @@
 // 톤 규칙:
 //  - 승률을 인생(로또·주식·연애·직장)에 빗대는 자조 개그. 놀리되 비하하지 않는다.
 //  - 실제로 힘든 주제(건강 악화·정신건강·돈 문제의 실질적 고통)는 소재로 삼지 않는다.
+//  - 프로 선수 소재는 **가정을 문장 안에 담고, 가정하는 대상은 항상 '프로 신분'이다.**
+//    조회하는 사람에겐 계약도 감독도 스폰서도 없다. 단정형으로 쓰면("감독이 슬슬 다른
+//    선수를 보고 있습니다") 문장이 붕 뜨거나, 더 나쁘게는 **진짜 직장 얘기로 읽힌다.**
+//    사고 이력: "계약 마지막 해라면 지금 초조하셔야 합니다" — 조건절이 '계약 연차'에만
+//    걸려서 가정된 게 프로 신분이 아니라 본인 회사 계약으로 읽혔다.
+//    조건절은 돌려 쓸 것(프로였다면 / 이게 직업이었다면 / 팀에 계셨다면 /
+//    계약서가 있었다면 / 중계가 붙었다면 / 프로 무대였다면) — 40줄이 전부
+//    "프로였다면"으로 시작하면 그것대로 죽는다.
+//    **예외 셋은 의도적으로 단정형이다** — hot 의 "직업을 잘못 고르셨습니다",
+//    "프로 데뷔 시기를 놓치신 것 같습니다", steady 의 "취미로는 훌륭하고 직업으로는
+//    애매한 승률입니다". 셋 다 뒷말이나 문장 자체가 이미 한정을 걸고 있고,
+//    이 소재의 원안이 가진 직설적인 맛이 여기 있다. **가정법으로 고치지 말 것.**
+//  - **실존 인물의 이름을 쓰지 않는다.** 프로 선수 소재("직업이었으면 방출됐다")는
+//    쓰되 고유명사는 안 쓴다. 유저를 놀리려고 실명을 빌리면 놀림의 대상이 그 사람이
+//    되는데, "독설의 대상은 오늘의 성적이지 사람이 아니다"가 제3자에게만 예외일 이유가
+//    없다. 은퇴·이적·사건이 생기면 문구가 통째로 상하는 유지비 문제도 있다.
 //  - 한국어가 원문이지만 **분량은 세 언어를 맞춘다**. 예전에는 en/ja 를 십여 개만
 //    두고 "말장난은 번역하면 반쯤 죽는다"는 이유를 달았는데, 결과는 영어·일본어
 //    사용자에게 같은 문구가 계속 도는 것이었다. 죽는 건 번역이 아니라 재탕이다.
@@ -21,6 +37,8 @@
 
 import type { Lang } from './i18n';
 import { seasonPool, type Season } from './season-jokes';
+import { factPools } from './fact-jokes';
+import type { QuipFacts } from '@/lib/tekken/quip-facts';
 
 export type Mood = 'hot' | 'steady' | 'cooling' | 'cold';
 
@@ -31,6 +49,12 @@ export type Mood = 'hot' | 'steady' | 'cooling' | 'cold';
  * 씨앗은 이미 안정적이라(같은 조회 = 같은 문구) 이 나눗셈도 결과를 흔들지 않는다.
  */
 const SEASON_EVERY = 4;
+/**
+ * 특성 문구가 나올 확률(1/N). 특성은 **늘 참**이라 사건처럼 우선하면 141개짜리
+ * 기본 풀이 영영 안 나온다. 계절이 이미 1/4 를 먹고 있어서 같은 값을 쓰면 둘이 합쳐
+ * 절반을 가져간다 — 한 칸 성기게 잡는다.
+ */
+const TRAIT_EVERY = 5;
 
 /** pp = 최근 폼 편차(%p, 부호 있음), streak = 현재 연패 수 */
 type JokeFn = (pp: number, streak: number) => string;
@@ -138,6 +162,18 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `여기 모인 모두가 챔피언이라지만, 오늘은 당신 쪽이 진짜였습니다.`,
       () => `상대들에겐 다시 만나고 싶지 않은 세계였을 겁니다.`,
       () => `이런 날엔 마이 웨이를 불러도 아무도 못 말립니다.`,
+      // 프로 — '이걸 직업으로 했어야지' 계열. 자세한 규칙은 파일 머리말 참조.
+      // **실존 선수 이름은 쓰지 않는다.** 직업·계약·팀이라는 개념만 빌린다.
+      () => `직업을 잘못 고르셨습니다. 오늘만 보면 그렇습니다.`,
+      () => `이 성적을 20대에 냈으면 지금쯤 스폰서가 붙어 있었을 겁니다.`,
+      () => `이걸로 먹고사는 사람들이 있습니다. 오늘의 당신도 자격이 있습니다.`,
+      () => `회사 그만두라는 말은 못 하겠고, 오늘 성적은 그렇게 말하고 있습니다.`,
+      () => `프로 데뷔 시기를 놓치신 것 같습니다. 통계가 아쉬워합니다.`,
+      () => `이게 직업이었다면 오늘 성적으로 연봉 협상을 걸어볼 만합니다.`,
+      () => `팀에 계셨다면 슬슬 스폰서 로고 자리를 비워둘 때입니다.`,
+      () => `본업이 따로 있다는 게 이 데이터의 유일한 흠입니다.`,
+      () => `프로 무대였다면 이 폼으로 예선은 통과합니다. 본선은 다른 얘기고요.`,
+      () => `해설자가 있었으면 목소리가 커졌을 구간입니다.`,
     ],
     en: [
       (pp) => `If only stocks moved like this — last 20 games are ${pp}%p above your usual.`,
@@ -225,6 +261,17 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `The graph looks like a good decision.`,
       () => `Play one more. The data says you will probably win it.`,
       () => `Your worst match today would be a decent day last month.`,
+      // 프로 (실명 금지 — 개념만)
+      () => `You picked the wrong career. Based on today, anyway.`,
+      () => `People do this for a living. Today, you'd qualify.`,
+      () => `The only flaw in this data is that you have a day job.`,
+      () => `If this were your job, today is when you'd ask for the raise.`,
+      () => `On a team, you'd be clearing space for the sponsor logo.`,
+      () => `On a pro circuit this form clears qualifiers. Finals are another conversation.`,
+      () => `A scout would have called by now. They won't, but they should.`,
+      () => `Somebody gets paid to do this. Today that seems unfair.`,
+      () => `Commentary would have gotten loud right around here.`,
+      () => `Put this run on a résumé nobody will ever read.`,
     ],
     ja: [
       (pp) => `株もこう上がってほしい… 直近20試合が平均より${pp}%p 高いです。`,
@@ -312,6 +359,17 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `グラフが「良い判断」の形をしています。`,
       () => `もう一戦どうぞ。データ上、たぶん勝ちます。`,
       () => `今日の最低試合が、先月なら上出来の日です。`,
+      // プロ（実名は使わない — 概念だけ）
+      () => `職業選択を間違えましたね。今日を見る限りは。`,
+      () => `これで食べている人たちがいます。今日のあなたには資格があります。`,
+      () => `本業が別にあることが、このデータ唯一の欠点です。`,
+      () => `これが職業なら、今日は年俸交渉を持ちかけていい成績です。`,
+      () => `チームにいたなら、そろそろスポンサーロゴの場所を空ける頃です。`,
+      () => `プロの舞台なら、この調子で予選は通ります。本戦は別の話ですが。`,
+      () => `スカウトから電話が来てもいい頃です。来ませんが。`,
+      () => `これで給料をもらっている人がいます。今日は不公平に思えますね。`,
+      () => `この辺りで実況の声が大きくなっていたはずです。`,
+      () => `誰も読まない履歴書に書いておきましょう。`,
     ],
   },
 
@@ -397,6 +455,16 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `렛 잇 비. 오늘은 이대로 두는 게 정답입니다.`,
       () => `벚꽃엔딩처럼, 때 되면 알아서 역주행할 승률입니다.`,
       () => `배경음악으로 치면 로파이 정도의 하루였습니다.`,
+      // 프로 (실명 금지 — 개념만)
+      () => `프로와 아마추어는 이 구간에서 갈립니다. 여기를 못 넘으면 계속 여기입니다.`,
+      () => `이게 직업이었다면 계약은 못 따고, 잘리지도 않았을 성적입니다.`,
+      () => `프로였다면 2군에서 아주 안정적인 선수였을 겁니다.`,
+      () => `팀에 계셨다면 콜업도 방출도 없었을 겁니다. 나쁘지 않은 자리죠.`,
+      () => `감독이 있었다면 "좀 더 지켜보자"고 했을 성적입니다.`,
+      () => `취미로는 훌륭하고 직업으로는 애매한 승률입니다.`,
+      () => `계약서가 있었다면 주전도 벤치도 아닌, 딱 그 자리였을 겁니다.`,
+      () => `연차만 쌓이고 고과는 그대로인 그 느낌입니다.`,
+      () => `프로라면 이쯤에서 코치를 붙일 겁니다.`,
     ],
     en: [
       () => `No swings. Generously: consistent. Honestly: not improving either.`,
@@ -477,6 +545,16 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `You are consistent enough to be predictable. Fix that on purpose.`,
       () => `No news is decent news.`,
       () => `Same rating, more experience. That trade is fine.`,
+      // 프로 (실명 금지 — 개념만)
+      () => `If this were a career: not good enough for a contract, not bad enough to cut.`,
+      () => `You'd be a very stable player. In the minor league.`,
+      () => `A coach would say "let's watch a bit longer."`,
+      () => `Excellent as a hobby, ambiguous as a career.`,
+      () => `Seniority goes up, the performance review doesn't.`,
+      () => `Neither promoted nor benched — the longest chapter of any career.`,
+      () => `A scout would write "keep watching" and move on to the next name.`,
+      () => `On a roster you'd keep the seat but never quite earn the contract.`,
+      () => `This is the part of the season nobody cuts highlights from.`,
     ],
     ja: [
       () => `波がありません。よく言えば安定、悪く言えば伸びもなし。`,
@@ -557,6 +635,16 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `読まれるほど安定しています。そこは意図的に崩しましょう。`,
       () => `便りがないのは、まあまあの便りです。`,
       () => `レートは同じ、経験は増加。その取引は悪くありません。`,
+      // プロ（実名は使わない — 概念だけ）
+      () => `これが職業なら、契約は取れずクビにもならない成績です。`,
+      () => `プロなら二軍で非常に安定した選手だったでしょう。`,
+      () => `監督なら「もう少し様子を見よう」と言う成績です。`,
+      () => `趣味としては立派、職業としては微妙な勝率です。`,
+      () => `年次だけ上がって評価は据え置き、あの感じです。`,
+      () => `昇格もベンチ落ちもなし。どんな経歴でも一番長い章です。`,
+      () => `スカウトなら「継続観察」とだけ書いて次の名前へ行きます。`,
+      () => `ロースターにいても、席は守れるが契約は取れない水準です。`,
+      () => `シーズンのこの部分はハイライトになりません。`,
     ],
   },
 
@@ -649,6 +737,15 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `롤러코스터를 타는 중입니다. 지금은 내려가는 구간이고요.`,
       () => `사랑은 늘 도망간다더니, 승률도 그런 모양입니다.`,
       () => `내리막길에서 브레이크는 밟으라고 달려 있는 겁니다.`,
+      // 프로 (실명 금지 — 개념만)
+      () => `이게 직업이었다면 지금이 계약 마지막 해입니다. 슬슬 초조하셔야 하죠.`,
+      () => `감독이 있었다면 슬슬 다른 선수를 보기 시작했을 겁니다.`,
+      () => `프로였다면 이 구간이 길어질 때 벤치로 내려갑니다. 아직은 아니고요.`,
+      () => `프로였다면 오늘 인터뷰에서 말을 아꼈을 겁니다.`,
+      () => `팀에 계셨다면 트레이드 루머가 돌기 시작할 성적입니다.`,
+      () => `계약서가 있었어도 아직 방출은 아닙니다. 아직은요.`,
+      () => `이런 날 프로는 연습실로 갑니다. 당신은 연습 모드고요.`,
+      () => `성적이 내려갈 때 코치를 찾는 게 정석입니다. 여기선 리플레이가 코치입니다.`,
     ],
     en: [
       () => `At this rate, buy a lottery ticket instead. That might work out.`,
@@ -735,6 +832,15 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `You are losing the neutral, not the matchup.`,
       () => `A small slide. Big slides start exactly like this.`,
       () => `Quit while it is still just a footnote.`,
+      // 프로 (실명 금지 — 개념만)
+      () => `If this were your contract year, you'd be nervous by now.`,
+      () => `A coach would be starting to look at other players.`,
+      () => `If you had a contract, this still isn't a release. Not yet.`,
+      () => `A pro would go to the practice room. You have practice mode.`,
+      () => `On a team, this is the stretch where trade rumours start.`,
+      () => `A front office would be quietly re-running the numbers by now.`,
+      () => `You'd still be a starter. That's this week's news, not next week's.`,
+      () => `A pro would call this a slump and book extra lab time.`,
     ],
     ja: [
       () => `この勝率なら宝くじでも買いましょう。そっちは当たるかも。`,
@@ -821,6 +927,15 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `相性ではなく立ち回りで負けています。`,
       () => `小さな滑り。大きな滑りもこう始まります。`,
       () => `まだ脚注で済むうちにやめましょう。`,
+      // プロ（実名は使わない — 概念だけ）
+      () => `これが職業なら今が契約最終年です。そろそろ焦る時期ですね。`,
+      () => `監督がいたら、そろそろ他の選手を見始めていたでしょう。`,
+      () => `契約があっても、まだ戦力外ではありません。まだ、ですが。`,
+      () => `プロならこういう日は練習場へ。あなたには練習モードがあります。`,
+      () => `チームにいたなら、トレードの噂が立ち始める成績です。`,
+      () => `フロントがあれば、静かに数字を見直し始めている頃です。`,
+      () => `まだ先発でいられるでしょう。それは今週の話で、来週の話ではありません。`,
+      () => `プロならこれをスランプと呼び、練習時間を増やします。`,
     ],
   },
 
@@ -978,6 +1093,21 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `속에 여러 사람이 산다면, 오늘 나온 건 그중 제일 약한 쪽입니다.`,
       () => `어제가 좋았습니다. 통계도 같은 의견입니다.`,
       () => `나를 버리고 가시는 님은 십 리도 못 간다던데, 오늘 상대는 잘만 갔습니다.`,
+      // 프로 — '직업이었으면 방출' 계열. 실존 선수 이름은 쓰지 않는다(파일 머리말 참조).
+      // 방출·은퇴는 cold 의 기본 전략인 '오늘은 그만두라'와 방향이 같아서 잘 붙는다.
+      () => `이걸 직업으로 하셨으면 진작 방출됐습니다. 다행히 취미죠.`,
+      () => `계약 해지를 통보받을 성적입니다. 다행히 계약이 없습니다.`,
+      () => `프로였다면 오늘로 은퇴 기자회견을 잡았을 겁니다.`,
+      () => `감독이 있었으면 진작에 교체했습니다.`,
+      () => `스폰서가 있었다면 오늘 로고를 뗐을 겁니다.`,
+      () => `중계가 붙었다면 해설자가 할 말을 잃었을 겁니다.`,
+      () => `프로 무대였다면 예선 탈락이 이것보단 명예로웠습니다.`,
+      () => `이게 직업이었다면 다음 연봉 협상은 삭감에서 시작합니다.`,
+      () => `팀에 계셨다면 2군 강등도 아깝다는 소리를 들었을 겁니다.`,
+      () => `중계가 있었다면 오늘 경기는 다시보기에서 내렸을 겁니다.`,
+      () => `팀이 있었다면 지금쯤 성명문을 쓰고 있었을 겁니다.`,
+      () => `프로가 아니라서 다행인 날입니다. 진심으로 드리는 말씀입니다.`,
+      () => `본업이 따로 있어서 다행입니다. 오늘은 그게 유일한 위안입니다.`,
     ],
     en: [
       () => `The lottery didn't hit and neither did anything else. Luck called in sick.`,
@@ -1121,6 +1251,20 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `Put it down. Gently. It is not the controller's fault.`,
       () => `This session is over. It has been over for a while.`,
       () => `Rest is not giving up. It is the only patch that works.`,
+      // 프로 (실명 금지 — 개념만)
+      () => `If this were your job, you'd have been released by now. Luckily it's a hobby.`,
+      () => `This is a contract-termination performance. Luckily there's no contract.`,
+      () => `A pro would be booking the retirement press conference tonight.`,
+      () => `Any coach would have subbed you out an hour ago.`,
+      () => `A sponsor would have peeled the logo off today.`,
+      () => `Commentators would have run out of things to say.`,
+      () => `On a pro circuit, losing in qualifiers would have been more dignified.`,
+      () => `Good thing you're not a pro. Genuinely.`,
+      () => `A team would be drafting the statement right about now.`,
+      () => `A salary review after this would only move one direction.`,
+      () => `If this were broadcast, they'd pull today's matches from the VOD.`,
+      () => `On a roster, being sent down to the second team would be the generous call.`,
+      () => `Your day job is the only good news in this dataset.`,
     ],
     ja: [
       () => `宝くじも当たらず勝率も上がらず。今日は運が欠勤です。`,
@@ -1264,6 +1408,20 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `そっと置きましょう。コントローラーのせいではありません。`,
       () => `このセッションは終わっています。しばらく前から。`,
       () => `休むのは諦めではありません。唯一効くパッチです。`,
+      // プロ（実名は使わない — 概念だけ）
+      () => `これを職業にしていたら、とっくに戦力外です。趣味でよかったですね。`,
+      () => `契約解除を通告される成績です。幸い契約がありません。`,
+      () => `プロなら今日で引退会見を組んでいたでしょう。`,
+      () => `監督がいたら、とっくに交代させられています。`,
+      () => `スポンサーがいたら、今日でロゴを外していたはずです。`,
+      () => `中継がついていたら、解説者が言葉を失っていたでしょう。`,
+      () => `プロの舞台なら、予選敗退のほうがまだ名誉でした。`,
+      () => `プロでなくてよかった日です。本当に。`,
+      () => `チームがあれば、今頃コメントを準備しているところです。`,
+      () => `これが職業なら、次の年俸交渉は減額から始まります。`,
+      () => `中継があったら、今日の試合はアーカイブから下げていたでしょう。`,
+      () => `ロースターにいたなら、二軍降格でも温情と言われた成績です。`,
+      () => `本業が別にあることが、このデータ唯一の朗報です。`,
     ],
   },
 };
@@ -1791,7 +1949,17 @@ export function pickJoke(
   pp: number,
   streak: number,
   season?: Season | null,
+  facts?: QuipFacts | null,
 ): string {
+  // ── 우선순위 사다리 ──────────────────────────────────────────────
+  // 좁은 조건이 이긴다. 예전에는 축마다 `seed % N` 으로 섞었는데, 그러면 축을 늘릴수록
+  // **드문 사건이 묻힌다** — 10,000판 달성은 평생 한 번인데 25% 확률로 계절 문구에
+  // 밀리면 안 된다. 사건은 순서대로 먼저 보고, 특성은 기본 풀과 섞는다.
+  //
+  //   마일스톤 > 최고 갱신 > 승단·강등 > 복귀 > 연승 > 오늘 몰림 > 시각 > 계절 > 기본
+  const { events, traits } = factPools(facts ?? null, lang, mood);
+  if (events.length > 0) return pick(events[0], seed); // 빈 pool 은 factPools 가 이미 걸렀다
+
   // 계절 문구는 mood 가 아니라 **날짜**가 여는 축이라 pool 을 따로 본다.
   // 계절을 모르면(=null) 이 갈래는 통째로 건너뛴다 — 없는 근거로 계절을 말하지 않는다.
   if (season) {
@@ -1799,6 +1967,9 @@ export function pickJoke(
     // 언어에 계절 문구가 없으면(en) 비어 있다 → 자동으로 기본 농담으로 떨어진다.
     if (sp.length > 0 && seed % SEASON_EVERY === 0) return pick(sp, seed);
   }
+
+  // 특성 문구는 늘 참이라 우선하면 기본 풀을 영영 밀어낸다. 확률로만 끼워 넣는다.
+  if (traits.length > 0 && seed % TRAIT_EVERY === 0) return pick(traits, seed);
 
   // 연패가 없으면 연패를 소재로 한 문구는 후보에서 뺀다.
   const pool = JOKES[mood][lang].filter(

@@ -31,6 +31,7 @@ import {
   type ConditionFacts,
 } from './jokes';
 import { seasonOf } from './season-jokes';
+import type { QuipFacts } from '@/lib/tekken/quip-facts';
 import {
   pickCompareSummary,
   pickH2hQuip,
@@ -141,6 +142,8 @@ interface PlayerResponse {
     losingStreak: number;
     mood: 'hot' | 'steady' | 'cooling' | 'cold';
   } | null;
+  /** 농담이 인용할 사실 (서버에서 계산해 실어 보낸다). 못 재면 null. */
+  quipFacts?: QuipFacts | null;
   filtered?: {
     start: string | null;
     end: string | null;
@@ -2293,6 +2296,8 @@ export default function Home() {
                           summary?.lastDt
                             ? seasonOf(new Date(`${summary.lastDt}T00:00:00Z`))
                             : null,
+                          // 마일스톤·승단·실력차 같은 축. 우선순위 사다리는 pickJoke 안에 있다.
+                          single.quipFacts ?? null,
                         )}
                       </p>
                     )}

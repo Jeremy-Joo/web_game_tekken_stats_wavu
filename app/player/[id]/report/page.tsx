@@ -24,6 +24,8 @@ import {
   type ConditionFacts,
 } from '@/app/jokes';
 import { seasonOf } from '@/app/season-jokes';
+import { buildQuipFacts } from '@/lib/tekken/quip-facts';
+import { guessTimezone, hourHistogramUtcFromRecords } from '@/lib/wavu/region';
 import { R, parseLang, weekdayText, hourText, REPORT_LANGS, type Lang } from './strings';
 import ReportChart, { type TrendPoint } from './ReportChart';
 import ShareBar from './ShareBar';
@@ -494,8 +496,27 @@ export default async function ReportPage({ params, searchParams }: Props) {
   const mood = (advice?.mood ?? 'steady') as Mood;
   // 계절은 마지막 경기 날짜로 정한다 — `latest.dt` 는 KST 벽시계를 UTC 필드에 담고 있고,
   // seasonOf 가 getUTCMonth() 로 읽으므로 보는 사람 시간대가 끼어들지 않는다.
+  // 데이터를 인용하는 축(마일스톤·승단·실력차…). 시간대는 조회 화면과 같은 규칙으로
+  // 추정하고, **추정에 실패하면 tzKnown=false 로 넘겨 시각 농담을 통째로 끈다.**
+  // guessTimezone 은 모를 때도 KST 를 돌려주므로 offsetMinutes 만 보면 안 된다.
+  const tz = guessTimezone(data.region, hourHistogramUtcFromRecords(allRecords));
+  const quipFacts = buildQuipFacts({
+    records,
+    allRecords,
+    today,
+    tzOffsetMinutes: tz.offsetMinutes,
+    tzKnown: tz.source !== 'default',
+  });
   const quip = advice
-    ? pickJoke(mood, lang, seed, advice.recentDeltaPp, advice.losingStreak, seasonOf(latest.dt))
+    ? pickJoke(
+        mood,
+        lang,
+        seed,
+        advice.recentDeltaPp,
+        advice.losingStreak,
+        seasonOf(latest.dt),
+        quipFacts,
+      )
     : '';
   const coach = advice ? pickCoach(mood, lang, seed + 13) : '';
 

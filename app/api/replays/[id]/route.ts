@@ -17,6 +17,7 @@ import { computeFromRecords } from '@/lib/tekken/compute';
 import { seasonSpans } from '@/lib/tekken/seasons';
 import { sessionAdvice } from '@/lib/tekken/advice';
 import { dateKey, type MatchRecord } from '@/lib/tekken/models';
+import { buildQuipFacts } from '@/lib/tekken/quip-facts';
 import {
   guessTimezone,
   hourHistogramUtcFromRecords,
@@ -111,6 +112,17 @@ export async function GET(
       // 셋째 인자는 '마지막 경기로부터 지난 날짜' — 오래 쉰 사람의 최근 20판을
       // 현재 폼으로 단정하지 않게 하는 값이다(advice.ts 의 STALE_DAYS).
       advice: sessionAdvice(filtered, undefined, daysSinceLast(filtered)),
+      // 농담이 인용할 사실. 클라이언트에는 원본 레코드가 없으므로 여기서 계산해 실어 보낸다
+      // (양쪽에서 따로 계산하면 같은 농담이 두 화면에서 다른 숫자를 말하게 된다).
+      // tzKnown 은 **추정에 성공했는가**다 — guessTimezone 은 모를 때도 KST 를 돌려주므로
+      // offsetMinutes 만 보고 "새벽 3시"라고 하면 외국 유저에게 거짓말이 된다.
+      quipFacts: buildQuipFacts({
+        records: filtered,
+        allRecords: records,
+        today: new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10),
+        tzOffsetMinutes: tz.offsetMinutes,
+        tzKnown: tz.source !== 'default',
+      }),
       filtered: {
         start: start ?? null,
         end: end ?? null,
