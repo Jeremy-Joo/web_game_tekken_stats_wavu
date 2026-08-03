@@ -1725,6 +1725,11 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      {/* 제목줄과 조작줄을 가른다. 붙어 있으면 '철권8 전적 통계 [한국어]…[한 명]…'
+          이 한 덩어리로 읽혀서 어디까지가 제목인지 눈이 못 잡는다. */}
+      <hr className="head-rule" />
+
       <div className="mode-switch">
         <button
           className={mode === 'single' ? 'on' : ''}
@@ -2592,6 +2597,9 @@ export default function Home() {
             같은 말을 두 번 하는 셈이라 걷어냈다. */}
         {/* 크레딧은 번역하지 않는다 — 이름·이메일이고, 감사 문구도 원문이 영어다.
             언어를 바꿔도 같은 사람을 같은 표기로 부르는 게 맞다. */}
+        {/* 고지가 먼저다 — 이 사이트가 무엇인지(비공식 팬사이트)와 자료 출처를
+            먼저 밝히고, 그다음이 만든 사람이다. */}
+        <span className="disclaimer">{t('disclaimer')}</span>
         <span className="credits">
           <span className="credit-block">
             Developed by Jeremio
@@ -2604,7 +2612,6 @@ export default function Home() {
             for the original idea and invaluable support.
           </span>
         </span>
-        <span className="disclaimer">{t('disclaimer')}</span>
         {/* 맨 마지막 줄. 아는 사람만 읽으면 되는 농담이라 제일 흐리게 둔다. */}
         <span className="footer-joke">{t('footerJoke')}</span>
         {/* 맨 아래 방문자 수. 값을 못 받으면 아무것도 안 그린다. */}

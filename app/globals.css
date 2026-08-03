@@ -1023,3 +1023,15 @@ footer a {
   opacity: 0.5;
   font-size: 0.7rem;
 }
+
+/* 제목줄과 조작줄 사이 구분선. 선 자체가 눈에 띄면 안 되므로 아주 옅게. */
+.head-rule {
+  margin: 0.9rem 0 1rem;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* 고지가 크레딧 위로 올라오면서 위쪽 여백이 겹친다 — 첫 요소일 때만 줄인다. */
+.disclaimer {
+  margin-top: 0.9rem;
+}
