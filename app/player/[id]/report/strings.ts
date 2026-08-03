@@ -161,10 +161,14 @@ export const R = {
     en: (from: number, to: number) => `Games ${from}–${to} win but barely move your rating.`,
     ja: (from: number, to: number) => `${from}〜${to}戦目は勝ってもレートがほぼ動きません。`,
   } as F<[number, number]>,
+  // 조회 화면과 같은 답을 준다(app/i18n.ts 의 adviceThinShort 주석에 계산 근거).
   bandThinShort: {
-    ko: (games: number) => `${games}판을 하셨지만 세션이 짧아 뒷구간 표본이 없습니다. 짧게 자주 하시는 편입니다.`,
-    en: (games: number) => `${games} games, but short sessions leave the later buckets empty — you play in bursts.`,
-    ja: (games: number) => `${games}試合ありますが、1回が短く後半のサンプルがありません。短時間を頻繁に遊ぶ型です。`,
+    ko: (games: number) =>
+      `${games}판을 하셨지만 한 번에 짧게 끊으셔서 뒷구간이 비어 있습니다. 한 자리에서 15판 이상 하는 날이 10번쯤 쌓이면 계산됩니다.`,
+    en: (games: number) =>
+      `${games} games, but each sitting is short so the later buckets are empty. About ten sessions of 15+ games will fill them.`,
+    ja: (games: number) =>
+      `${games}試合ありますが、1回が短く後半区間が空です。1回に15戦以上のセッションが10回ほどで計算できます。`,
   } as F<[number]>,
   bandThin: {
     ko: '권장 판수를 말하기엔 표본이 부족합니다.',

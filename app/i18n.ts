@@ -181,13 +181,20 @@ const D = {
   },
   // 표본이 없는 '이유'를 나눈다. 경기가 많은데 뒷구간이 빈 건 실패가 아니라
   // '짧게 자주 하는 사람'이라는 정보다 — 알고 있는 걸 모른다고 말하면 안 된다.
+  // 안 되는 이유만 말하면 "그래서 몇 판을 하라는 거냐"가 바로 나온다. 답을 같이 준다.
+  // 계산 근거: 구간은 5판 단위(advice.ts BAND), 구간 하나를 쓰려면 50판
+  // (MIN_BAND_GAMES), 판정에는 세 구간이 필요하다. 세 번째 구간은 '세션 내
+  // 11~15판째'이고 15판짜리 세션 하나가 거기에 5판을 넣으므로 → 15판 세션 10회.
+  //
+  // **'하루에 몇 판'이 아니라 '한 번에 몇 판'이다.** 구간이 세션 안 순번이라
+  // 5판씩 열 번 해봐야 앞 구간만 쌓인다. 문구에서 그 점을 분명히 한다.
   adviceThinShort: {
     ko: (games: number) =>
-      `${games}판을 하셨지만 세션이 짧아 뒷구간 표본이 없습니다. 짧게 자주 하시는 편이라 판수 한계가 안 잡힙니다.`,
+      `${games}판을 하셨지만 한 번에 짧게 끊으셔서 뒷구간이 비어 있습니다. 한 자리에서 15판 이상 하는 날이 10번쯤 쌓이면 계산됩니다 — 총 판수가 아니라 한 번에 이어서 하는 판수가 기준입니다.`,
     en: (games: number) =>
-      `${games} games, but your sessions are short so the later buckets stay empty. You play in short bursts — no length limit shows up.`,
+      `${games} games, but each sitting is short so the later buckets are empty. About ten sessions of 15+ games in one sitting will fill them — what matters is games per sitting, not the total.`,
     ja: (games: number) =>
-      `${games}試合ありますが、1回が短く後半区間のサンプルがありません。短時間を頻繁に遊ぶ型なので上限が出ません。`,
+      `${games}試合ありますが、1回が短く後半区間が空です。1回に15戦以上のセッションが10回ほど貯まれば計算できます — 合計ではなく「一度に続けた試合数」が基準です。`,
   },
   adviceThin: {
     ko: '권장 판수를 말하기엔 표본이 부족합니다. 경기가 더 쌓이면 계산됩니다.',
