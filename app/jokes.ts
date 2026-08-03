@@ -20,8 +20,17 @@
 //    설명이 된다). 대응 관계를 맞추려 하지 말 것 — 맞춰야 하는 건 개수와 톤이다.
 
 import type { Lang } from './i18n';
+import { seasonPool, type Season } from './season-jokes';
 
 export type Mood = 'hot' | 'steady' | 'cooling' | 'cold';
+
+/**
+ * 계절 문구를 몇 번에 한 번 쓸 것인가.
+ * 그냥 후보에 합치면 ko cold(141개)에 12개가 섞여 8%라 사실상 안 보인다.
+ * 계절 농담은 '지금 그 계절이라서' 재밌는 것이므로 묻히면 의미가 없다.
+ * 씨앗은 이미 안정적이라(같은 조회 = 같은 문구) 이 나눗셈도 결과를 흔들지 않는다.
+ */
+const SEASON_EVERY = 4;
 
 /** pp = 최근 폼 편차(%p, 부호 있음), streak = 현재 연패 수 */
 type JokeFn = (pp: number, streak: number) => string;
@@ -41,10 +50,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
   /* ═══════════════ 🔥 물 올랐을 때 ═══════════════ */
   hot: {
     ko: [
-      (pp) => `주식도 이렇게 올라야 하는 건데… 최근 20경기가 평균보다 ${pp}%p 높습니다.`,
+      (pp) => `주식도 이렇게 올라야 하는 건데… 최근 20경기가 평소보다 ${pp}%p 높습니다.`,
       // 잘 풀린 날엔 게임 밖으로 등을 떠민다 — 이겼을 때 멈추는 게 제일 어렵다
       () => `오늘은 가족·친구·연인과 회식하셔야겠군요. 승리는 나눠야 제맛입니다.`,
-      (pp) => `평균 대비 +${pp}%p. 이런 날은 한턱 쏘셔도 통장이 안 아픕니다.`,
+      (pp) => `평소보다 +${pp}%p. 이런 날은 한턱 쏘셔도 통장이 안 아픕니다.`,
       () => `이 기세면 오늘 저녁은 당신이 사는 겁니다. 축하드립니다.`,
       () => `승률이 이 정도면 자랑할 사람이 필요합니다. 지금 연락하세요.`,
       () => `기록해 두고 저녁 자리에서 꺼내세요. 아무도 안 믿을 겁니다.`,
@@ -63,7 +72,7 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `이 그래프를 이력서에 붙일 수 있다면 좋을 텐데요.`,
       () => `오늘은 장비 탓할 일이 없습니다. 손이 알아서 움직입니다.`,
       () => `이런 날 통계는 왜 보고 계십니까. 한 판 더 하세요.`,
-      (pp) => `평균 대비 +${pp}%p. 오늘의 당신은 어제의 당신을 이깁니다.`,
+      (pp) => `평소보다 +${pp}%p. 오늘의 당신은 어제의 당신을 이깁니다.`,
       () => `이런 날 랭크를 안 올리면 언제 올립니까.`,
       () => `상대 입장에서는 오늘이 최악의 날입니다. 축하드립니다.`,
       () => `손이 풀렸습니다. 이 상태가 영원하지 않다는 것만 기억하세요.`,
@@ -131,7 +140,7 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `이런 날엔 마이 웨이를 불러도 아무도 못 말립니다.`,
     ],
     en: [
-      (pp) => `If only stocks moved like this — last 20 games are ${pp}%p above your average.`,
+      (pp) => `If only stocks moved like this — last 20 games are ${pp}%p above your usual.`,
       () => `You had lottery-level luck today and spent all of it on Tekken.`,
       () => `Great win rate. Surely your sleep and diet are equally on point?`,
       (pp) => `Form +${pp}%p. I'd like to paste this graph into my bank account.`,
@@ -258,7 +267,7 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `チャンピオンはトレモで作られます。行きましたね。`,
       () => `今ロビーであなたの名前を見たい人はいません。`,
       () => `味わっておきましょう。平均は気長で、必ず戻ってきます。`,
-      (pp) => `平均比 +${abs(pp)}%p。平均が嫌がる数字です。`,
+      (pp) => `いつもより +${abs(pp)}%p。普段の自分が嫌がる数字です。`,
       () => `以前はガードして祈っていた技を、今日は確定で取っています。`,
       () => `数字が良すぎて、茶化すのが失礼に思えてきました。`,
       () => `このセッションは証拠として保存を。`,
@@ -404,7 +413,7 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `This is your actual level — not the good days.`,
       () => `Nothing happened today, and that is technically a result.`,
       () => `Consistency is a skill. An extremely boring skill.`,
-      (pp) => `${abs(pp)}%p off your average. Statistically, that is noise.`,
+      (pp) => `${abs(pp)}%p off your usual. Statistically, that is noise.`,
       () => `The graph is a straight line. So is the electrocardiogram of a nap.`,
       () => `You are exactly as good as you were yesterday. Reliable.`,
       () => `No disaster, no miracle. Just Tekken.`,
@@ -596,7 +605,7 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `연습 모드가 당신을 그리워하고 있습니다.`,
       () => `오늘은 안되는 날입니다. 그런 날이 있습니다. 통계가 증명합니다.`,
       () => `이길 수 있었던 판이 몇 개 보이시죠? 그게 제일 아픈 겁니다.`,
-      (pp) => `평균보다 ${abs(pp)}%p 낮습니다. 숫자는 냉정하네요.`,
+      (pp) => `평소보다 ${abs(pp)}%p 낮습니다. 숫자는 냉정하네요.`,
       () => `상대가 갑자기 잘하게 된 게 아닙니다. 슬프게도요.`,
       () => `지금 한 판 더 하면 이 줄을 다시 보게 됩니다.`,
       () => `기세가 꺾였습니다. 기세는 되찾는 것보다 지키는 게 쉽습니다.`,
@@ -685,7 +694,7 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `Drink water. It is the cheapest patch available.`,
       () => `Your last three losses had the same ending. Go look.`,
       () => `Down a little. Down is not out.`,
-      (pp) => `${abs(pp)}%p below your average, which is close enough to nothing.`,
+      (pp) => `${abs(pp)}%p below your usual, which is close enough to nothing.`,
       () => `The graph is dipping politely. It has not slammed yet.`,
       () => `You are chasing the rating instead of the match.`,
       () => `One clean set would flip this. So would one break.`,
@@ -938,7 +947,7 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `연패는 실력의 문제가 아니라 흐름의 문제입니다. 흐름을 끊으세요.`,
       () => `오늘은 여기까지. 진심으로 드리는 조언입니다.`,
       () => `모든 판에는 끝이 있고, 오늘 세션도 끝이 있어야 합니다.`,
-      (pp) => `평균보다 ${abs(pp)}%p 낮습니다. 이건 데이터가 아니라 경고입니다.`,
+      (pp) => `평소보다 ${abs(pp)}%p 낮습니다. 이건 데이터가 아니라 경고입니다.`,
       () => `지는 데도 체력은 씁니다. 오늘은 많이 쓰셨습니다.`,
       () => `상대가 당신 통계를 보면 오늘을 노릴 겁니다. 그만두세요.`,
       () => `이 시점에서 이기는 방법은 하나뿐입니다. 끄는 겁니다.`,
@@ -1781,7 +1790,16 @@ export function pickJoke(
   seed: number,
   pp: number,
   streak: number,
+  season?: Season | null,
 ): string {
+  // 계절 문구는 mood 가 아니라 **날짜**가 여는 축이라 pool 을 따로 본다.
+  // 계절을 모르면(=null) 이 갈래는 통째로 건너뛴다 — 없는 근거로 계절을 말하지 않는다.
+  if (season) {
+    const sp = seasonPool(season, mood === 'hot' || mood === 'steady' ? 'up' : 'down', lang);
+    // 언어에 계절 문구가 없으면(en) 비어 있다 → 자동으로 기본 농담으로 떨어진다.
+    if (sp.length > 0 && seed % SEASON_EVERY === 0) return pick(sp, seed);
+  }
+
   // 연패가 없으면 연패를 소재로 한 문구는 후보에서 뺀다.
   const pool = JOKES[mood][lang].filter(
     (j) => typeof j === 'function' || streak >= STREAK_MIN,

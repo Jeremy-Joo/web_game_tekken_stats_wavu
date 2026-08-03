@@ -30,6 +30,7 @@ import {
   type Condition,
   type ConditionFacts,
 } from './jokes';
+import { seasonOf } from './season-jokes';
 import {
   pickCompareSummary,
   pickH2hQuip,
@@ -2286,6 +2287,12 @@ export default function Home() {
                           single.recordCount + single.advice.losingStreak * 7,
                           single.advice.recentDeltaPp,
                           single.advice.losingStreak,
+                          // 계절은 **마지막 경기 날짜**로 정한다(조회 시점이 아니라).
+                          // 반년 쉰 사람에게 지난 계절 농담이 나가는 게, 안 친 계절의
+                          // 농담이 나가는 것보다 낫다 — 문구가 데이터를 따라간다는 규칙은 같다.
+                          summary?.lastDt
+                            ? seasonOf(new Date(`${summary.lastDt}T00:00:00Z`))
+                            : null,
                         )}
                       </p>
                     )}

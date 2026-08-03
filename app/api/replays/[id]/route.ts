@@ -16,12 +16,29 @@ import { filterByDate } from '@/lib/wavu/normalize';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { seasonSpans } from '@/lib/tekken/seasons';
 import { sessionAdvice } from '@/lib/tekken/advice';
+import { dateKey, type MatchRecord } from '@/lib/tekken/models';
 import {
   guessTimezone,
   hourHistogramUtcFromRecords,
   formatOffset,
   KST_MINUTES,
 } from '@/lib/wavu/region';
+
+/**
+ * 마지막 경기로부터 지난 날짜 (KST 날짜끼리).
+ *
+ * 시각 규약은 models.ts 한 곳에 있고 레코드의 dt 는 이미 KST 로 shift 된 Date 다.
+ * 여기서는 그 규약을 따라 '오늘(KST)'만 만들어 날짜 문자열끼리 뺀다.
+ */
+function daysSinceLast(records: MatchRecord[]): number {
+  if (!records.length) return 0;
+  const last = records.reduce((a, b) => (a.dt > b.dt ? a : b)).dt;
+  const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+  return Math.max(
+    0,
+    Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${dateKey(last)}T00:00:00Z`)) / 86_400_000),
+  );
+}
 
 export const runtime = 'nodejs';
 // wavu 전체 이력(수천~수만 경기)을 받는 데 수 초 걸릴 수 있다. Hobby 기본 10초보다 여유를 둔다.
@@ -91,7 +108,9 @@ export async function GET(
       // 시즌 목록·구간은 전체 이력에서 뽑는다 — 기간 필터를 바꿔도 버튼이 흔들리지 않게.
       seasons: seasonSpans(records),
       // 권장 판수는 '지금 보고 있는 범위' 기준이라 필터된 데이터로 계산한다.
-      advice: sessionAdvice(filtered),
+      // 셋째 인자는 '마지막 경기로부터 지난 날짜' — 오래 쉰 사람의 최근 20판을
+      // 현재 폼으로 단정하지 않게 하는 값이다(advice.ts 의 STALE_DAYS).
+      advice: sessionAdvice(filtered, undefined, daysSinceLast(filtered)),
       filtered: {
         start: start ?? null,
         end: end ?? null,

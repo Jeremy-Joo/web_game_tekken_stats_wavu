@@ -23,6 +23,7 @@ import {
   type Condition,
   type ConditionFacts,
 } from '@/app/jokes';
+import { seasonOf } from '@/app/season-jokes';
 import { R, parseLang, weekdayText, hourText, REPORT_LANGS, type Lang } from './strings';
 import ReportChart, { type TrendPoint } from './ReportChart';
 import ShareBar from './ShareBar';
@@ -321,7 +322,19 @@ export default async function ReportPage({ params, searchParams }: Props) {
 
   const result = computeFromRecords(records, id, myName, { matchesLimit: 0 });
   const tabs = Object.fromEntries(result.tabs.map((t) => [t.key, t]));
-  const advice = sessionAdvice(records);
+
+  // 이 범위의 마지막 경기가 며칠 전인가. mood 를 현재형으로 말해도 되는지 판단하는
+  // 값이라 advice 보다 먼저 구한다. 지난 시즌으로 좁혀 보면 여기가 커져서
+  // mood 가 steady 로 내려간다 — 멘트가 전부 현재형이라 그게 맞다.
+  const lastInScope = records.reduce((a, b) => (a.dt > b.dt ? a : b)).dt;
+  const daysSince = Math.max(
+    0,
+    Math.round(
+      (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${dateKey(lastInScope)}T00:00:00Z`)) /
+        86_400_000,
+    ),
+  );
+  const advice = sessionAdvice(records, undefined, daysSince);
 
   // ── 헤드라인 수치 ──────────────────────────────────────────────
   const total = tabs.total;
@@ -479,14 +492,16 @@ export default async function ReportPage({ params, searchParams }: Props) {
   // 나오고(새로고침할 때마다 바뀌면 인쇄본과 화면이 달라진다), 성적이 바뀌면 문구도 바뀐다.
   const seed = games * 7 + wins * 3 + Math.round(winRate * 10) + (scope.kind === 'all' ? 0 : 101);
   const mood = (advice?.mood ?? 'steady') as Mood;
-  const quip = advice ? pickJoke(mood, lang, seed, advice.recentDeltaPp, advice.losingStreak) : '';
+  // 계절은 마지막 경기 날짜로 정한다 — `latest.dt` 는 KST 벽시계를 UTC 필드에 담고 있고,
+  // seasonOf 가 getUTCMonth() 로 읽으므로 보는 사람 시간대가 끼어들지 않는다.
+  const quip = advice
+    ? pickJoke(mood, lang, seed, advice.recentDeltaPp, advice.losingStreak, seasonOf(latest.dt))
+    : '';
   const coach = advice ? pickCoach(mood, lang, seed + 13) : '';
 
   const sess = lastSession(records);
-  const daysSince = Math.max(
-    0,
-    Math.floor((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${dateKey(latest.dt)}T00:00:00Z`)) / 86_400_000),
-  );
+  // daysSince 는 위(advice 계산 직전)에서 이미 구했다 — mood 판정과 컨디션 판정이
+  // 같은 값을 봐야 "오래 쉬었다"는 말이 두 곳에서 엇갈리지 않는다.
   const condKind: Condition =
     daysSince === 0 ? 'today'
     : daysSince >= 7 ? 'rusty'

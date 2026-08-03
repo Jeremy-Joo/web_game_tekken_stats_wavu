@@ -121,9 +121,9 @@ export const R = {
     ja: { hot: '絶好調', steady: 'いつも通り', cooling: '下降中', cold: '完全に冷えた' },
   } as Record<Lang, Record<string, string>>,
   vsAverage: {
-    ko: (pp: string) => `최근 20판이 평균 대비 ${pp}%p`,
-    en: (pp: string) => `Last 20 games are ${pp}%p vs. your average`,
-    ja: (pp: string) => `直近20戦は平均比 ${pp}%p`,
+    ko: (pp: string) => `최근 20판이 직전 200판 대비 ${pp}%p`,
+    en: (pp: string) => `Last 20 games are ${pp}%p vs. the 200 before them`,
+    ja: (pp: string) => `直近20戦はその前の200戦比 ${pp}%p`,
   } as F<[string]>,
   bandBoth: {
     ko: (good: number, stop: number) =>
