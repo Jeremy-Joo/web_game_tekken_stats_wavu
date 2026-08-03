@@ -174,6 +174,34 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `본업이 따로 있다는 게 이 데이터의 유일한 흠입니다.`,
       () => `프로 무대였다면 이 폼으로 예선은 통과합니다. 본선은 다른 얘기고요.`,
       () => `해설자가 있었으면 목소리가 커졌을 구간입니다.`,
+      // 방송·유튜브 — '콘텐츠였다면' 계열. 프로 소재의 자매 소재다(관점 이동).
+      // **어휘 경계**: 중계·해설자·다시보기는 프로 소재가 이미 쓴다. 여기는 유튜브·예능만.
+      // 주어는 **사람이 아니라 오늘의 경기**다 — '당신 플레이를 보면 웃깁니다'는 안 되고
+      // '오늘 판이 코미디 프로 자리를 대신합니다'는 된다.
+      () => `오늘 판은 편집 없이 그대로 올려도 됩니다.`,
+      () => `썸네일에 쓸 장면이 오늘만 여럿 나왔습니다.`,
+      () => `채널이 있었다면 오늘이 개국 첫 방송으로 딱입니다.`,
+      // 등산 — 레이팅·단 구조와 거의 1:1 이라 은유라기보다 번역에 가깝다.
+      // **하산 사고 = 승급 직후 연패.** 조난·부상 같은 실제 사고는 소재로 쓰지 않는다.
+      () => `오르막에서 숨이 안 차는 날입니다. 이런 날은 정상까지 가는 겁니다.`,
+      () => `고도가 쭉쭉 올라갑니다. 뒤는 돌아보지 마세요.`,
+      () => `8부 능선입니다. 페이스만 지키면 됩니다.`,
+      // 요리 — 과정·결과 구조가 승부와 같고 한국어 관용구가 풍부하다
+      // (설익다·뜸 들이다·손맛·간을 보다). 레시피 = 확정딜캐 대응이라 COACH 에도 닿는다.
+      () => `오늘은 간이 딱 맞습니다. 레시피를 적어두세요.`,
+      () => `불 조절이 완벽합니다. 이대로 한 번 더.`,
+      () => `손맛이 살아 있는 날입니다.`,
+      // 다이어트·요요 — 요요 = 승률 원상복귀. 은유 정확도가 제일 높다.
+      // 체중·몸매를 비하하는 쪽으로는 쓰지 않는다. 대상은 레이팅이다.
+      () => `감량기입니다. 이 속도면 목표치가 보입니다.`,
+      () => `오늘 오른 건 수분이 아니라 근육 쪽입니다.`,
+      // 공부·시험 — 오답노트 = 리플레이 대응이라 COACH 반복 해소에 직접 닿는다.
+      () => `오늘은 아는 문제만 나왔습니다. 이런 날도 있어야죠.`,
+      () => `예습이 통했습니다. 연습 모드가 헛되지 않았네요.`,
+      // 바다 — **파도·조류·낚시까지만.** 물에 빠지는 계열(익사·조난·표류)은 쓰지 않는다.
+      // cold 의 한강 규칙과 같은 선이다: 한강은 라면·자전거 쪽이고 수온 밈은 안 쓴다.
+      () => `순풍입니다. 돛만 펴 두면 됩니다.`,
+      () => `파도를 타고 계십니다. 노를 더 저을 필요도 없네요.`,
     ],
     en: [
       (pp) => `If only stocks moved like this — last 20 games are ${pp}%p above your usual.`,
@@ -272,6 +300,30 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `Somebody gets paid to do this. Today that seems unfair.`,
       () => `Commentary would have gotten loud right around here.`,
       () => `Put this run on a résumé nobody will ever read.`,
+      // Broadcast/YouTube — 'if this were content'. No commentary/replay wording (pro material owns it).
+      // The subject is today's games, never the person.
+      () => `Today could go up unedited.`,
+      () => `You got several thumbnail-worthy moments in one session.`,
+      () => `If you had a channel, today would be the launch episode.`,
+      // Hiking — maps almost 1:1 onto rating/rank. Descent accidents = losing after a promotion.
+      // Real accidents (injury, getting lost) are off limits.
+      () => `The climb is not costing you breath today. Go for the summit.`,
+      () => `Altitude is stacking up fast. Do not look back.`,
+      () => `You are near the ridge. Just hold the pace.`,
+      // Cooking — same process/result structure. Recipe = punish drill, so it reaches COACH too.
+      () => `The seasoning is exactly right today. Write the recipe down.`,
+      () => `Heat control is perfect. Same again.`,
+      () => `Your hands know what they are doing today.`,
+      // Dieting/yo-yo — the rebound maps exactly onto a rating giveback. Never about bodies.
+      () => `You are in a cutting phase. At this rate the goal is in sight.`,
+      () => `What you gained today looks like muscle, not water.`,
+      // Study/exams — a wrong-answer notebook maps onto replay review; helps the COACH pool too.
+      () => `Only the questions you studied showed up today. You earn one of these.`,
+      () => `The prep worked. Practice mode was not wasted.`,
+      // Sea — waves, currents, fishing only. Nothing about drowning or being lost at sea.
+      // Same line as the Han River rule in cold: food and bikes, never the water itself.
+      () => `Tailwind. Just keep the sail up.`,
+      () => `You are riding the wave. No need to row.`,
     ],
     ja: [
       (pp) => `株もこう上がってほしい… 直近20試合が平均より${pp}%p 高いです。`,
@@ -370,6 +422,30 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `これで給料をもらっている人がいます。今日は不公平に思えますね。`,
       () => `この辺りで実況の声が大きくなっていたはずです。`,
       () => `誰も読まない履歴書に書いておきましょう。`,
+      // 配信・YouTube — 「コンテンツだったら」系。実況・解説・見逃し配信はプロ素材が使用済み。
+      // 主語は人ではなく今日の試合。
+      () => `今日の試合は編集なしでそのまま上げられます。`,
+      () => `サムネに使える場面が今日だけで何度も出ました。`,
+      () => `チャンネルがあったら今日が開設第一回で決まりです。`,
+      // 登山 — レート・段位構造とほぼ1対1。下山の事故＝昇格直後の連敗。
+      // 遭難・怪我など実際の事故は素材にしない。
+      () => `今日は登りで息が上がりません。こういう日は頂上まで行きます。`,
+      () => `高度がぐんぐん上がっています。振り返らないこと。`,
+      () => `八合目です。ペースを守れば届きます。`,
+      // 料理 — 過程と結果の構造が勝負と同じ。レシピ＝確定反撃なのでCOACHにも届く。
+      () => `今日は味付けがぴたりと決まっています。レシピを書き留めましょう。`,
+      () => `火加減が完璧です。このままもう一度。`,
+      () => `今日は手が冴えています。`,
+      // ダイエット・リバウンド — 戻り方がレートと同じ。体型を揶揄する方向には使わない。
+      () => `減量期です。このペースなら目標が見えます。`,
+      () => `今日の増分は水分ではなく筋肉のほうです。`,
+      // 勉強・試験 — 間違いノート＝リプレイ確認。COACHの反復解消にも効く。
+      () => `今日は解ける問題ばかり出ました。こういう日も必要です。`,
+      () => `予習が効きました。トレモは無駄ではありませんでした。`,
+      // 海 — 波・潮・釣りまで。溺れる・遭難・漂流の系統は使わない。
+      // coldの漢江ルールと同じ線（ラーメン・自転車まで、水温ネタは使わない）。
+      () => `追い風です。帆を張っておけば十分です。`,
+      () => `波に乗っています。漕ぐ必要もありません。`,
     ],
   },
 
@@ -465,6 +541,24 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `계약서가 있었다면 주전도 벤치도 아닌, 딱 그 자리였을 겁니다.`,
       () => `연차만 쌓이고 고과는 그대로인 그 느낌입니다.`,
       () => `프로라면 이쯤에서 코치를 붙일 겁니다.`,
+
+      () => `편집할 구간이 없습니다. 통편집이 정답입니다.`,
+      () => `썸네일로 쓸 장면이 없습니다. 그만큼 무사했다는 뜻이죠.`,
+      () => `브이로그라면 몰라도 하이라이트로는 안 됩니다.`,
+
+      () => `능선입니다. 오르막도 내리막도 아닌 구간이 제일 깁니다.`,
+      () => `고도는 그대로지만 거리는 늘었습니다. 그것도 걸음입니다.`,
+      () => `산은 도망가지 않습니다. 오늘 못 오르면 내일 오르면 됩니다.`,
+
+      () => `늘 같은 맛입니다. 나쁘지 않은데 새로울 것도 없죠.`,
+      () => `무난한 한 끼였습니다. 그것도 요리입니다.`,
+      () => `레시피대로 하셨네요. 안전한 선택입니다.`,
+      () => `정체기입니다. 다이어트도 여기서 대부분 포기하죠.`,
+      () => `체중계 숫자가 안 움직이는 주간입니다. 그래도 계속하는 게 답입니다.`,
+      () => `평균 점수입니다. 등수는 남들이 얼마나 했느냐에 달렸고요.`,
+      () => `중간고사 같은 하루였습니다. 기말이 진짜죠.`,
+      () => `잔잔합니다. 뱃사람은 이런 날을 제일 좋아합니다.`,
+      () => `오늘은 입질이 없는 날입니다. 그래도 앉아 있는 게 낚시죠.`,
     ],
     en: [
       () => `No swings. Generously: consistent. Honestly: not improving either.`,
@@ -555,6 +649,24 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `A scout would write "keep watching" and move on to the next name.`,
       () => `On a roster you'd keep the seat but never quite earn the contract.`,
       () => `This is the part of the season nobody cuts highlights from.`,
+
+      () => `Nothing to edit. Cutting the whole thing is the right call.`,
+      () => `No thumbnail material — which means nothing went wrong.`,
+      () => `Works as a vlog, not as a highlight reel.`,
+
+      () => `A ridge walk. The flat stretch is always the longest part.`,
+      () => `Same altitude, more distance. That still counts as walking.`,
+      () => `The mountain is not going anywhere. Tomorrow works too.`,
+
+      () => `Same taste as always. Not bad, not new.`,
+      () => `A decent meal. That still counts as cooking.`,
+      () => `You followed the recipe. Safe choice.`,
+      () => `A plateau. This is where most diets get abandoned.`,
+      () => `The scale is not moving this week. Keeping at it is still the answer.`,
+      () => `An average score. Your rank depends on how hard everyone else studied.`,
+      () => `A midterm sort of day. Finals are what count.`,
+      () => `Calm water. Sailors like these days best.`,
+      () => `No bites today. Sitting there is still fishing.`,
     ],
     ja: [
       () => `波がありません。よく言えば安定、悪く言えば伸びもなし。`,
@@ -645,6 +757,24 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `スカウトなら「継続観察」とだけ書いて次の名前へ行きます。`,
       () => `ロースターにいても、席は守れるが契約は取れない水準です。`,
       () => `シーズンのこの部分はハイライトになりません。`,
+
+      () => `編集する場面がありません。丸ごとカットが正解です。`,
+      () => `サムネに使える画がない。それだけ無事だったということです。`,
+      () => `Vlogならともかく、ハイライトにはなりません。`,
+
+      () => `稜線です。登りでも下りでもない区間が一番長い。`,
+      () => `高度は同じでも距離は伸びました。それも歩みです。`,
+      () => `山は逃げません。今日でなくても明日があります。`,
+
+      () => `いつもと同じ味です。悪くないが新しくもない。`,
+      () => `無難な一食でした。それも料理です。`,
+      () => `レシピ通りですね。安全な選択です。`,
+      () => `停滞期です。ダイエットも大抵ここで諦めます。`,
+      () => `体重計が動かない週です。それでも続けるのが答えです。`,
+      () => `平均点です。順位は周りがどれだけやったか次第ですが。`,
+      () => `中間試験のような一日でした。本番は期末です。`,
+      () => `凪です。船乗りはこういう日が一番好きです。`,
+      () => `今日は当たりがありません。それでも座っているのが釣りです。`,
     ],
   },
 
@@ -746,6 +876,25 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `계약서가 있었어도 아직 방출은 아닙니다. 아직은요.`,
       () => `이런 날 프로는 연습실로 갑니다. 당신은 연습 모드고요.`,
       () => `성적이 내려갈 때 코치를 찾는 게 정석입니다. 여기선 리플레이가 코치입니다.`,
+
+      () => `슬슬 편집점이 생기기 시작했습니다. 좋은 쪽은 아니고요.`,
+      () => `지금부터는 게임 채널이 아니라 예능 쪽 소재가 됩니다.`,
+
+      () => `여기서 무리하면 하산이 위험해집니다.`,
+      () => `숨이 차기 시작했습니다. 페이스를 줄이라는 신호입니다.`,
+      () => `정상만 보고 걸으면 발밑을 놓칩니다. 지금 레이팅만 보고 계시죠.`,
+
+      () => `불이 세졌습니다. 조금 줄이세요.`,
+      () => `뜸을 안 들이고 뚜껑을 여셨습니다.`,
+      () => `아직 설익었는데 자꾸 뒤집고 계십니다.`,
+      () => `조금씩 돌아오고 있습니다. 요요는 원래 조용히 옵니다.`,
+      () => `쉬운 상대로 올린 레이팅은 근육이 아니라 수분입니다.`,
+      () => `한 주 올린 걸 하루에 돌려주는 중입니다.`,
+      () => `틀린 문제를 안 보고 다음 장으로 넘어가고 계십니다.`,
+      () => `벼락치기로 오른 레이팅은 벼락치기로 내려갑니다.`,
+      () => `문제가 어려워진 게 아니라 복습을 안 하신 겁니다.`,
+      () => `조류가 바뀌었습니다. 거스르면 체력만 나갑니다.`,
+      () => `파도가 조금씩 높아지고 있습니다.`,
     ],
     en: [
       () => `At this rate, buy a lottery ticket instead. That might work out.`,
@@ -841,6 +990,25 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `A front office would be quietly re-running the numbers by now.`,
       () => `You'd still be a starter. That's this week's news, not next week's.`,
       () => `A pro would call this a slump and book extra lab time.`,
+
+      () => `Edit points are starting to appear. Not the good kind.`,
+      () => `From here it stops being a gaming channel and becomes a variety show.`,
+
+      () => `Push harder here and the descent gets ugly.`,
+      () => `You are breathing hard. That is the signal to slow down.`,
+      () => `Eyes on the summit means you miss your footing. You are watching the rating.`,
+
+      () => `The heat crept up. Turn it down a notch.`,
+      () => `You lifted the lid before it had time to rest.`,
+      () => `It is still raw and you keep flipping it.`,
+      () => `It is creeping back. The rebound always arrives quietly.`,
+      () => `Rating farmed off weaker opponents is water weight, not muscle.`,
+      () => `You are giving back a week of gains in one evening.`,
+      () => `You are turning the page without reviewing what you got wrong.`,
+      () => `Rating gained by cramming leaves the same way.`,
+      () => `The questions did not get harder. You stopped revising.`,
+      () => `The current turned. Fighting it only costs stamina.`,
+      () => `The swell is building.`,
     ],
     ja: [
       () => `この勝率なら宝くじでも買いましょう。そっちは当たるかも。`,
@@ -936,6 +1104,25 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `フロントがあれば、静かに数字を見直し始めている頃です。`,
       () => `まだ先発でいられるでしょう。それは今週の話で、来週の話ではありません。`,
       () => `プロならこれをスランプと呼び、練習時間を増やします。`,
+
+      () => `そろそろ編集点が出てきました。良いほうではありません。`,
+      () => `ここからはゲームチャンネルではなくバラエティの素材になります。`,
+
+      () => `ここで無理をすると下りが危なくなります。`,
+      () => `息が上がってきました。ペースを落とせという合図です。`,
+      () => `頂上だけ見て歩くと足元を見失います。今レートだけ見ていますね。`,
+
+      () => `火が強くなりました。少し落としましょう。`,
+      () => `蒸らす前に蓋を開けてしまいました。`,
+      () => `まだ生なのに何度もひっくり返しています。`,
+      () => `少しずつ戻ってきています。リバウンドは静かに来ます。`,
+      () => `格下から稼いだレートは筋肉ではなく水分です。`,
+      () => `一週間ぶんを一晩で返している最中です。`,
+      () => `間違えた問題を見ずに次のページへ進んでいます。`,
+      () => `一夜漬けで上げたレートは一夜漬けで下がります。`,
+      () => `問題が難しくなったのではなく、復習をやめただけです。`,
+      () => `潮が変わりました。逆らうと体力だけ削られます。`,
+      () => `うねりが少しずつ高くなっています。`,
     ],
   },
 
@@ -1108,6 +1295,29 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `팀이 있었다면 지금쯤 성명문을 쓰고 있었을 겁니다.`,
       () => `프로가 아니라서 다행인 날입니다. 진심으로 드리는 말씀입니다.`,
       () => `본업이 따로 있어서 다행입니다. 오늘은 그게 유일한 위안입니다.`,
+
+      () => `코미디 프로를 볼 필요가 없습니다. 오늘 판이 그 자리를 대신합니다.`,
+      () => `유튜브를 하셨다면 예능 채널로 자리를 잡으셨을 겁니다.`,
+      () => `이건 게임 채널이 아니라 사건사고 채널 소재입니다.`,
+      () => `오늘 경기에는 모자이크가 필요합니다.`,
+      () => `편집자가 있었다면 오늘 분량은 통째로 들어냈을 겁니다.`,
+      () => `웃기려고 한 게 아닌데 웃깁니다. 그게 제일 강력한 코미디죠.`,
+
+      () => `사고는 오를 때가 아니라 내려올 때 납니다. 오늘은 내려오세요.`,
+      () => `오늘은 정상이 아니라 대피소를 찾을 때입니다.`,
+      () => `산은 도망가지 않습니다. 오늘은 당신만 내려오면 됩니다.`,
+
+      () => `오늘은 태웠습니다. 다음 판을 올리기 전에 팬부터 식히시죠.`,
+      () => `재료 탓이 아닙니다. 오늘은 불이 문제였습니다.`,
+      () => `간을 안 보고 계속 끓이면 이렇게 됩니다.`,
+      () => `한 달 올린 레이팅이 하루에 돌아갔습니다. 요요가 원래 그렇습니다.`,
+      () => `굶다가 폭식하면 이렇게 됩니다. 판수도 마찬가지입니다.`,
+      () => `오늘 잃은 건 근육이 아니라 그동안의 여유분입니다.`,
+      () => `오답노트를 안 쓰면 같은 문제를 계속 틀립니다.`,
+      () => `오늘은 시험지를 덮을 때입니다. 밤샘은 점수를 안 올립니다.`,
+      () => `같은 유형에서 계속 걸리고 있습니다. 그게 답입니다.`,
+      () => `오늘은 배를 띄울 날씨가 아닙니다. 항구에 두세요.`,
+      () => `만선은 다음에. 오늘은 그물만 정리하시죠.`,
     ],
     en: [
       () => `The lottery didn't hit and neither did anything else. Luck called in sick.`,
@@ -1265,6 +1475,29 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `If this were broadcast, they'd pull today's matches from the VOD.`,
       () => `On a roster, being sent down to the second team would be the generous call.`,
       () => `Your day job is the only good news in this dataset.`,
+
+      () => `No need for a comedy show tonight. Today’s games cover that slot.`,
+      () => `If you ran a channel, it would have found its niche in comedy.`,
+      () => `This is not gaming-channel material. This is dashcam-compilation material.`,
+      () => `Today’s games would need blurring in post.`,
+      () => `An editor would have cut the entire session.`,
+      () => `It was not meant to be funny, which is what makes it funny.`,
+
+      () => `Accidents happen on the way down, not up. Come down today.`,
+      () => `Today is for finding the shelter, not the summit.`,
+      () => `The mountain will wait. Only you need to come down.`,
+
+      () => `You burned it. Let the pan cool before the next one.`,
+      () => `It is not the ingredients. The heat was the problem today.`,
+      () => `This is what happens when you never taste as you go.`,
+      () => `A month of gains gone in a night. That is what a rebound is.`,
+      () => `Starve then binge and this happens. Same with session length.`,
+      () => `What you lost today was the buffer, not the skill.`,
+      () => `Skip the wrong-answer notebook and you keep missing the same question.`,
+      () => `Time to close the exam paper. All-nighters do not raise scores.`,
+      () => `You keep failing the same question type. That is the answer.`,
+      () => `Not a day to take the boat out. Leave it in the harbour.`,
+      () => `A full haul another day. Today, just mend the nets.`,
     ],
     ja: [
       () => `宝くじも当たらず勝率も上がらず。今日は運が欠勤です。`,
@@ -1422,6 +1655,29 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `中継があったら、今日の試合はアーカイブから下げていたでしょう。`,
       () => `ロースターにいたなら、二軍降格でも温情と言われた成績です。`,
       () => `本業が別にあることが、このデータ唯一の朗報です。`,
+
+      () => `お笑い番組を見る必要がありません。今日の試合がその枠を埋めます。`,
+      () => `チャンネルをやっていたら、バラエティ枠で定着していたでしょう。`,
+      () => `ゲームチャンネルではなくハプニング集の素材です。`,
+      () => `今日の試合にはモザイクが要ります。`,
+      () => `編集者がいたら今日の分は丸ごと削られていました。`,
+      () => `笑わせるつもりがないのに笑える。それが一番強いお笑いです。`,
+
+      () => `事故は登りではなく下りで起きます。今日は下山を。`,
+      () => `今日は頂上ではなく避難小屋を探す日です。`,
+      () => `山は逃げません。今日はあなたが下りるだけです。`,
+
+      () => `今日は焦がしました。次を乗せる前にフライパンを冷ましましょう。`,
+      () => `材料のせいではありません。今日は火加減が問題でした。`,
+      () => `味見をせずに煮続けるとこうなります。`,
+      () => `一か月ぶんのレートが一日で戻りました。リバウンドとはそういうものです。`,
+      () => `我慢して暴食するとこうなります。試合数も同じです。`,
+      () => `今日失ったのは実力ではなく貯金のほうです。`,
+      () => `間違いノートを書かないと同じ問題を落とし続けます。`,
+      () => `今日は答案を閉じる時です。徹夜で点数は上がりません。`,
+      () => `同じ形式で毎回つまずいています。それが答えです。`,
+      () => `今日は船を出す天気ではありません。港に置きましょう。`,
+      () => `大漁は次の機会に。今日は網の手入れだけ。`,
     ],
   },
 };
@@ -1799,6 +2055,10 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       '오늘의 당신은 남의 강의를 볼 게 아니라 찍을 차례입니다.',
       '이 폼일 때 어려운 매치업을 연습하세요. 자신감이 있을 때가 적기입니다.',
       '리플레이에서 놓친 확정딜캐를 찾아보세요. 이겨도 놓친 건 있습니다.',
+      // 요리·공부 소재 — 조언 배열은 리플레이·확정딜캐·유튜브 세 표현만 돌려 써서
+      // 반복이 제일 심한 곳이었다. 레시피=확정딜캐, 오답노트=리플레이 대응을 빌린다.
+      `오늘 레시피를 적어두세요. 확정딜캐가 그 레시피입니다.`,
+      `맞힌 문제도 왜 맞았는지 적어두면 다음에 또 맞습니다.`,
     ],
     en: [
       'Save today\'s replays — future you will study them.',
@@ -1809,6 +2069,9 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       `Add one new punish while the hands are hot.`,
       `Play one more set, then stop on purpose.`,
       `Write down what is working. You will forget by tomorrow.`,
+      // Cooking/study wording — the coach pool only had replay/punish/YouTube phrasing.
+      `Write down today’s recipe — your punishes are the recipe.`,
+      `Note why you got it right, and you will get it right again.`,
     ],
     ja: [
       '今日のリプレイは保存を。後で自分の教本になります。',
@@ -1819,6 +2082,9 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       `手が温かいうちに確定反撃をひとつ増やしましょう。`,
       `あと1セットだけ。そして意図的にやめましょう。`,
       `効いている動きをメモに。明日には忘れています。`,
+      // 料理・勉強の言い回し — COACHはリプレイ・確定反撃・YouTubeの3表現しかなかった。
+      `今日のレシピを書き留めましょう。確定反撃がそのレシピです。`,
+      `正解した理由も書いておけば、次も当たります。`,
     ],
   },
   steady: {
@@ -1831,6 +2097,8 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       '상대 캐릭 프레임을 한 번도 안 찾아보셨다면 지금이 그때입니다.',
       '연습 모드에서 확정딜캐 세 개만 확실히 만들어두세요.',
       '정체 구간에서는 새 콤보보다 확정딜캐가 승률을 올립니다.',
+      `레시피를 한 번 다시 보고 오세요. 늘 같은 맛이면 재료를 바꿀 때입니다.`,
+      `오답노트를 펼치세요. 정체는 대개 거기서 풀립니다.`,
     ],
     en: [
       'Watch one replay. Plateaus usually break there.',
@@ -1841,6 +2109,8 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       `Try a different opener. Predictable is the only real weakness here.`,
       `Lab one matchup properly instead of playing five more sets.`,
       `Record a set and watch it without sound. You will see the pattern.`,
+      `Reread the recipe. Same taste every time means it is time to change an ingredient.`,
+      `Open the wrong-answer notebook. Plateaus usually break there.`,
     ],
     ja: [
       'リプレイを1試合だけ見返しましょう。停滞はそこで解けます。',
@@ -1851,6 +2121,8 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       `初手を変えてみましょう。読まれることが唯一の弱点です。`,
       `5セット回すより、1つの相性をきちんと調べましょう。`,
       `1セット録画して無音で見返すと、癖が見えます。`,
+      `レシピを見直しましょう。いつも同じ味なら材料を変える時です。`,
+      `間違いノートを開きましょう。停滞はたいていそこで解けます。`,
     ],
   },
   cooling: {
@@ -1865,6 +2137,8 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       '고수 대전 영상을 보면 같은 상황을 어떻게 넘기는지 나옵니다.',
       '리플레이는 상대가 아니라 자기 습관을 보는 겁니다.',
       '오늘 진 판 중 하나만 골라서 끝까지 보세요. 하나면 충분합니다.',
+      `불부터 줄이세요. 판수보다 화력 조절이 급합니다.`,
+      `틀린 문제 세 개만 다시 보고 오세요. 그게 오늘 남는 겁니다.`,
     ],
     en: [
       'Watch the losses. It stings, and that\'s where the answer is.',
@@ -1877,6 +2151,8 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       `Lower the pace by one notch. You are rushing.`,
       `Two more games maximum, win or lose.`,
       `Drink water, fix the posture, then decide.`,
+      `Turn the heat down first. Pace matters more than volume right now.`,
+      `Review just three mistakes. That is what today leaves you.`,
     ],
     ja: [
       '負け試合のリプレイを見ましょう。痛いですが答えはそこにあります。',
@@ -1889,6 +2165,8 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       `テンポを一段下げましょう。急いでいます。`,
       `勝っても負けてもあと2戦まで。`,
       `水を飲んで姿勢を直してから決めましょう。`,
+      `まず火を弱めましょう。試合数より火加減が急ぎです。`,
+      `間違えた3問だけ見返しましょう。今日の収穫はそこです。`,
     ],
   },
   cold: {
@@ -1903,6 +2181,8 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       '리플레이는 내일 보세요. 오늘 보면 화만 납니다.',
       '확정딜캐 한 개만 확실히 익히고 오세요. 그거면 이 구간을 벗어납니다.',
       '연습 모드는 당신을 이기지 않습니다. 오늘은 그게 필요합니다.',
+      `팬부터 식히세요. 태운 위에 또 올리면 같은 결과입니다.`,
+      `오늘은 시험지를 덮고, 내일 오답노트부터 펴세요.`,
     ],
     en: [
       'Watch replays instead of queueing. Better odds today.',
@@ -1915,6 +2195,8 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       `Come back tomorrow with one thing to fix, not five.`,
       `Turn it off and go for a walk. That is the drill for today.`,
       `Nothing here is fixed by more games. Fix it with sleep.`,
+      `Let the pan cool. Cooking on a burnt surface gives the same result.`,
+      `Close the paper today; open the wrong-answer notebook tomorrow.`,
     ],
     ja: [
       '今日はランクよりリプレイを。そのほうが勝率が高いです。',
@@ -1927,6 +2209,8 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       `明日、直す点をひとつだけ持って戻りましょう。5つは要りません。`,
       `電源を切って散歩へ。今日の課題はそれです。`,
       `試合数では直りません。睡眠で直します。`,
+      `まずフライパンを冷ましましょう。焦げの上に乗せても同じ結果です。`,
+      `今日は答案を閉じ、明日は間違いノートから開きましょう。`,
     ],
   },
 };
