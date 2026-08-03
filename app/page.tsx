@@ -1751,7 +1751,12 @@ export default function Home() {
                 : 'Rank distribution by season (top %)'
           }
         >
-          🏆 Tekken Tier Percent
+          🏆{' '}
+          {lang === 'ko'
+            ? '철권티어 / 잡기풀기 연습'
+            : lang === 'ja'
+              ? '鉄拳ティア / 投げ抜け練習'
+              : 'Tekken Tier Percent'}
         </a>
         <a
           className="tier-link"
@@ -1766,7 +1771,12 @@ export default function Home() {
                 : 'Combo and punish video guides by character (hourly)'
           }
         >
-          🎬 Tekken 8 Tube
+          🎬{' '}
+          {lang === 'ko'
+            ? '철권8 영상모음'
+            : lang === 'ja'
+              ? '鉄拳8 動画まとめ'
+              : 'Tekken 8 Tube'}
         </a>
       </div>
 
