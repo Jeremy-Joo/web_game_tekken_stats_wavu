@@ -457,6 +457,11 @@ export function cellText(lang: Lang, v: string): string {
   // '14시' 같은 시간 버킷 — 숫자는 그대로 두고 단위만 바꾼다
   const hour = /^(\d{2})시$/.exec(v);
   if (hour) return lang === 'ja' ? `${hour[1]}時` : `${hour[1]}:00`;
+  // '최근 20경기' 같은 최근 폼 라벨. 사전에 20/50/100 을 박아두지 않고 패턴으로 받는다
+  // — 집계 쪽에서 구간을 늘리면(aggregations.ts 의 [20, 50, 100]) 사전만 뒤처져서
+  //   한국어가 그대로 새어 나온다. 실제로 이 세 줄이 그렇게 빠져 있었다.
+  const recentN = /^최근 (\d+)경기$/.exec(v);
+  if (recentN) return lang === 'ja' ? `直近${recentN[1]}試合` : `Last ${recentN[1]} games`;
   return v;
 }
 
