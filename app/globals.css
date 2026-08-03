@@ -297,8 +297,16 @@ button.ghost,
 }
 
 /* 모드 버튼 줄 우측의 외부 링크 — 버튼 모양으로 확실히 보이게 */
+/* 바깥 링크 줄. 셋이 항상 한 줄에 들어가야 한다 — 좁은 화면에서는 폭을 똑같이
+   나눠 갖게 하고, 넓은 화면에서는 글자 길이만큼만 차지하고 우측에 붙는다. */
+.link-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
+  margin: 0 0 1rem;
+}
+
 .tier-link {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
@@ -319,10 +327,23 @@ button.ghost,
   color: #0b1020;
 }
 
-/* 링크가 둘 이상이면 첫 개만 우측으로 밀고 나머지는 그 옆에 붙인다
-   (전부 margin-left:auto 면 링크끼리 화면 폭만큼 벌어진다) */
-.tier-link ~ .tier-link {
-  margin-left: 0;
+@media (min-width: 640px) {
+  /* 넓으면 우측 정렬. 자연 폭 그대로라 글자가 늘어나 보이지 않는다. */
+  .link-row {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 639px) {
+  /* 좁으면 셋이 폭을 균등하게 나눈다. 글자·여백을 줄여야 세 개가 들어간다 —
+     이모지를 뺀 것도 같은 이유다(기기마다 너비가 달라 접힘을 예측할 수 없다). */
+  .link-row .tier-link {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    padding: 0.35rem 0.3rem;
+    font-size: 0.74rem;
+  }
 }
 
 .mode-switch button {

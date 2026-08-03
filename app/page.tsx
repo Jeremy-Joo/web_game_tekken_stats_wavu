@@ -1743,6 +1743,11 @@ export default function Home() {
         >
           {t('compare')}
         </button>
+      </div>
+
+      {/* 바깥 링크는 자기 줄에 둔다. 모드 버튼과 같은 컨테이너에 있으면 폭이
+          모자랄 때 링크 중 하나만 위로 딸려 올라간다(모바일에서 실제로 그랬다). */}
+      <div className="link-row">
         <a
           className="tier-link"
           href="https://season-end-web.vercel.app/tekken-tier"
@@ -1756,8 +1761,7 @@ export default function Home() {
                 : 'Rank distribution by season (top %)'
           }
         >
-          🏆{' '}
-          {lang === 'ko' ? '철권 티어' : lang === 'ja' ? '鉄拳ティア' : 'Tekken Tier Percent'}
+          {lang === 'ko' ? '철권 티어' : lang === 'ja' ? '鉄拳ティア' : 'Tekken Tier'}
         </a>
         {/* 잡기 풀기는 티어 분포와 다른 기능이라 버튼을 나눈다 —
             한 버튼에 묶여 있으면 어디로 가는지 눌러봐야 안다. */}
@@ -1774,7 +1778,6 @@ export default function Home() {
                 : 'Throw break reaction trainer'
           }
         >
-          🤼{' '}
           {lang === 'ko' ? '잡기 풀기 연습' : lang === 'ja' ? '投げ抜け練習' : 'Throw Break'}
         </a>
         <a
@@ -1790,12 +1793,7 @@ export default function Home() {
                 : 'Combo and punish video guides by character (hourly)'
           }
         >
-          🎬{' '}
-          {lang === 'ko'
-            ? '철권8 영상모음'
-            : lang === 'ja'
-              ? '鉄拳8 動画まとめ'
-              : 'Tekken 8 Tube'}
+          {lang === 'ko' ? '철권8 영상모음' : lang === 'ja' ? '鉄拳8 動画' : 'Tekken 8 Tube'}
         </a>
       </div>
 
