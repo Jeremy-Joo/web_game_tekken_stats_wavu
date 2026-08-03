@@ -73,6 +73,7 @@ const D = {
   games: { ko: '경기', en: ' games', ja: '試合' },
   totalSuffix: { ko: '전체', en: 'total', ja: '全' },
   excluded: { ko: '제외', en: 'excluded', ja: '除外' },
+  reportBtn: { ko: '리포트 보기', en: 'View report', ja: 'レポートを見る' },
   xlsxBtn: { ko: '📥 엑셀 (전체 탭)', en: '📥 Excel (all tabs)', ja: '📥 Excel (全タブ)' },
   csvBtn: { ko: '📄 CSV (현재 탭)', en: '📄 CSV (current tab)', ja: '📄 CSV (現在のタブ)' },
   jsonBtn: { ko: '🧾 JSON (전체)', en: '🧾 JSON (all)', ja: '🧾 JSON (全体)' },

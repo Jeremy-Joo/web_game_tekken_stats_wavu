@@ -2081,6 +2081,12 @@ export default function Home() {
       {tabs && (
         <>
           <div className="row dl-row">
+            {/* 리포트는 한 명 조회일 때만 — 비교는 대상이 여럿이라 한 장으로 요약되지 않는다 */}
+            {mode === 'single' && single && (
+              <a className="btn-link report-btn" href={`/player/${single.polarisId}/report`}>
+                📋 {t('reportBtn')}
+              </a>
+            )}
             {xlsxHref && (
               <button className="ghost" onClick={downloadXlsx} disabled={xlsxBusy}>
                 {xlsxBusy ? t('xlsxBusy') : t('xlsxBtn')}

@@ -1,0 +1,444 @@
+/* 리포트 전용 스타일.
+   본문 화면(globals.css)의 색 토큰을 그대로 쓰되, 리포트는 '한 장짜리 문서'라
+   여백·활자 크기를 크게 잡는다. 인쇄(PDF)에서도 그대로 읽히도록 @media print 포함. */
+
+.report {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+
+/* ── 표지 ── */
+.rp-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.4rem 1.5rem 1.6rem;
+  margin-bottom: 1.6rem;
+  /* 은은한 사선 광 — 데이터가 아니라 표지 장식이므로 아주 약하게만 */
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(110, 168, 254, 0.16), transparent 55%),
+    linear-gradient(160deg, #1a1f2b 0%, var(--panel) 60%);
+}
+
+.rp-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.rp-back {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.rp-back:hover {
+  text-decoration: underline;
+}
+
+.rp-brand {
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rp-name {
+  margin: 0;
+  font-size: clamp(1.9rem, 6vw, 2.9rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.rp-sub {
+  margin: 0.45rem 0 1.3rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.rp-sub b {
+  color: var(--text);
+}
+
+.rp-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86rem;
+}
+
+.rp-dot {
+  margin: 0 0.5rem;
+  opacity: 0.5;
+}
+
+/* 히어로 숫자 — 하나가 주인공(승률), 나머지는 보조 */
+.rp-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem 1.4rem;
+  margin-bottom: 1.2rem;
+}
+
+.rp-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.rp-stat-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.rp-stat-value {
+  font-size: 1.65rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.rp-stat-lead .rp-stat-value {
+  /* 리포트가 답하는 첫 질문 = 승률. 하나만 확실히 크게. */
+  font-size: clamp(2.4rem, 8vw, 3.4rem);
+  color: var(--accent);
+}
+
+.rp-stat-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.rp-stat-note .sw {
+  color: var(--win);
+}
+
+.rp-stat-note .sl {
+  color: var(--loss);
+}
+
+/* 승률 미터 — 트랙은 같은 계열의 옅은 단계 */
+.rp-meter {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(110, 168, 254, 0.14);
+  overflow: hidden;
+}
+
+.rp-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3987e5, #4ade80);
+}
+
+.rp-meter-mid {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--muted);
+  opacity: 0.75;
+}
+
+.rp-meter-cap {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* ── 섹션 ── */
+.rp-sec {
+  margin-bottom: 1.8rem;
+}
+
+.rp-h2 {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.7rem;
+}
+
+.rp-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem;
+}
+
+/* ── 최근 흐름 ── */
+.rp-form {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--muted);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+}
+
+.rp-mood-hot { border-left-color: var(--win); }
+.rp-mood-steady { border-left-color: var(--accent); }
+.rp-mood-cooling { border-left-color: #e0a640; }
+.rp-mood-cold { border-left-color: var(--loss); }
+
+.rp-form-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.rp-form-mood {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.rp-mood-hot .rp-form-mood { color: var(--win); }
+.rp-mood-cooling .rp-form-mood { color: #e0a640; }
+.rp-mood-cold .rp-form-mood { color: var(--loss); }
+
+.rp-form-delta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.rp-form-delta b {
+  color: var(--text);
+}
+
+.rp-form-body {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+/* ── 캐릭터 막대 ── */
+.rp-bars {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.rp-bar-row {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr 3.4rem 4rem;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.88rem;
+}
+
+.rp-bar-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-bar-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: #0c0e12;
+  overflow: hidden;
+}
+
+.rp-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.rp-bar-fill.good { background: var(--win); }
+.rp-bar-fill.bad { background: var(--loss); }
+
+.rp-bar-wr {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.rp-bar-games {
+  text-align: right;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 매치업 ── */
+.rp-mu {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.8rem;
+}
+
+.rp-mu-col {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+}
+
+.rp-mu-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.rp-mu-title.good { color: var(--win); }
+.rp-mu-title.bad { color: var(--loss); }
+
+.rp-mu-item {
+  display: grid;
+  grid-template-columns: 1fr 4rem 3.4rem;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.42rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.rp-mu-item:last-child {
+  border-bottom: none;
+}
+
+.rp-mu-opp {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.rp-mu-wr {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rp-mu-wr.good { color: var(--win); }
+.rp-mu-wr.bad { color: var(--loss); }
+
+.rp-mu-games {
+  text-align: right;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.rp-mu-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.rp-note {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* ── 세부 지표 ── */
+.rp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.7rem;
+}
+
+.rp-cell {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.85rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.rp-cell-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.rp-cell-value {
+  font-size: 1.45rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rp-cell-note {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* ── 마무리 ── */
+.rp-footer {
+  margin-top: 2.2rem;
+  text-align: center;
+}
+
+.rp-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.5rem 1.3rem;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: rgba(110, 168, 254, 0.1);
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.rp-cta:hover {
+  background: var(--accent);
+  color: #0b1020;
+}
+
+.rp-credit {
+  margin: 0.9rem 0 0;
+  color: #565b66;
+  font-size: 0.75rem;
+}
+
+/* ── 인쇄(PDF) ──
+   화면용 어두운 배경을 그대로 인쇄하면 잉크만 먹고 읽기도 나쁘다. 흰 바탕으로 뒤집는다. */
+@media print {
+  .rp-back,
+  .rp-cta {
+    display: none;
+  }
+
+  .report {
+    max-width: none;
+    padding: 0;
+  }
+
+  .rp-hero,
+  .rp-card,
+  .rp-form,
+  .rp-bars,
+  .rp-mu-col,
+  .rp-cell {
+    background: #fff !important;
+    border-color: #ddd !important;
+    color: #111 !important;
+    break-inside: avoid;
+  }
+
+  .rp-name,
+  .rp-stat-value,
+  .rp-cell-value,
+  .rp-bar-wr {
+    color: #111 !important;
+  }
+
+  .rp-sec {
+    break-inside: avoid;
+  }
+}
