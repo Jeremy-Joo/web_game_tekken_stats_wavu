@@ -895,3 +895,73 @@ footer a {
   line-height: 1.6;
   opacity: 0.75;
 }
+
+/* ── 홈 설명·FAQ ────────────────────────────────────────────────
+   크롤러에게 줄 본문이자, 처음 온 사람에게 주는 안내다.
+   첫 문단만 펼쳐두고 나머지는 접는다 — 화면 인상은 조회 폼이 주인공이어야 한다. */
+.seo {
+  margin: 2.5rem 0 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  max-width: 70ch;
+}
+
+.seo-intro {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.8;
+}
+
+.seo-block {
+  border-bottom: 1px solid var(--border);
+}
+
+.seo-block > summary {
+  padding: 0.7rem 0;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  list-style: none;
+}
+
+/* 기본 삼각형 대신 직접 그린다 — 브라우저마다 모양·위치가 달라서 정렬이 흐트러진다 */
+.seo-block > summary::-webkit-details-marker {
+  display: none;
+}
+
+.seo-block > summary::before {
+  content: '+';
+  display: inline-block;
+  width: 1.1rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.seo-block[open] > summary::before {
+  content: '−';
+}
+
+.seo-block ul,
+.seo-block dl {
+  margin: 0 0 1rem;
+  padding: 0 0 0 1.1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.8;
+}
+
+.seo-block dl {
+  padding-left: 1.1rem;
+}
+
+.seo-block dt {
+  margin-top: 0.7rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.seo-block dd {
+  margin: 0.15rem 0 0;
+}

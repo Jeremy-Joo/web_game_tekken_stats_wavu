@@ -33,6 +33,7 @@ import {
 import { seasonOf } from './season-jokes';
 import type { QuipFacts } from '@/lib/tekken/quip-facts';
 import ShareButton from './ShareButton';
+import SeoContent from './SeoContent';
 import {
   pickCompareSummary,
   pickH2hQuip,
@@ -2543,6 +2544,10 @@ export default function Home() {
         </>
       )}
 
+
+      {/* 설명·FAQ — 색인되는 페이지가 홈 한 장뿐이라 여기가 유일하게 늘릴 수 있는 본문이다.
+          결과가 떠 있을 때는 방해가 되므로 감춘다(그때는 사람이 이미 원하는 걸 찾았다). */}
+      {!tabs && <SeoContent lang={lang} />}
 
       <footer>
         {t('footer1')}{' '}
