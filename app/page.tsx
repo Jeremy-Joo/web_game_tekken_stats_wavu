@@ -32,7 +32,9 @@ import {
 } from './jokes';
 import { seasonOf } from './season-jokes';
 import type { QuipFacts } from '@/lib/tekken/quip-facts';
+import RandomPlayer from './RandomPlayer';
 import ShareButton from './ShareButton';
+import VisitorCount from './VisitorCount';
 import SeoContent from './SeoContent';
 import {
   pickCompareSummary,
@@ -1752,11 +1754,25 @@ export default function Home() {
           }
         >
           🏆{' '}
-          {lang === 'ko'
-            ? '철권티어 / 잡기풀기 연습'
-            : lang === 'ja'
-              ? '鉄拳ティア / 投げ抜け練習'
-              : 'Tekken Tier Percent'}
+          {lang === 'ko' ? '철권 티어' : lang === 'ja' ? '鉄拳ティア' : 'Tekken Tier Percent'}
+        </a>
+        {/* 잡기 풀기는 티어 분포와 다른 기능이라 버튼을 나눈다 —
+            한 버튼에 묶여 있으면 어디로 가는지 눌러봐야 안다. */}
+        <a
+          className="tier-link"
+          href="https://season-end-web.vercel.app/throwBreak"
+          target="_blank"
+          rel="noreferrer"
+          title={
+            lang === 'ko'
+              ? '잡기 풀기 반응 연습 (1·2·양손)'
+              : lang === 'ja'
+                ? '投げ抜けの反応練習 (1・2・両手)'
+                : 'Throw break reaction trainer'
+          }
+        >
+          🤼{' '}
+          {lang === 'ko' ? '잡기 풀기 연습' : lang === 'ja' ? '投げ抜け練習' : 'Throw Break'}
         </a>
         <a
           className="tier-link"
@@ -2182,6 +2198,19 @@ export default function Home() {
         </>
       )}
 
+      {/* 랜덤 조회 — 곁가지라 조회 폼 아래에 접어둔다.
+          모드까지 넘기는 이유: 비교 모드에서 눌렀을 때도 한 명 조회로 가야 한다. */}
+      <RandomPlayer
+        lang={lang}
+        onPick={(rid) => {
+          setId(rid);
+          setIds('');
+          setMode('single');
+          setCharSel('');
+          run(rid, undefined, '', 'single');
+        }}
+      />
+
       {tabs && (
         <>
           <div className="row dl-row">
@@ -2582,6 +2611,8 @@ export default function Home() {
         <span className="disclaimer">{t('disclaimer')}</span>
         {/* 맨 마지막 줄. 아는 사람만 읽으면 되는 농담이라 제일 흐리게 둔다. */}
         <span className="footer-joke">{t('footerJoke')}</span>
+        {/* 맨 아래 방문자 수. 값을 못 받으면 아무것도 안 그린다. */}
+        <VisitorCount lang={lang} />
       </footer>
     </main>
   );
