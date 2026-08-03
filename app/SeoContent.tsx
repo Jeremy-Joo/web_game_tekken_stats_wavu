@@ -20,6 +20,7 @@
 // 사람에게도 동작한다.
 
 import type { Lang } from './i18n';
+import { SITE_URL } from '@/lib/site';
 
 interface Block {
   intro: string;
@@ -31,7 +32,7 @@ interface Block {
 const C: Record<Lang, Block> = {
   ko: {
     intro:
-      '철권8 랭크전 전적을 식별코드나 닉네임으로 조회해 캐릭터별 승률, 상대 캐릭터 매치업, 레이팅 추이, 플레이 패턴까지 한 번에 보여주는 사이트입니다. 회원가입이나 설치 없이 바로 조회할 수 있고, 전체 이력을 그대로 집계하기 때문에 최근 몇 판이 아니라 지금까지 쌓인 기록 전부를 기준으로 봅니다.',
+      '철권 전적 검색 사이트입니다. 철권8 랭크전 전적을 닉네임이나 식별코드로 조회해 캐릭터별 승률, 상대 캐릭터 매치업, 레이팅 추이, 플레이 패턴까지 한 번에 보여줍니다. 회원가입이나 설치 없이 바로 조회할 수 있고, 전체 이력을 그대로 집계하기 때문에 최근 몇 판이 아니라 지금까지 쌓인 기록 전부를 기준으로 봅니다.',
     sections: [
       {
         q: '무엇을 볼 수 있나요',
@@ -59,6 +60,10 @@ const C: Record<Lang, Block> = {
     ],
     faqTitle: '자주 묻는 것',
     faq: [
+      {
+        q: '철권 전적은 어디서 보나요?',
+        a: '게임 안에서는 최근 몇 판과 누적 승률 정도만 보입니다. 이 사이트는 wavu wank 의 공개 기록을 받아 랭크전 전체 이력을 집계하므로, 캐릭터별·상대별·시간대별로 나눠서 볼 수 있습니다. 닉네임만 알면 조회됩니다.',
+      },
       {
         q: '데이터는 어디서 가져오나요?',
         a: '전적 자료는 wavu wank(wank.wavu.wiki)의 공개 기록에서 가져옵니다. 이 사이트는 별도 데이터베이스를 두지 않고, 조회할 때마다 받아와서 그 자리에서 집계합니다.',
@@ -204,6 +209,26 @@ const C: Record<Lang, Block> = {
 export default function SeoContent({ lang }: { lang: Lang }) {
   const c = C[lang];
 
+  // 사이트 자체를 설명하는 구조화 데이터. potentialAction 은 검색결과에
+  // 이 사이트 전용 검색창(sitelinks searchbox)이 붙을 수 있게 하는 것으로,
+  // 붙는다는 보장은 없지만 비용이 없다. 조회 주소가 /?q=닉네임 형태라 그대로 쓴다.
+  const siteLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: '철권8 전적 통계',
+    alternateName: ['철권 전적 검색', 'Tekken 8 Stats'],
+    url: SITE_URL,
+    inLanguage: 'ko',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${SITE_URL}/?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  };
+
   // FAQ 구조화 데이터. 검색결과에 질문이 펼쳐져 나올 수 있다.
   // 초기 서버 렌더 언어가 'ko' 라 한국어 판을 싣는다 — 크롤러가 보는 것과 일치시킨다.
   const faqLd = {
@@ -246,6 +271,10 @@ export default function SeoContent({ lang }: { lang: Lang }) {
       <script
         type="application/ld+json"
         // 우리가 만든 객체만 넣는다 — 사용자 입력이 섞이지 않으므로 안전하다.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(siteLd) }}
+      />
+      <script
+        type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
       />
     </section>

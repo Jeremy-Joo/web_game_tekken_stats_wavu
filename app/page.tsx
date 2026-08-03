@@ -1700,7 +1700,7 @@ export default function Home() {
     setPicked([]);
     setPickMsg('');
     // 여기도 제목이 먼저다 (위 effect 의 주석 참조 — GA 가 변경 시점의 제목을 읽는다)
-    document.title = '철권8 전적 통계 — Tekken 8 Match Stats';
+    document.title = '철권 전적 검색 — 철권8 랭크전 전적 통계 | Tekken 8 Stats';
     window.history.replaceState(null, '', '/');
     window.scrollTo({ top: 0 });
   };

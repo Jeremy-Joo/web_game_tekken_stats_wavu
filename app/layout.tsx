@@ -22,20 +22,27 @@ const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 export const metadata: Metadata = {
   // 상대 경로 canonical·OG 를 절대 주소로 펴는 기준. lib/site.ts 한 곳에서 온다.
   metadataBase: new URL(SITE_URL),
+  // 검색결과에 뜨는 제목. 화면의 h1('철권8 전적 통계')과 달라도 된다 —
+  // h1 은 브랜드 표기고, 이쪽은 사람들이 실제로 검색창에 치는 말이어야 한다.
+  // '철권 전적'(8 없이)이 사이트 어디에도 없어서 그 질의로 안 잡히고 있었다.
   title: {
-    default: '철권8 전적 통계 — Tekken 8 Match Stats',
+    default: '철권 전적 검색 — 철권8 랭크전 전적 통계 | Tekken 8 Stats',
     template: '%s | Tekken 8 Stats',
   },
   description:
-    '철권8 랭크전 전적 검색·통계 사이트. 식별코드나 닉네임만 넣으면 캐릭터별 승률, 매치업, 레이팅 추이, 세션 분석, 여러 명 비교까지. Tekken 8 ranked match statistics: win rates, matchups, rating trends and player comparison.',
+    '철권 전적 검색 사이트. 닉네임이나 식별코드만 넣으면 철권8 랭크전 전적을 조회해 캐릭터별 승률, 상대 캐릭터 매치업, 레이팅 추이, 세션 분석, 여러 명 비교까지 보여줍니다. 회원가입·설치 없이 무료. Tekken 8 ranked match statistics: win rates, matchups, rating trends and player comparison.',
+  // 구글은 이 태그를 순위에 쓰지 않는다(2009년에 공식적으로 무시한다고 밝혔다).
+  // 네이버·다음이 참고하므로 남겨두는 것이고, 실제로 효과를 내는 건 위의
+  // title/description 과 본문(SeoContent.tsx)이다.
   keywords: [
-    '철권8', '철권8 전적', '철권8 전적검색', '철권8 승률', '철권8 통계',
+    '철권 전적', '철권 전적 검색', '철권 전적 조회', '철권 승률', '철권 전적 사이트',
+    '철권8', '철권8 전적', '철권8 전적검색', '철권8 승률', '철권8 통계', '철권8 랭크 전적',
     'Tekken 8', 'Tekken 8 stats', 'Tekken 8 match history', 'Tekken 8 win rate',
     '鉄拳8', '鉄拳8 戦績', 'polaris id', 'wavu wank',
   ],
   alternates: { canonical: '/' },
   openGraph: {
-    title: '철권8 전적 통계 — Tekken 8 Match Stats',
+    title: '철권 전적 검색 — 철권8 랭크전 전적 통계',
     description:
       '식별코드/닉네임으로 철권8 랭크전 전체 이력을 집계 — 캐릭터별 승률·매치업·레이팅 추이·비교 리포트',
     url: SITE_URL,
