@@ -21,12 +21,12 @@ const TXT = {
   // 안내문에서도 '지금 랭크전을 돌고 있는 사람 중'을 뺐다. 출처 설명이라
   // 읽는 사람에게는 군더더기이고, 실제 고르는 기준은 판수 하나다.
   note: {
-    ko: '플레이 수가 1,000판 이상인 사람을 무작위로 골라 보여줍니다.',
-    en: 'Picks someone with 1,000+ games at random.',
-    ja: 'プレイ数1,000戦以上の人を無作為に選んで表示します。',
+    ko: '현재 게임중인 유저 중에 플레이 카운트가 1,000판 이상인 사람을 무작위로 골라 보여줍니다.',
+    en: 'Picks a currently active player with 1,000+ games at random.',
+    ja: '現在プレイ中のユーザーからプレイ数1,000戦以上の人を無作為に選んで表示します。',
   },
   go: { ko: '무작위로 보기', en: 'Show me someone', ja: 'ランダムで見る' },
-  loading: { ko: '고르는 중…', en: 'Picking…', ja: '選択中…' },
+  loading: { ko: '검색 중…', en: 'Searching…', ja: '検索中…' },
 } satisfies Record<string, Record<Lang, string>>;
 
 const REGION_LABEL: Record<PoolRegion, Record<Lang, string>> = {
@@ -82,7 +82,7 @@ export default function RandomPlayer({
             </button>
           ))}
           <button onClick={go} disabled={busy} type="button">
-            🎲 {busy ? TXT.loading[lang] : TXT.go[lang]}
+            {busy ? TXT.loading[lang] : TXT.go[lang]}
           </button>
         </div>
         {msg && <p className="error">{msg}</p>}

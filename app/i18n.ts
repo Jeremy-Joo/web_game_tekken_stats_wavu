@@ -74,9 +74,11 @@ const D = {
   totalSuffix: { ko: '전체', en: 'total', ja: '全' },
   excluded: { ko: '제외', en: 'excluded', ja: '除外' },
   reportBtn: { ko: '리포트 보기', en: 'View report', ja: 'レポートを見る' },
-  xlsxBtn: { ko: '📥 엑셀 (전체 탭)', en: '📥 Excel (all tabs)', ja: '📥 Excel (全タブ)' },
-  csvBtn: { ko: '📄 CSV (현재 탭)', en: '📄 CSV (current tab)', ja: '📄 CSV (現在のタブ)' },
-  jsonBtn: { ko: '🧾 JSON (전체)', en: '🧾 JSON (all)', ja: '🧾 JSON (全体)' },
+  // 아이콘은 두지 않는다 — 버튼이 여럿 붙어 있는 줄에서 시선만 분산되고,
+  // 이모지는 기기마다 너비가 달라 줄바꿈을 예측할 수 없게 만든다.
+  xlsxBtn: { ko: '엑셀 (전체 탭)', en: 'Excel (all tabs)', ja: 'Excel (全タブ)' },
+  csvBtn: { ko: 'CSV (현재 탭)', en: 'CSV (current tab)', ja: 'CSV (現在のタブ)' },
+  jsonBtn: { ko: 'JSON (전체)', en: 'JSON (all)', ja: 'JSON (全体)' },
   dlFailed: {
     ko: '파일을 저장하지 못했습니다. 새로고침 후 다시 시도해 주세요.',
     en: 'Could not save the file. Reload and try again.',
@@ -300,7 +302,7 @@ const D = {
   },
   // 엑셀 생성은 경기 수에 비례해 오래 걸린다 (실측 30,233경기 = 27.6초).
   // 아무 반응 없이 30초가 흐르면 사용자는 멈춘 줄 안다 — 상태와 예상 시간을 밝힌다.
-  xlsxBusy: { ko: '⏳ 엑셀 생성 중…', en: '⏳ Building Excel…', ja: '⏳ Excel 生成中…' },
+  xlsxBusy: { ko: '엑셀 생성 중…', en: 'Building Excel…', ja: 'Excel 生成中…' },
   xlsxEta: {
     ko: (sec: number) =>
       `${sec}초쯤 걸립니다 — 기간이나 캐릭터를 좁히면 빨라집니다.`,

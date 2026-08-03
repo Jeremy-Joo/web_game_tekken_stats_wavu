@@ -1730,6 +1730,10 @@ export default function Home() {
           이 한 덩어리로 읽혀서 어디까지가 제목인지 눈이 못 잡는다. */}
       <hr className="head-rule" />
 
+      {/* 넓으면 한 줄(모드 왼쪽 · 링크 오른쪽), 좁으면 두 줄로 세운다.
+          링크를 자기 컨테이너로 뺐더니 모바일 줄바꿈은 잡혔는데 PC 에서 빈 줄이
+          하나 생겼다 — 감싸는 컨테이너를 두어 방향만 바꾼다. */}
+      <div className="head-row">
       <div className="mode-switch">
         <button
           className={mode === 'single' ? 'on' : ''}
@@ -1795,6 +1799,7 @@ export default function Home() {
         >
           {lang === 'ko' ? '철권8 영상모음' : lang === 'ja' ? '鉄拳8 動画' : 'Tekken 8 Tube'}
         </a>
+      </div>
       </div>
 
       <div className="panel">
@@ -2147,16 +2152,6 @@ export default function Home() {
               <span className="quips-off">{t('quipsOff')}</span>
             </p>
           )}
-          {/* 리포트 입구를 요약 바로 아래에도 둔다. 아래쪽 버튼 하나만 있을 때는
-              탭 16개를 지나쳐 내려가야 보여서, 공유 링크로 들어온 사람이 리포트가
-              있다는 걸 모르고 나갔다. */}
-          {mode === 'single' && single && (
-            <p className="report-inline">
-              <a href={`/player/${single.polarisId}/report${lang === 'ko' ? '' : `?lang=${lang}`}`}>
-                📋 {t('reportBtn')} →
-              </a>
-            </p>
-          )}
           {single.charCounts && single.charCounts.length > 1 && (
             <div className="char-chips">
               <span className="hint" style={{ margin: 0 }}>{t('charLabel')}:</span>
@@ -2222,7 +2217,7 @@ export default function Home() {
                 className="btn-link report-btn"
                 href={`/player/${single.polarisId}/report${lang === 'ko' ? '' : `?lang=${lang}`}`}
               >
-                📋 {t('reportBtn')}
+                {t('reportBtn')}
               </a>
             )}
             {/* 공유 — 주소창에 이미 상태가 들어가 있지만(replaceState) 폰에서는
