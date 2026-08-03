@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { abs } from '@/lib/site';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
       // 데이터 API 와 관리자 페이지는 크롤링 대상이 아니다
       disallow: ['/api/', '/admin'],
     },
-    sitemap: 'https://tekken8stats.vercel.app/sitemap.xml',
+    sitemap: abs('/sitemap.xml'),
   };
 }

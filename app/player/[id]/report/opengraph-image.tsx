@@ -8,6 +8,7 @@
 
 import { ImageResponse } from 'next/og';
 import { getRecords } from '@/lib/wavu/cache';
+import { SITE_HOST } from '@/lib/site';
 
 export const runtime = 'nodejs';
 export const alt = '철권8 전적 리포트';
@@ -60,7 +61,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         }}
       >
         <div style={{ display: 'flex', fontSize: 30, color: '#6ea8fe', fontWeight: 700 }}>
-          🏆 tekken8stats.vercel.app
+          🏆 {SITE_HOST}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column' }}>

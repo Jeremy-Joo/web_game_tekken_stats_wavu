@@ -8,6 +8,7 @@
 // 조각을 이어붙이면 번역이 망가진다.
 
 import type { Lang } from '@/app/i18n';
+import { SITE_HOST } from '@/lib/site';
 
 export type { Lang };
 
@@ -255,9 +256,9 @@ export const R = {
     ja: '全16項目の統計を見る →',
   } as S,
   credit: {
-    ko: '데이터: wank.wavu.wiki (랭크전) · tekken8stats.vercel.app',
-    en: 'Data: wank.wavu.wiki (ranked) · tekken8stats.vercel.app',
-    ja: 'データ: wank.wavu.wiki (ランクマッチ) · tekken8stats.vercel.app',
+    ko: `데이터: wank.wavu.wiki (랭크전) · ${SITE_HOST}`,
+    en: `Data: wank.wavu.wiki (ranked) · ${SITE_HOST}`,
+    ja: `データ: wank.wavu.wiki (ランクマッチ) · ${SITE_HOST}`,
   } as S,
 };
 

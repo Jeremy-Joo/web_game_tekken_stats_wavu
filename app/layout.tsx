@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
+import { SITE_URL } from '@/lib/site';
 
 /**
  * Google Analytics 4 측정 ID.
@@ -19,7 +20,8 @@ const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 // SEO: 검색엔진이 사이트 성격을 파악하도록 제목·설명·키워드·OG 를 채운다.
 // 실제 콘텐츠는 조회형(클라이언트)이라, 랜딩 텍스트가 크롤러에게 주는 정보가 전부다.
 export const metadata: Metadata = {
-  metadataBase: new URL('https://tekken8stats.vercel.app'),
+  // 상대 경로 canonical·OG 를 절대 주소로 펴는 기준. lib/site.ts 한 곳에서 온다.
+  metadataBase: new URL(SITE_URL),
   title: {
     default: '철권8 전적 통계 — Tekken 8 Match Stats',
     template: '%s | Tekken 8 Stats',
@@ -36,7 +38,7 @@ export const metadata: Metadata = {
     title: '철권8 전적 통계 — Tekken 8 Match Stats',
     description:
       '식별코드/닉네임으로 철권8 랭크전 전체 이력을 집계 — 캐릭터별 승률·매치업·레이팅 추이·비교 리포트',
-    url: 'https://tekken8stats.vercel.app',
+    url: SITE_URL,
     siteName: 'Tekken 8 Stats',
     locale: 'ko_KR',
     type: 'website',

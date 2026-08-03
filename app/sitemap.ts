@@ -1,9 +1,10 @@
 import type { MetadataRoute } from 'next';
+import { abs } from '@/lib/site';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: 'https://tekken8stats.vercel.app/',
+      url: abs('/'),
       changeFrequency: 'daily',
       priority: 1,
     },
