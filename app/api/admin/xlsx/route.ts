@@ -55,8 +55,16 @@ export async function POST(req: NextRequest) {
       {
         key: 'players',
         label: '조회된 플레이어',
-        columns: ['#', '이름', '식별코드', '조회수', '비율(%)', '사용자'],
-        rows: players.map((p, i) => [i + 1, p.name || '', p.id, p.views, pct(p.views), p.users]),
+        columns: [
+          '#', '이름', '식별코드', '조회수', '비율(%)', '사용자',
+          '첫 조회', '마지막 조회', '조회일 수', '패턴',
+        ],
+        rows: players.map((p, i) => [
+          i + 1, p.name || '', p.id, p.views, pct(p.views), p.users,
+          p.firstDate, p.lastDate, p.daysSeen,
+          // 조회된 ID 가 본인인지 남인지는 알 수 없다 — 사용자 수로 갈라낸 '추정'이다
+          p.users >= 3 ? '여러 명' : p.users >= 2 ? '2명' : p.views >= 5 ? '1명 반복' : '1회성',
+        ]),
       },
       {
         key: 'sources',

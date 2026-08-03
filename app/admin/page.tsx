@@ -13,6 +13,9 @@ interface PlayerRow {
   name: string;
   views: number;
   users: number;
+  firstDate: string;
+  lastDate: string;
+  daysSeen: number;
 }
 interface DayRow {
   date: string;
@@ -57,6 +60,61 @@ function stamp(): string {
   const d = new Date(Date.now() + 9 * 3600 * 1000);
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}_${p(d.getUTCHours())}${p(d.getUTCMinutes())}`;
+}
+
+/**
+ * 일별 조회수 막대. 관리자 전용 화면이라 외부 차트 없이 최소 SVG 로 그린다
+ * (본문 차트와 색·두께 규칙은 맞춰둔다 — 승색 계열 대신 강조색 한 가지).
+ */
+function DailyBars({ rows }: { rows: DayRow[] }) {
+  if (!rows.length) return <p className="hint">표시할 날짜가 없습니다.</p>;
+  const asc = [...rows].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const max = Math.max(...asc.map((d) => d.views), 1);
+  const W = 720;
+  const H = 160;
+  const PAD = { l: 40, r: 10, t: 10, b: 24 };
+  const band = (W - PAD.l - PAD.r) / asc.length;
+  const barW = Math.min(24, Math.max(2, band - 2));
+  const y = (v: number) => H - PAD.b - (v / max) * (H - PAD.t - PAD.b);
+  const labelEvery = Math.max(1, Math.ceil(asc.length / 6));
+
+  return (
+    <div className="chart-root">
+      <svg viewBox={`0 0 ${W} ${H}`} className="trend-svg" role="img" aria-label="일별 조회수">
+        {[0, max / 2, max].map((v) => (
+          <g key={v}>
+            <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke="#2c2c2a" strokeWidth="1" />
+            <text x={PAD.l - 6} y={y(v) + 4} textAnchor="end" fontSize="10" fill="#898781">
+              {Math.round(v)}
+            </text>
+          </g>
+        ))}
+        {asc.map((d, i) => {
+          const x = PAD.l + i * band + (band - barW) / 2;
+          const top = y(d.views);
+          const rr = Math.min(3, barW / 2);
+          return (
+            <g key={d.date}>
+              <path
+                d={`M ${x} ${H - PAD.b} L ${x} ${top + rr}
+                    Q ${x} ${top} ${x + rr} ${top}
+                    L ${x + barW - rr} ${top}
+                    Q ${x + barW} ${top} ${x + barW} ${top + rr}
+                    L ${x + barW} ${H - PAD.b} Z`}
+                fill="#3987e5"
+              />
+              <title>{`${d.date} · 조회 ${d.views} · 사용자 ${d.users}`}</title>
+              {i % labelEvery === 0 && (
+                <text x={x + barW / 2} y={H - 7} textAnchor="middle" fontSize="10" fill="#898781">
+                  {d.date.slice(5)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
 }
 
 export default function AdminPage() {
@@ -108,10 +166,13 @@ export default function AdminPage() {
 
   const downloadCsv = () => {
     if (!data) return;
-    const lines = ['#,이름,식별코드,조회수,비율(%),사용자'];
+    const lines = ['#,이름,식별코드,조회수,비율(%),사용자,첫 조회,마지막 조회,조회일 수,패턴'];
     data.players.forEach((p, i) => {
       lines.push(
-        [i + 1, p.name || '', p.id, p.views, pct(p.views), p.users].map(csvCell).join(','),
+        [
+          i + 1, p.name || '', p.id, p.views, pct(p.views), p.users,
+          p.firstDate, p.lastDate, p.daysSeen, pattern(p),
+        ].map(csvCell).join(','),
       );
     });
     // BOM: 엑셀에서 한글이 깨지지 않게
@@ -153,6 +214,17 @@ export default function AdminPage() {
 
   const pct = (n: number) =>
     data?.totalViews ? ((n * 100) / data.totalViews).toFixed(1) : '0.0';
+
+  /**
+   * 조회 패턴 추정. 조회된 ID 가 방문자 본인인지 남인지는 알 수 없지만,
+   * '몇 명이 봤는지'가 갈라주는 신호가 된다 — 확정이 아니라 추정임을 라벨로 드러낸다.
+   */
+  const pattern = (p: PlayerRow): string => {
+    if (p.users >= 3) return '여러 명';
+    if (p.users >= 2) return '2명';
+    if (p.views >= 5) return '1명 반복';
+    return '1회성';
+  };
 
   return (
     <main>
@@ -239,6 +311,9 @@ export default function AdminPage() {
             </div>
           </div>
 
+          <h2 className="admin-h2">일별 유입</h2>
+          <DailyBars rows={data.daily} />
+
           <div className="row dl-row">
             <button className="ghost" onClick={downloadCsv}>
               📄 CSV (플레이어 목록)
@@ -262,6 +337,10 @@ export default function AdminPage() {
                   <th>조회수</th>
                   <th>비율</th>
                   <th>사용자</th>
+                  <th>첫 조회</th>
+                  <th>마지막</th>
+                  <th>조회일</th>
+                  <th>패턴</th>
                 </tr>
               </thead>
               <tbody>
@@ -282,6 +361,10 @@ export default function AdminPage() {
                     <td>{p.views}</td>
                     <td>{pct(p.views)}%</td>
                     <td>{p.users}</td>
+                    <td>{p.firstDate?.slice(5) ?? ''}</td>
+                    <td>{p.lastDate?.slice(5) ?? ''}</td>
+                    <td>{p.daysSeen}</td>
+                    <td>{pattern(p)}</td>
                   </tr>
                 ))}
               </tbody>
