@@ -90,8 +90,6 @@ export default function AdminPage() {
           <span style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>관리자</span>
         </h1>
       </div>
-      <p className="sub">방문자가 조회한 플레이어·검색어 기록 (본인만 열람)</p>
-
       <div className="panel">
         <label htmlFor="pw">관리자 비밀번호</label>
         <div className="row id-row">
