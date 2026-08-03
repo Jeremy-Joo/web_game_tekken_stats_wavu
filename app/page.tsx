@@ -1201,6 +1201,13 @@ export default function Home() {
       ? `/player/${encodeURIComponent(single.polarisId)}`
       : '/';
     window.history.replaceState(null, '', qs ? `${path}?${qs}` : path);
+
+    // 제목도 같이 바꾼다. replaceState 로는 서버 메타데이터가 다시 붙지 않아
+    // 그대로 두면 GA 에 전부 기본 제목으로 남아 '누구를 봤는지'를 잃는다.
+    if (single1) {
+      const who = single.myName ? `${single.myName} (${single.polarisId})` : single.polarisId;
+      document.title = `${who} — 철권8 전적 통계 | Tekken 8 Stats`;
+    }
   }, [single, compare, mode, activeTab, charSel, periodMode, month, year, start, end, seasonSel]);
 
   /** 비교 목록에 식별코드 추가 (중복 제외). */
@@ -1608,6 +1615,7 @@ export default function Home() {
     setPicked([]);
     setPickMsg('');
     window.history.replaceState(null, '', '/');
+    document.title = '철권8 전적 통계 — Tekken 8 Match Stats';
     window.scrollTo({ top: 0 });
   };
 

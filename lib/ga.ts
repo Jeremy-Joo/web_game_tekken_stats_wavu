@@ -149,12 +149,19 @@ export async function playerViews(days: number): Promise<PlayerView[]> {
     const m = /^\/player\/([A-Za-z0-9-]+)/.exec(path);
     if (!m) continue;
     const id = m[1].replace(/-/g, '');
-    // "이름 (식별코드) — 철권8 …" 에서 이름만
-    const name = title.split('(')[0].trim() || id;
+
+    // 제목은 "이름 (식별코드) — 철권8 …" 형식일 때만 이름으로 인정한다.
+    // 화면 안 이동으로 기록된 조회는 기본 제목("철권8 전적 통계 — …")이 붙어 있어서,
+    // 느슨하게 자르면 모든 플레이어 이름이 그 문구로 덮인다.
+    // (정규식 대신 문자열 탐색 — 식별코드를 패턴에 끼워 넣을 때 이스케이프가 꼬이기 쉽다)
+    const marker = `(${id})`;
+    const at = title.indexOf(marker);
+    const name = at > 0 ? title.slice(0, at).trim() : '';
+
     const cur = byId.get(id);
     byId.set(id, {
       id,
-      name: cur?.name && cur.name !== id ? cur.name : name,
+      name: cur?.name || name, // 한 행이라도 제대로 된 제목이 있으면 그걸 쓴다
       views: (cur?.views ?? 0) + views,
       users: Math.max(cur?.users ?? 0, users), // 사용자 수는 합산이 성립하지 않는다
     });
