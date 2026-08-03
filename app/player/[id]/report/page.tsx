@@ -13,6 +13,7 @@ import { getRecords } from '@/lib/wavu/cache';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { sessionAdvice } from '@/lib/tekken/advice';
 import ReportChart, { type TrendPoint } from './ReportChart';
+import ShareBar from './ShareBar';
 import './report.css';
 
 interface Props {
@@ -147,6 +148,12 @@ export default async function ReportPage({ params }: Props) {
       ? `${result.firstDt.slice(0, 10)} ~ ${result.lastDt.slice(0, 10)}`
       : '';
 
+  // 표본이 이보다 적으면 수치를 확정처럼 보여주지 않는다.
+  // (라운드·완승 비율 같은 파생 지표는 더 심하게 흔들린다 — 8경기짜리에서
+  //  '완승 비율 25%'가 크게 떠 있는 걸 보고 넣었다)
+  const THIN_GAMES = 30;
+  const thin = games < THIN_GAMES;
+
   const moodLabel: Record<string, string> = {
     hot: '물이 올랐다',
     steady: '평소만큼',
@@ -162,7 +169,7 @@ export default async function ReportPage({ params }: Props) {
           <a className="rp-back" href={`/player/${id}`}>
             ← 전체 통계
           </a>
-          <span className="rp-brand">tekken8stats</span>
+          <ShareBar name={myName || id} />
         </div>
 
         <h1 className="rp-name">{myName || id}</h1>
@@ -209,15 +216,34 @@ export default async function ReportPage({ params }: Props) {
 
         {/* 승률 미터 — 같은 계열의 옅은 트랙 위에 채운다 */}
         <div className="rp-meter" aria-label={`승률 ${winRate.toFixed(1)}%`}>
-          <div className="rp-meter-fill" style={{ width: `${Math.min(100, winRate)}%` }} />
+          <div
+            className={`rp-meter-fill ${winRate >= 50 ? 'good' : 'bad'}`}
+            style={{ width: `${Math.max(0, Math.min(100, winRate))}%` }}
+          />
           <span className="rp-meter-mid" />
         </div>
         <p className="rp-meter-cap">
           가운데 선이 50%입니다. {winRate >= 50 ? '이 선보다 위입니다.' : '이 선보다 아래입니다.'}
         </p>
+
+        {thin && (
+          <p className="rp-thin">
+            경기가 {games}판뿐입니다. 아래 수치는 표본이 적어 크게 흔들립니다 — 한두 판
+            결과로도 승률이 몇 %씩 움직이는 구간이라 확정된 실력으로 읽지 마세요.
+          </p>
+        )}
       </header>
 
       {/* ── 최근 폼 ── */}
+      {!advice && (
+        <section className="rp-sec">
+          <h2 className="rp-h2">최근 흐름</h2>
+          <p className="rp-empty">
+            흐름을 판단하려면 경기가 더 필요합니다. 지금은 {games}판이라
+            &ldquo;물이 올랐다/식었다&rdquo;를 말할 근거가 없습니다.
+          </p>
+        </section>
+      )}
       {advice && (
         <section className="rp-sec">
           <h2 className="rp-h2">최근 흐름</h2>
@@ -258,25 +284,47 @@ export default async function ReportPage({ params }: Props) {
       {charRows.length > 0 && (
         <section className="rp-sec">
           <h2 className="rp-h2">캐릭터별 성적</h2>
+          {/* 막대를 0~100% 로 그리면 승률이 55~66% 로 몰릴 때 길이가 다 비슷해
+              '어느 캐릭이 유독 좋은가'가 안 보인다. 50% 를 가운데 두고 편차만 그린다. */}
           <div className="rp-bars">
-            {charRows.slice(0, 8).map((c) => (
-              <div key={c.name} className="rp-bar-row">
-                <span className="rp-bar-name">{c.name}</span>
-                <span className="rp-bar-track">
-                  <span
-                    className={`rp-bar-fill ${c.wr >= 50 ? 'good' : 'bad'}`}
-                    style={{ width: `${Math.max(2, Math.min(100, c.wr))}%` }}
-                  />
-                </span>
-                <span className="rp-bar-wr">{c.wr.toFixed(1)}%</span>
-                <span className="rp-bar-games">{c.games.toLocaleString()}판</span>
-              </div>
-            ))}
+            {charRows.slice(0, 8).map((c) => {
+              const dev = c.wr - 50; // %p
+              const half = Math.min(50, Math.abs(dev)); // 한쪽 최대 50%p
+              return (
+                <div key={c.name} className="rp-bar-row">
+                  <span className="rp-bar-name">{c.name}</span>
+                  <span className="rp-bar-track rp-bar-dev">
+                    <span className="rp-bar-mid" />
+                    <span
+                      className={`rp-bar-fill ${dev >= 0 ? 'good' : 'bad'}`}
+                      style={{
+                        left: dev >= 0 ? '50%' : `${50 - half}%`,
+                        width: `${Math.max(0.6, half)}%`,
+                      }}
+                    />
+                  </span>
+                  <span className={`rp-bar-wr ${dev >= 0 ? 'good' : 'bad'}`}>
+                    {c.wr.toFixed(1)}%
+                  </span>
+                  <span className="rp-bar-games">{c.games.toLocaleString()}판</span>
+                </div>
+              );
+            })}
           </div>
+          <p className="rp-note">가운데가 50%입니다. 오른쪽으로 길수록 잘 쓰는 캐릭터입니다.</p>
         </section>
       )}
 
       {/* ── 매치업 ── */}
+      {strong.length === 0 && weak.length === 0 && (
+        <section className="rp-sec">
+          <h2 className="rp-h2">매치업</h2>
+          <p className="rp-empty">
+            같은 캐릭터를 5판 이상 만난 기록이 아직 없습니다. 상대별 유불리는
+            표본이 쌓여야 의미가 생깁니다.
+          </p>
+        </section>
+      )}
       {(strong.length > 0 || weak.length > 0) && (
         <section className="rp-sec">
           <h2 className="rp-h2">매치업</h2>

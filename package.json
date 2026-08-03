@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
-    "@vercel/blob": "^2.6.1",
     "exceljs": "^4.4.0",
     "next": "^15.5.19",
     "react": "19.0.0",

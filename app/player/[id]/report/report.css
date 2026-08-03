@@ -40,11 +40,34 @@
   text-decoration: underline;
 }
 
-.rp-brand {
+/* 공유·인쇄 */
+.rp-share {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.rp-share-btn {
+  min-height: 34px;
+  padding: 0.3rem 0.8rem;
+  background: rgba(110, 168, 254, 0.1);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rp-share-btn:hover {
+  background: var(--accent);
+  color: #0b1020;
+}
+
+.rp-share-msg {
   color: var(--muted);
-  font-size: 0.75rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 0.78rem;
 }
 
 .rp-name {
@@ -129,11 +152,16 @@
   overflow: hidden;
 }
 
+/* 채움은 단색이다. 예전에는 그라디언트를 썼는데, 폭이 좁을 때 오른쪽 밝은 끝이
+   실제 값보다 오른쪽에 있는 것처럼 보여 25% 가 50% 선을 넘은 듯 읽혔다. */
 .rp-meter-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #3987e5, #4ade80);
+  background: var(--accent);
 }
+
+.rp-meter-fill.good { background: var(--win); }
+.rp-meter-fill.bad { background: var(--loss); }
 
 .rp-meter-mid {
   position: absolute;
@@ -258,6 +286,24 @@
   height: 100%;
   border-radius: 999px;
 }
+
+/* 50% 기준 좌우 편차 막대 */
+.rp-bar-dev .rp-bar-fill {
+  position: absolute;
+  top: 0;
+}
+
+.rp-bar-mid {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.rp-bar-wr.good { color: var(--win); }
+.rp-bar-wr.bad { color: var(--loss); }
 
 .rp-bar-fill.good { background: var(--win); }
 .rp-bar-fill.bad { background: var(--loss); }
@@ -410,6 +456,7 @@
    화면용 어두운 배경을 그대로 인쇄하면 잉크만 먹고 읽기도 나쁘다. 흰 바탕으로 뒤집는다. */
 @media print {
   .rp-back,
+  .rp-share,
   .rp-cta {
     display: none;
   }
@@ -441,4 +488,27 @@
   .rp-sec {
     break-inside: avoid;
   }
+}
+
+/* 표본이 적을 때의 경고 — 숫자를 확정처럼 읽지 않게 */
+.rp-thin {
+  margin: 0.8rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #6b5a2a;
+  border-radius: 8px;
+  background: rgba(224, 166, 64, 0.1);
+  color: #e0a640;
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+/* 섹션이 비었을 때 */
+.rp-empty {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin: 0;
 }

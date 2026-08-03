@@ -823,8 +823,6 @@ export default function Home() {
     });
   };
 
-  // 방문자 카운터 (세션당 1회만 증가)
-  const [visits, setVisits] = useState<{ total: number; today: number } | null>(null);
 
   // 과거 버전이 저장해둔 값 정리 (입력 ID·관리자 비밀번호는 더 이상 저장하지 않는다)
   useEffect(() => {
@@ -845,18 +843,6 @@ export default function Home() {
     }
     // 방문 집계: 같은 브라우저 세션에서는 한 번만 센다
     const counted = sessionStorage.getItem('tkwavu_visited');
-    fetch('/api/visit', { method: counted ? 'GET' : 'POST' })
-      .then((r) => r.json())
-      .then((d: { total?: number; today?: number; stale?: boolean }) => {
-        // stale=true 는 값을 **모른다**는 뜻이다 ('0명'이 아니다).
-        // 저장소가 막히면 total 이 0 으로 오는데, 그대로 그리면
-        // "방문 0" 이라는 없는 사실을 푸터에 박아두게 된다. 그럴 땐 아예 감춘다.
-        // (운영자용 신호는 /api/probe 의 blob 항목과 서버 로그가 맡는다)
-        if (!d.stale && typeof d.total === 'number')
-          setVisits({ total: d.total, today: d.today ?? 0 });
-        sessionStorage.setItem('tkwavu_visited', '1');
-      })
-      .catch(() => {});
   }, []);
 
   /**
@@ -1200,14 +1186,20 @@ export default function Home() {
     const path = single1
       ? `/player/${encodeURIComponent(single.polarisId)}`
       : '/';
-    window.history.replaceState(null, '', qs ? `${path}?${qs}` : path);
-
-    // 제목도 같이 바꾼다. replaceState 로는 서버 메타데이터가 다시 붙지 않아
-    // 그대로 두면 GA 에 전부 기본 제목으로 남아 '누구를 봤는지'를 잃는다.
+    // ★ 제목을 replaceState 보다 **먼저** 바꾼다. 순서가 뒤집히면 안 된다.
+    //
+    // GA4 향상된 측정은 History API 변경을 감지해 그 시점의 document.title 을
+    // 스냅샷한다. 예전에는 replaceState 가 먼저였고, GA 는 아직 안 바뀐 기본 제목
+    // ('철권8 전적 통계 — …')을 /player/<id> 조회로 기록했다. 그 제목에는
+    // '(식별코드)'가 없어서 관리자 화면의 이름 추출(lib/ga.ts)이 전부 빈칸이 됐다.
+    // 실제로 145명 중 이름이 남은 건 직접 링크로 들어왔거나 탭을 눌러 이 effect 가
+    // 한 번 더 돈 15명뿐이었다.
     if (single1) {
       const who = single.myName ? `${single.myName} (${single.polarisId})` : single.polarisId;
       document.title = `${who} — 철권8 전적 통계 | Tekken 8 Stats`;
     }
+
+    window.history.replaceState(null, '', qs ? `${path}?${qs}` : path);
   }, [single, compare, mode, activeTab, charSel, periodMode, month, year, start, end, seasonSel]);
 
   /** 비교 목록에 식별코드 추가 (중복 제외). */
@@ -1614,8 +1606,9 @@ export default function Home() {
     setActiveTab('');
     setPicked([]);
     setPickMsg('');
-    window.history.replaceState(null, '', '/');
+    // 여기도 제목이 먼저다 (위 effect 의 주석 참조 — GA 가 변경 시점의 제목을 읽는다)
     document.title = '철권8 전적 통계 — Tekken 8 Match Stats';
+    window.history.replaceState(null, '', '/');
     window.scrollTo({ top: 0 });
   };
 
@@ -2408,13 +2401,6 @@ export default function Home() {
         {t('footer2')}
         <br />
         <span className="byline">by Jeremio, Jinho.ju@live.com</span>
-        {visits && (
-          <span className="byline visit-count">
-            {' '}
-            · 👁 {t('visitors')} {visits.total.toLocaleString()} ({t('todayLabel')}{' '}
-            {visits.today.toLocaleString()})
-          </span>
-        )}
         <br />
         <span className="footer-joke">{t('footerJoke')}</span>
       </footer>

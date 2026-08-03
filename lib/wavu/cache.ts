@@ -1,50 +1,48 @@
-// wavu 전체 이력 캐시 — Vercel Blob 에 gzip 으로 보관한다.
+// wavu 전체 이력 캐시 — 서버 인스턴스 메모리에 보관한다.
 //
-// ── 왜 unstable_cache(Vercel Data Cache) 를 버렸나 ──────────────────────────
-// Data Cache 는 **항목당 2MB 한도**가 있고, 넘으면 에러 없이 조용히 저장을 건너뛴다.
-// 실측:  7,828경기 =  4.1MB (gzip 487KB)
-//       30,233경기 = 15.2MB (gzip 1.86MB)
+// ── 왜 Vercel Blob 을 버렸나 (사고 이력) ────────────────────────────────────
+// Blob 은 용량은 넉넉했지만 **작업 횟수**가 문제였다. put()·list() 는 Advanced
+// Operation 이고 무료 한도가 월 2,000 이다. 조회 1건이 곧 쓰기 1건이라
+// 일 1,400 조회 규모에서 이틀 만에 소진돼 스토어가 정지됐다:
+//
+//   Storage      10.9 MB / 1 GB     여유
+//   Advanced Ops  2,100 / 2,000     ← 이것 때문에 정지
+//
+// 읽기에서 list() 를 없애 절반을 줄였지만, 쓰기는 구조상 조회 수에 비례해 남는다.
+// 유료 전환 없이는 트래픽이 늘수록 다시 막히는 구조라 아예 걷어냈다.
+//
+// ── 왜 unstable_cache(Vercel Data Cache) 도 아닌가 ─────────────────────────
+// Data Cache 는 **항목당 2MB 한도**가 있고, 넘으면 에러 없이 조용히 건너뛴다.
+// 실측:  7,828경기 =  4.1MB
+//       30,233경기 = 15.2MB
 // 즉 전적이 많은 사람 — 남들이 가장 많이 찾아보는 사람 — 만 캐시가 안 걸렸다.
-// 조회할 때마다 wavu 에서 15MB 를 새로 받고 있었고, 아무 경고도 없었다.
-// (라이브 측정으로 확인: 2경기 플레이어는 재조회가 0.43s→0.26s 로 떨어지는데
-//  30,233경기 플레이어는 반복해도 바닥을 치지 않았다.)
 //
-// Blob 은 용량 한도가 사실상 없다. gzip 으로 넣으니 30,233경기가 1.86MB 다.
-// 덤이 하나 더 있다 — wavu 가 막혔을 때 **마지막 성공본을 그대로 내줄 수 있다.**
-// 예전에는 wavu 가 503 이면 사이트 전체가 같이 멈췄다.
+// ── 지금 방식과 그 한계 (알고 쓸 것) ───────────────────────────────────────
+// 인스턴스 메모리에 LRU 로 들고 있는다. 비용 0, 한도 없음. 대신:
+// - 인스턴스가 여러 개면 각자 따로 캐시한다(적중률이 그만큼 낮다).
+// - 인스턴스가 내려가면 사라진다. 콜드 스타트는 wavu 를 직접 부른다.
+// - 그래서 'wavu 장애를 오래된 사본으로 버티는' 능력이 약해졌다. 같은 인스턴스가
+//   살아 있는 동안에만 STALE_SECONDS 까지 낡은 사본을 내준다.
 //
-// 한계(알고 두는 것):
-// - 인스턴스가 다르면 동시 갱신이 겹칠 수 있다. 겹쳐도 마지막 쓰기가 이기고
-//   내용은 같으므로 해가 없다. 같은 인스턴스 안에서는 inflight 로 합친다.
-// - 갱신을 담당한 요청은 gzip+업로드 시간을 더 쓴다(10분에 한 번). 그 대가로
-//   나머지 요청 전부가 wavu 를 건드리지 않는다.
+// 메모리는 레코드 총량으로 제한한다(MAX_RECORDS). 30,233경기 한 명이 들어와도
+// 오래 안 쓰인 항목을 밀어내며 상한을 지킨다.
 
-import { put } from '@vercel/blob';
-import { gzip, gunzip } from 'node:zlib';
-import { promisify } from 'node:util';
 import { fetchReplays, fetchRegion } from './client';
-import { readPublicBlob, rememberOriginFrom, blobOrigin } from './blob';
 import { normalizeReplays, type NormalizeStats } from './normalize';
-import {
-  packRecords,
-  unpackRecords,
-  CODEC_VERSION,
-  type PackedRecords,
-} from '../tekken/codec';
 import type { MatchRecord } from '../tekken/models';
 import type { Region } from './region';
-
-const gz = promisify(gzip);
-const gunz = promisify(gunzip);
 
 /** 사본을 신선하다고 볼 시간. */
 export const CACHE_SECONDS = 600;
 
+/** 이 시간까지는 낡은 사본이라도 내준다 (wavu 가 막혔을 때만 쓰인다). */
+const STALE_SECONDS = 6 * 3600;
+
 /**
- * 경로에 코덱 버전이 들어간다. 형식이 바뀌면 새 경로에 쓰고 옛 사본은 그냥 안 읽힌다 —
- * 마이그레이션도 삭제 작업도 없고, 옛 파일은 다음 갱신 때 자연히 쓸모없어진다.
+ * 메모리에 들고 있을 레코드 총량. 한 레코드가 대략 수백 바이트라
+ * 12만 건이면 수십 MB 수준 — 함수 메모리(기본 1GB) 안에서 여유가 크다.
  */
-const keyFor = (id: string) => `cache/records/v${CODEC_VERSION}/${id}.json.gz`;
+const MAX_RECORDS = 120_000;
 
 export interface CachedRecords {
   /** 이미 정규화된 레코드. 호출부는 normalizeReplays 를 다시 부르지 않는다. */
@@ -56,150 +54,54 @@ export interface CachedRecords {
   fetchedAt: number;
   /** wavu 수집에 실패해 낡은 사본을 내주는 중이면 true. */
   stale: boolean;
-  /**
-   * 서버 지역 (시간대 추정용). 못 읽었으면 null —
-   * 그 경우 화면은 KST 를 그대로 쓴다(region.ts 참조).
-   */
+  /** 서버 지역 (시간대 추정용). 못 읽었으면 null — 화면은 KST 를 그대로 쓴다. */
   region: Region | null;
 }
 
-interface Stored {
-  fetchedAt: number;
-  packed: PackedRecords;
+interface Entry {
+  records: MatchRecord[];
+  myName: string;
   stats: NormalizeStats;
-  /**
-   * 지역은 나중에 추가된 필드다. 그 전에 쓰인 사본에는 없어서 undefined 가 온다 —
-   * 이때는 null 로 다뤄 '지역 모름'(KST 유지)이 되고, 사본이 만료되는 대로
-   * (CACHE_SECONDS) 다음 갱신에서 저절로 채워진다. 마이그레이션이 필요 없다.
-   */
-  region?: Region | null;
+  region: Region | null;
+  fetchedAt: number;
+  /** LRU 판정용 — 마지막으로 쓰인 시각. */
+  usedAt: number;
 }
 
-async function readBlob(id: string): Promise<Stored | null> {
-  try {
-    // ★ list() 를 쓰지 않는다 — Advanced Operation 이라 요청마다 부르면 한도가 녹는다.
-    //   경로로 바로 읽는다 (lib/wavu/blob.ts 의 사고 이력 참조).
-    const r = await readPublicBlob(keyFor(id));
-    if (!r.body) return null; // 없거나 못 읽음 — 어느 쪽이든 wavu 에서 새로 받으면 된다
-    const raw = await gunz(Buffer.from(r.body));
-    const d = JSON.parse(raw.toString('utf8')) as Stored;
-    if (typeof d?.fetchedAt !== 'number' || !d.packed) return null;
-    return d;
-  } catch {
-    // 사본을 못 읽는 것은 치명적이지 않다 — wavu 에서 새로 받으면 된다.
-    return null;
-  }
-}
-
-/**
- * 쓰기가 막혀 있으면 한동안 시도하지 않는다.
- *
- * 스토어가 정지되면(무료 한도 초과 등) `put` 은 매번 실패하는데, 실패를 알기까지
- * **gzip + 업로드 시도**를 다 한다. 실측 2.7MB 압축에만 수백 ms 가 든다.
- * 요청마다 그 시간을 버리는 대신, 한 번 막히면 몇 분 쉬었다 다시 본다.
- *
- * 인스턴스별 메모리라 정확한 차단은 아니다 — 목적이 그게 아니라 '헛일 줄이기'다.
- * 스토어가 살아나면 다음 확인 때 자동으로 복구된다(사람 손이 필요 없다).
- */
-const WRITE_RETRY_MS = 5 * 60_000;
-let writeBlockedUntil = 0;
-
-async function writeBlob(id: string, stored: Stored): Promise<void> {
-  if (Date.now() < writeBlockedUntil) return; // 막힌 걸 아는 동안은 조용히 건너뛴다
-  try {
-    const body = await gz(Buffer.from(JSON.stringify(stored)));
-    const res = await put(keyFor(id), body, {
-      access: 'public',
-      contentType: 'application/gzip',
-      // ★ 이 둘이 있어야 URL 이 경로에서 결정된다 — 읽을 때 list() 를 안 쓰는 전제다.
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      // 경로가 고정이라 덮어쓴 뒤 CDN 이 옛 내용을 내주면 안 된다.
-      cacheControlMaxAge: 0,
-    });
-    // 응답의 url 이 공개 URL 앞부분의 가장 확실한 출처다. 공짜로 알 수 있으니 기억해 둔다.
-    rememberOriginFrom(res.url);
-  } catch (e) {
-    // Blob 미설정(로컬 개발 등)이어도 조회 자체는 굴러가야 한다.
-    // 이 경우 캐시만 없는 셈이고 동작은 예전과 같다.
-    //
-    // 다만 **조용히 넘어가지는 않는다.** 프로덕션에서 스토어가 안 붙어 있으면
-    // 이 자리가 매번 실패하면서 캐시가 통째로 없는 상태가 되는데, 응답은 정상이라
-    // 몇 달을 모른 채 지날 수 있다(실제로 그랬다 — 조회할 때마다 wavu 에서
-    // 15MB 를 새로 받고 있었다). 상태 확인은 /api/probe 의 blob 항목으로 한다.
-    writeBlockedUntil = Date.now() + WRITE_RETRY_MS;
-    console.warn(
-      `[cache] Blob 저장 실패 — ${WRITE_RETRY_MS / 60000}분간 캐시 없이 동작: ${(e as Error).message}`,
-    );
-  }
-}
-
-/**
- * Blob 스토어가 실제로 쓸 수 있는 상태인지 확인한다 (/api/probe 전용).
- *
- * `list()` 만 봐서는 부족하다 — 캐시가 필요한 것은 **쓰기**고, 토큰 권한이나
- * 스토어 연결이 어긋나면 읽기만 되는 경우가 있다. 그래서 작은 파일을
- * 실제로 쓰고 다시 읽어 왕복을 확인한다. 경로는 고정이라 쌓이지 않는다.
- */
-export async function probeBlob(): Promise<{
-  ok: boolean;
-  hasToken: boolean;
-  canRead: boolean;
-  canWrite: boolean;
-  error: string | null;
-}> {
-  const hasToken = !!process.env.BLOB_READ_WRITE_TOKEN;
-  let canWrite = false;
-  let error: string | null = null;
-
-  // 읽기는 공개 URL 로 확인한다 — list() 를 쓰면 확인하는 행위 자체가 한도를 깎는다.
-  // (probe 는 사람이 부르는 것이라 잦지 않지만, 여기서도 원칙을 지킨다)
-  const canRead = (await blobOrigin()) !== null;
-
-  try {
-    // 쓰기만은 실제로 써봐야 안다. Advanced Operation 1회를 쓰는 유일한 자리다 —
-    // 캐시가 되는지는 **쓰기**에 달렸고, 읽기만 되는 상태가 실제로 존재하기 때문이다
-    // (스토어 정지가 정확히 그 모양이었다: 목록·읽기는 되고 쓰기만 막힘).
-    const mark = `probe ${Date.now()}`;
-    const { url } = await put('probe/blob-check.txt', mark, {
-      access: 'public',
-      contentType: 'text/plain',
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      cacheControlMaxAge: 0,
-    });
-    rememberOriginFrom(url);
-    const back = await fetch(url, { cache: 'no-store' });
-    canWrite = back.ok && (await back.text()) === mark;
-  } catch (e) {
-    error = (e as Error).message;
-  }
-
-  return { ok: canRead && canWrite, hasToken, canRead, canWrite, error };
-}
+const store = new Map<string, Entry>();
 
 /** 같은 인스턴스에서 같은 식별코드 요청이 겹치면 한 번만 일하게 합친다. */
 const inflight = new Map<string, Promise<CachedRecords>>();
 
-/** 사본에서 복원. 형식이 안 맞으면 null 을 돌려 wavu 재수집으로 떨어진다. */
-function fromCache(cached: Stored, stale: boolean): CachedRecords | null {
-  const records = unpackRecords(cached.packed);
-  if (!records) return null;
-  return {
-    records,
-    myName: cached.packed.player,
-    stats: cached.stats,
-    fetchedAt: cached.fetchedAt,
-    stale,
-    region: cached.region ?? null,
-  };
+/** 상한을 넘으면 가장 오래 안 쓰인 것부터 버린다. */
+function evictIfNeeded(): void {
+  let total = 0;
+  for (const e of store.values()) total += e.records.length;
+  if (total <= MAX_RECORDS) return;
+
+  const byOldest = [...store.entries()].sort((a, b) => a[1].usedAt - b[1].usedAt);
+  for (const [id, e] of byOldest) {
+    if (total <= MAX_RECORDS) break;
+    store.delete(id);
+    total -= e.records.length;
+  }
 }
 
+const view = (e: Entry, stale: boolean): CachedRecords => ({
+  records: e.records,
+  myName: e.myName,
+  stats: e.stats,
+  fetchedAt: e.fetchedAt,
+  stale,
+  region: e.region,
+});
+
 async function load(id: string): Promise<CachedRecords> {
-  const cached = await readBlob(id);
-  if (cached && Date.now() - cached.fetchedAt < CACHE_SECONDS * 1000) {
-    const hit = fromCache(cached, false);
-    if (hit) return hit;
+  const now = Date.now();
+  const cached = store.get(id);
+  if (cached && now - cached.fetchedAt < CACHE_SECONDS * 1000) {
+    cached.usedAt = now;
+    return view(cached, false);
   }
 
   try {
@@ -209,31 +111,37 @@ async function load(id: string): Promise<CachedRecords> {
     const region = await fetchRegion(id);
     const { records, myName, stats } = normalizeReplays(replays, id);
     const fetchedAt = Date.now();
-    // 원본이 아니라 **정규화된 레코드**를 저장한다 — 읽는 쪽이 다시 정규화하지 않게.
-    // (크기·속도 실측은 lib/tekken/codec.ts 주석 참조)
-    await writeBlob(id, {
-      fetchedAt,
-      packed: packRecords(records, myName, id),
-      stats,
-      region,
-    });
+    store.set(id, { records, myName, stats, region, fetchedAt, usedAt: fetchedAt });
+    evictIfNeeded();
     return { records, myName, stats, fetchedAt, stale: false, region };
   } catch (e) {
-    // wavu 가 막혔거나 느리다. 낡았더라도 사본이 있으면 그것을 준다 —
-    // '10분 지난 데이터'가 '서비스 불가'보다 낫다. 사본이 없을 때만 에러를 올린다.
-    if (cached) {
-      const old = fromCache(cached, true);
-      if (old) return old;
+    // wavu 가 막혔거나 느리다. 너무 낡지 않은 사본이 있으면 그것을 준다 —
+    // '10분 지난 데이터'가 '서비스 불가'보다 낫다.
+    if (cached && now - cached.fetchedAt < STALE_SECONDS * 1000) {
+      cached.usedAt = now;
+      return view(cached, true);
     }
     throw e;
   }
 }
 
-/** 전체 이력을 정규화된 상태로 가져온다 (Blob 사본 우선, 없거나 낡았으면 wavu). */
+/** 전체 이력을 정규화된 상태로 가져온다 (메모리 사본 우선, 없거나 낡았으면 wavu). */
 export function getRecords(id: string): Promise<CachedRecords> {
   const running = inflight.get(id);
   if (running) return running;
   const p = load(id).finally(() => inflight.delete(id));
   inflight.set(id, p);
   return p;
+}
+
+/** 캐시 상태 (/api/probe 전용). 인스턴스별 값이라 참고용이다. */
+export function cacheStatus(): {
+  entries: number;
+  records: number;
+  maxRecords: number;
+  ttlSeconds: number;
+} {
+  let records = 0;
+  for (const e of store.values()) records += e.records.length;
+  return { entries: store.size, records, maxRecords: MAX_RECORDS, ttlSeconds: CACHE_SECONDS };
 }
