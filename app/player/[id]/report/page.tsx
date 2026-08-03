@@ -12,18 +12,78 @@ import { notFound } from 'next/navigation';
 import { getRecords } from '@/lib/wavu/cache';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { sessionAdvice } from '@/lib/tekken/advice';
+import { seasonSpans } from '@/lib/tekken/seasons';
+import { dateKey, type MatchRecord } from '@/lib/tekken/models';
 import ReportChart, { type TrendPoint } from './ReportChart';
 import ShareBar from './ShareBar';
 import './report.css';
 
+type Query = Record<string, string | string[] | undefined>;
+
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Query>;
 }
 
 const normalize = (raw: string) => decodeURIComponent(raw).replace(/[^A-Za-z0-9]/g, '');
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+// ── 조회 범위 ────────────────────────────────────────────────────
+// 리포트는 원래 '전체 기간 한 장'이었다. 그런데 3천 판 넘게 쌓인 사람은 전체 승률이
+// 거의 안 움직여서 "지금 어떤가"가 안 보인다. 시즌·기간으로 잘라 볼 수 있게 한다.
+//
+// 상태를 쿼리스트링에 두는 이유: 서버 컴포넌트를 그대로 유지하려는 것이다.
+// 클라이언트 상태로 만들면 리포트 전체가 클라이언트로 내려가 공유 링크·인쇄·SEO 가
+// 다 깨진다. 링크만으로 전환되면 '시즌3 리포트'를 그대로 공유할 수도 있다.
+
+type Scope =
+  | { kind: 'all' }
+  | { kind: 'season'; key: string }
+  | { kind: 'range'; from: string; to: string; label?: string };
+
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
+const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+/** 오늘 (KST). 레코드의 dt 가 KST 로 shift 된 Date 라 같은 기준으로 맞춘다. */
+const todayKst = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+
+/** 'yyyy-MM-dd' 에서 n일 전. */
+function minusDays(day: string, n: number): string {
+  const t = Date.parse(`${day}T00:00:00Z`) - n * 86_400_000;
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+function parseScope(q: Query): Scope {
+  const season = one(q.season);
+  if (/^S\d+$/.test(season)) return { kind: 'season', key: season };
+
+  const from = one(q.from);
+  const to = one(q.to);
+  if (isDate(from) && isDate(to)) {
+    // 거꾸로 넣어도 동작하게 정렬해 둔다
+    return from <= to ? { kind: 'range', from, to } : { kind: 'range', from: to, to: from };
+  }
+  return { kind: 'all' };
+}
+
+function applyScope(records: MatchRecord[], scope: Scope): MatchRecord[] {
+  if (scope.kind === 'all') return records;
+  if (scope.kind === 'season') return records.filter((r) => r.season === scope.key);
+  return records.filter((r) => {
+    const d = dateKey(r.dt);
+    return d >= scope.from && d <= scope.to;
+  });
+}
+
+const scopeLabel = (scope: Scope) =>
+  scope.kind === 'all'
+    ? '전체 기간'
+    : scope.kind === 'season'
+      ? `시즌 ${scope.key.slice(1)}`
+      : `${scope.from} ~ ${scope.to}`;
+
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const id = normalize((await params).id);
+  const scope = parseScope(await searchParams);
   let name = id;
   try {
     const { myName } = await getRecords(id);
@@ -31,10 +91,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   } catch {
     /* 이름을 못 얻어도 페이지는 나간다 */
   }
+  const suffix = scope.kind === 'all' ? '' : ` (${scopeLabel(scope)})`;
   return {
-    title: `${name} 리포트 — 철권8 전적 통계`,
+    title: `${name} 리포트${suffix} — 철권8 전적 통계`,
     description: `${name} 의 철권8 랭크전 종합 리포트 — 캐릭터별 성적, 강점·약점 매치업, 레이팅 추이, 플레이 패턴.`,
+    // 범위를 바꾼 주소는 같은 내용의 잘린 판이라 색인 대상이 아니다.
+    // canonical 은 항상 범위 없는 주소를 가리킨다.
     alternates: { canonical: `/player/${id}/report` },
+    robots: scope.kind === 'all' ? undefined : { index: false, follow: true },
     openGraph: {
       title: `${name} 리포트 — 철권8 전적 통계`,
       description: `${name} 의 랭크전 종합 리포트`,
@@ -54,7 +118,7 @@ function pick(
 
 const num = (v: unknown) => (typeof v === 'number' ? v : Number(v ?? 0));
 
-export default async function ReportPage({ params }: Props) {
+export default async function ReportPage({ params, searchParams }: Props) {
   const id = normalize((await params).id);
   if (!id) notFound();
 
@@ -64,8 +128,111 @@ export default async function ReportPage({ params }: Props) {
   } catch {
     notFound();
   }
-  const { records, myName } = data;
-  if (!records.length) notFound();
+  const { records: allRecords, myName } = data;
+  if (!allRecords.length) notFound();
+
+  const scope = parseScope(await searchParams);
+  const records = applyScope(allRecords, scope);
+
+  const spans = seasonSpans(allRecords);
+  const today = todayKst();
+  const base = `/player/${id}/report`;
+  const lastPlayed = dateKey(
+    allRecords.reduce((a, b) => (a.dt > b.dt ? a : b)).dt,
+  );
+
+  // 범위 바 — 링크만으로 전환된다 (JS 없이 동작하고, 그대로 공유된다)
+  const scopeBar = (
+    <nav className="rp-scope" aria-label="조회 범위">
+      <div className="rp-scope-row">
+        <span className="rp-scope-tag">범위</span>
+        <a className={`rp-pill ${scope.kind === 'all' ? 'on' : ''}`} href={base}>
+          전체
+        </a>
+        {spans.map((s) => (
+          <a
+            key={s.key}
+            className={`rp-pill ${scope.kind === 'season' && scope.key === s.key ? 'on' : ''}`}
+            href={`${base}?season=${s.key}`}
+          >
+            {s.key}
+            <em>{s.games.toLocaleString()}판</em>
+          </a>
+        ))}
+      </div>
+
+      <div className="rp-scope-row">
+        <span className="rp-scope-tag">기간</span>
+        {(
+          [
+            ['최근 30일', minusDays(today, 30)],
+            ['최근 90일', minusDays(today, 90)],
+            ['올해', `${today.slice(0, 4)}-01-01`],
+          ] as const
+        ).map(([label, from]) => (
+          <a
+            key={label}
+            className={`rp-pill ${
+              scope.kind === 'range' && scope.from === from && scope.to === today ? 'on' : ''
+            }`}
+            href={`${base}?from=${from}&to=${today}`}
+          >
+            {label}
+          </a>
+        ))}
+        <form className="rp-scope-form" method="get" action={base}>
+          <input
+            type="date"
+            name="from"
+            aria-label="시작일"
+            defaultValue={scope.kind === 'range' ? scope.from : ''}
+          />
+          <span className="rp-scope-tilde">~</span>
+          <input
+            type="date"
+            name="to"
+            aria-label="종료일"
+            defaultValue={scope.kind === 'range' ? scope.to : today}
+          />
+          <button type="submit">적용</button>
+        </form>
+      </div>
+    </nav>
+  );
+
+  // 범위를 잘랐더니 한 판도 안 남는 경우 — 404 가 아니라 '그 범위에 없다'가 맞는 설명이다
+  if (!records.length) {
+    return (
+      <main className="report">
+        <header className="rp-hero">
+          <div className="rp-hero-top">
+            <a className="rp-back" href={`/player/${id}`}>
+              ← 전체 통계
+            </a>
+          </div>
+          <h1 className="rp-name">{myName || id}</h1>
+          <p className="rp-sub">
+            <span className="rp-code">{id}</span>
+            <span className="rp-dot">·</span>
+            <span className="rp-scope-chip">{scopeLabel(scope)}</span>
+          </p>
+        </header>
+        {scopeBar}
+        <section className="rp-sec">
+          <p className="rp-empty">
+            {scopeLabel(scope)}에는 랭크전 기록이 없습니다. 마지막 경기는{' '}
+            <b>{lastPlayed}</b> 이고, 전체 기간에는 {allRecords.length.toLocaleString()}판이
+            있습니다.
+          </p>
+          <p className="rp-note">
+            <a className="rp-cta" href={base}>
+              전체 기간으로 보기 →
+            </a>
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   const result = computeFromRecords(records, id, myName, { matchesLimit: 0 });
   const tabs = Object.fromEntries(result.tabs.map((t) => [t.key, t]));
@@ -175,6 +342,12 @@ export default async function ReportPage({ params }: Props) {
         <h1 className="rp-name">{myName || id}</h1>
         <p className="rp-sub">
           <span className="rp-code">{id}</span>
+          {scope.kind !== 'all' && (
+            <>
+              <span className="rp-dot">·</span>
+              <span className="rp-scope-chip">{scopeLabel(scope)}</span>
+            </>
+          )}
           {mainChar && (
             <>
               <span className="rp-dot">·</span>
@@ -203,7 +376,10 @@ export default async function ReportPage({ params }: Props) {
             <span className="rp-stat-value">{games.toLocaleString()}</span>
           </div>
           <div className="rp-stat">
-            <span className="rp-stat-label">현재 레이팅</span>
+            {/* 범위를 자르면 '현재'가 아니라 '그 범위의 마지막'이다. 라벨을 속이지 않는다. */}
+            <span className="rp-stat-label">
+              {scope.kind === 'all' ? '현재 레이팅' : '마지막 레이팅'}
+            </span>
             <span className="rp-stat-value">{latest.myRating.toLocaleString()}</span>
             <span className="rp-stat-note">최고 {peakRating.toLocaleString()}</span>
           </div>
@@ -233,6 +409,8 @@ export default async function ReportPage({ params }: Props) {
           </p>
         )}
       </header>
+
+      {scopeBar}
 
       {/* ── 최근 폼 ── */}
       {!advice && (

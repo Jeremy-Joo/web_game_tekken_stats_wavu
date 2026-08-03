@@ -457,7 +457,10 @@
 @media print {
   .rp-back,
   .rp-share,
-  .rp-cta {
+  .rp-cta,
+  /* 범위 바는 조작용이라 종이에 남길 이유가 없다.
+     지금 어떤 범위인지는 머리말의 rp-scope-chip 이 이미 말해준다. */
+  .rp-scope {
     display: none;
   }
 
@@ -511,4 +514,117 @@
   color: var(--muted);
   font-size: 0.88rem;
   margin: 0;
+}
+
+/* ── 조회 범위 바 ────────────────────────────────────────────────
+   리포트 본문보다 눈에 덜 띄어야 한다. 주인공은 숫자지 컨트롤이 아니다.
+   그래서 배경 없이 알약 테두리만 두고, 선택된 것만 색을 준다. */
+.rp-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0 0 1.4rem;
+}
+
+.rp-scope-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.rp-scope-tag {
+  font-size: 0.76rem;
+  color: var(--muted);
+  min-width: 2.2rem;
+}
+
+.rp-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 0.82rem;
+  text-decoration: none;
+  line-height: 1.4;
+}
+
+.rp-pill:hover {
+  border-color: #3987e5;
+}
+
+.rp-pill.on {
+  background: #3987e5;
+  border-color: #3987e5;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* 시즌 알약 안의 경기 수 — 보조 정보라 작고 흐리게 */
+.rp-pill em {
+  font-style: normal;
+  font-size: 0.72rem;
+  opacity: 0.65;
+}
+
+.rp-scope-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.2rem;
+}
+
+.rp-scope-form input {
+  padding: 0.22rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--fg);
+  font-size: 0.78rem;
+  color-scheme: dark;
+}
+
+.rp-scope-form button {
+  padding: 0.26rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--fg);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.rp-scope-form button:hover {
+  border-color: #3987e5;
+}
+
+.rp-scope-tilde {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* 머리말에 현재 범위를 박아둔다 — 인쇄본에서 범위 바가 사라져도 남아야 한다 */
+.rp-scope-chip {
+  padding: 0.1rem 0.45rem;
+  border: 1px solid #3987e5;
+  border-radius: 999px;
+  color: #3987e5;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .rp-scope-form {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .rp-scope-form input {
+    flex: 1;
+    min-width: 0;
+  }
 }
