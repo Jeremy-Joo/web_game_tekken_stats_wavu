@@ -37,6 +37,28 @@ interface Stats {
 const PW_KEY = 'tkwavu_admin_pw';
 const RANGES = [7, 28, 90, 365];
 
+/** CSV 한 칸 이스케이프 (쉼표·따옴표·줄바꿈이 든 닉네임 대비). */
+function csvCell(v: string | number): string {
+  const s = String(v ?? '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function download(content: BlobPart, mime: string, filename: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type: mime }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** KST 기준 파일명 도장. */
+function stamp(): string {
+  const d = new Date(Date.now() + 9 * 3600 * 1000);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}_${p(d.getUTCHours())}${p(d.getUTCMinutes())}`;
+}
+
 export default function AdminPage() {
   const [pw, setPw] = useState('');
   const [days, setDays] = useState(28);
@@ -44,6 +66,7 @@ export default function AdminPage() {
   const [err, setErr] = useState('');
   const [setupHelp, setSetupHelp] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [dlBusy, setDlBusy] = useState(false);
 
   const load = async (password: string, range: number) => {
     if (!password) return;
@@ -80,6 +103,48 @@ export default function AdminPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const base = () => `tekken8stats_admin_${data?.days ?? days}d_${stamp()}`;
+
+  const downloadCsv = () => {
+    if (!data) return;
+    const lines = ['#,이름,식별코드,조회수,비율(%),사용자'];
+    data.players.forEach((p, i) => {
+      lines.push(
+        [i + 1, p.name || '', p.id, p.views, pct(p.views), p.users].map(csvCell).join(','),
+      );
+    });
+    // BOM: 엑셀에서 한글이 깨지지 않게
+    download('﻿' + lines.join('\r\n'), 'text/csv;charset=utf-8', `${base()}.csv`);
+  };
+
+  const downloadJson = () => {
+    if (!data) return;
+    download(JSON.stringify(data, null, 1), 'application/json', `${base()}.json`);
+  };
+
+  /** 엑셀은 서버에서 만든다 (exceljs). 비밀번호가 URL 에 남지 않게 POST 로 받는다. */
+  const downloadXlsx = async () => {
+    if (!data) return;
+    setDlBusy(true);
+    setErr('');
+    try {
+      const res = await fetch('/api/admin/xlsx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw, days: data.days }),
+      });
+      if (!res.ok) {
+        const d = (await res.json()) as { error?: string };
+        throw new Error(d.error ?? `HTTP ${res.status}`);
+      }
+      download(await res.arrayBuffer(), res.headers.get('Content-Type') ?? '', `${base()}.xlsx`);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setDlBusy(false);
+    }
+  };
 
   const pickRange = (r: number) => {
     setDays(r);
@@ -172,6 +237,18 @@ export default function AdminPage() {
                 최근 {data.days === 365 ? '1년' : `${data.days}일`}
               </span>
             </div>
+          </div>
+
+          <div className="row dl-row">
+            <button className="ghost" onClick={downloadCsv}>
+              📄 CSV (플레이어 목록)
+            </button>
+            <button className="ghost" onClick={downloadJson}>
+              🧾 JSON (전체)
+            </button>
+            <button className="ghost" onClick={downloadXlsx} disabled={dlBusy}>
+              {dlBusy ? '만드는 중…' : '📥 엑셀 (전체 시트)'}
+            </button>
           </div>
 
           <h2 className="admin-h2">조회된 플레이어 ({data.players.length})</h2>
