@@ -16,11 +16,11 @@ type Entry = Record<Lang, string>;
 
 const D = {
   title: { ko: '철권8 전적 통계', en: 'Tekken 8 Match Stats', ja: '鉄拳8 戦績スタッツ' },
-  sub: {
-    ko: 'wavu wank 랭크전 데이터 · 식별코드만 넣으면 전체 이력을 집계합니다',
-    en: 'Ranked data from wavu wank · enter a polaris ID to aggregate full history',
-    ja: 'wavu wank のランクマッチデータ · IDを入れるだけで全履歴を集計',
-  },
+  // sub / footer1 / footer2 는 지웠다.
+  //  · sub — 제목 바로 아래에서 "wavu 랭크전 데이터 · 식별코드만 넣으면…"을 반복했다.
+  //    출처는 푸터 고지가, 사용법은 입력칸 라벨이 이미 말한다.
+  //  · footer1·footer2 — "데이터: wank.wavu.wiki … Bandai Namco 와 무관합니다"였는데
+  //    바로 아래 disclaimer 가 출처와 무관함을 둘 다 담고 있어 중복이었다.
   single: { ko: '한 명', en: 'Single', ja: '1人' },
   compare: { ko: '여러 명 비교', en: 'Compare', ja: '複数比較' },
   idOrNick: { ko: '식별코드 또는 닉네임', en: 'Polaris ID or nickname', ja: 'IDまたはニックネーム' },
@@ -254,18 +254,12 @@ const D = {
   lossChar: { ko: '패', en: 'L', ja: '敗' },
   visitors: { ko: '방문', en: 'Visits', ja: '訪問' },
   todayLabel: { ko: '오늘', en: 'today', ja: '今日' },
-  footer1: { ko: '데이터:', en: 'Data:', ja: 'データ:' },
   // 푸터 농담 — 실행 난이도로 악명 높은 캐릭터들에 대한 과장된 농담이다.
   // 한국어 원문이 본체라 번역은 뜻만 옮긴다.
   footerJoke: {
     ko: '술 담배 해도 풍신류 화랑 스티브 하지마라, 그럴거면 차라리 마약을 해라',
     en: 'Drink and smoke if you must — just don\'t pick Mishima, Hwoarang, or Steve.',
     ja: '酒もタバコもいい、でも風神流・ファラン・スティーブだけはやめとけ。',
-  },
-  footer2: {
-    ko: '(랭크전만 집계됨) · 이 사이트는 Bandai Namco 와 무관합니다',
-    en: '(ranked matches only) · This site is not affiliated with Bandai Namco',
-    ja: '(ランクマッチのみ) · 当サイトはバンダイナムコとは無関係です',
   },
   multiFound: {
     ko: (tok: string) => `'${tok}' 검색 결과가 여러 명입니다 — 선택하세요.`,

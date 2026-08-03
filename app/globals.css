@@ -1007,22 +1007,6 @@ footer a {
   font-size: 0.85rem;
 }
 
-.random-toggle {
-  min-height: 26px;
-  padding: 0.1rem 0.6rem;
-  background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 400;
-}
-
-.random-toggle:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .random-body {
   margin-top: 0.5rem;
   padding: 0.7rem 0.85rem;

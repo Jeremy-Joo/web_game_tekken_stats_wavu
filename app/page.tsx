@@ -1725,8 +1725,6 @@ export default function Home() {
           ))}
         </div>
       </div>
-      <p className="sub">{t('sub')}</p>
-
       <div className="mode-switch">
         <button
           className={mode === 'single' ? 'on' : ''}
@@ -2589,11 +2587,9 @@ export default function Home() {
       {!tabs && <SeoContent lang={lang} />}
 
       <footer>
-        {t('footer1')}{' '}
-        <a href="https://wank.wavu.wiki" target="_blank" rel="noreferrer">
-          wank.wavu.wiki
-        </a>{' '}
-        {t('footer2')}
+        {/* 출처·무관 고지는 아래 disclaimer 한 줄이 다 말한다. 예전에는 여기에
+            "데이터: wank.wavu.wiki … Bandai Namco 와 무관합니다"가 따로 있었는데
+            같은 말을 두 번 하는 셈이라 걷어냈다. */}
         {/* 크레딧은 번역하지 않는다 — 이름·이메일이고, 감사 문구도 원문이 영어다.
             언어를 바꿔도 같은 사람을 같은 표기로 부르는 게 맞다. */}
         <span className="credits">

@@ -2,11 +2,12 @@
 
 // 랜덤 플레이어 조회.
 //
-// 조회 폼 아래에 **펼친 채로** 둔다.
+// 조회 폼 아래에 항상 펼쳐 둔다.
 // 처음에는 접어뒀는데(곁가지라 입력칸과 경쟁한다는 이유였다), 접어두면 이 기능이
-// 있다는 걸 아무도 모른다. 식별코드를 모르는 사람에게는 이쪽이 첫 동작이라
-// 보이는 게 맞다. 접기 버튼은 남겨뒀다 — 자기 전적만 보는 사람에게는 매번
-// 지나쳐야 하는 줄이다.
+// 있다는 걸 아무도 모른다. 식별코드를 모르는 사람에게는 이쪽이 첫 동작이다.
+//
+// 접기 버튼도 뺐다 — 두 줄짜리 영역이라 접어서 아낄 게 없고, 제목 옆에 아무도
+// 안 누르는 버튼이 남는 쪽이 더 산만하다.
 //
 // 서버는 식별코드만 준다. 조회는 화면이 평소 경로로 하므로 캐시·집계·멘트가
 // 그대로 동작한다(자세한 건 app/api/random/route.ts 주석).
@@ -24,8 +25,6 @@ const TXT = {
   },
   go: { ko: '무작위로 보기', en: 'Show me someone', ja: 'ランダムで見る' },
   loading: { ko: '고르는 중…', en: 'Picking…', ja: '選択中…' },
-  open: { ko: '펼치기', en: 'Show', ja: '開く' },
-  close: { ko: '접기', en: 'Hide', ja: '閉じる' },
 } satisfies Record<string, Record<Lang, string>>;
 
 const REGION_LABEL: Record<PoolRegion, Record<Lang, string>> = {
@@ -43,10 +42,6 @@ export default function RandomPlayer({
   /** 뽑힌 식별코드로 평소 조회 흐름을 태운다. */
   onPick: (id: string) => void;
 }) {
-  // 기본은 펼침. 접어두면 이 기능이 있다는 걸 아무도 모른다 — 조회할 식별코드가
-  // 없는 사람에게는 이쪽이 첫 동작이 되어야 한다. 접기는 남겨둔다(자기 전적만 보는
-  // 사람에게는 매번 지나쳐야 하는 줄이라).
-  const [open, setOpen] = useState(true);
   const [region, setRegion] = useState<PoolRegion>('all');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -71,39 +66,29 @@ export default function RandomPlayer({
     <section className="random">
       <div className="random-head">
         <span className="random-title">{TXT.title[lang]}</span>
-        <button
-          className="random-toggle"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          type="button"
-        >
-          {open ? TXT.close[lang] : TXT.open[lang]}
-        </button>
       </div>
 
-      {open && (
-        <div className="random-body">
-          <p className="hint" style={{ margin: 0 }}>
-            {TXT.note[lang]}
-          </p>
-          <div className="row" style={{ marginTop: '0.5rem' }}>
-            {POOL_REGIONS.map((r) => (
-              <button
-                key={r}
-                className={`chip${region === r ? ' on' : ''}`}
-                onClick={() => setRegion(r)}
-                type="button"
-              >
-                {REGION_LABEL[r][lang]}
-              </button>
-            ))}
-            <button onClick={go} disabled={busy} type="button">
-              🎲 {busy ? TXT.loading[lang] : TXT.go[lang]}
+      <div className="random-body">
+        <p className="hint" style={{ margin: 0 }}>
+          {TXT.note[lang]}
+        </p>
+        <div className="row" style={{ marginTop: '0.5rem' }}>
+          {POOL_REGIONS.map((r) => (
+            <button
+              key={r}
+              className={`chip${region === r ? ' on' : ''}`}
+              onClick={() => setRegion(r)}
+              type="button"
+            >
+              {REGION_LABEL[r][lang]}
             </button>
-          </div>
-          {msg && <p className="error">{msg}</p>}
+          ))}
+          <button onClick={go} disabled={busy} type="button">
+            🎲 {busy ? TXT.loading[lang] : TXT.go[lang]}
+          </button>
         </div>
-      )}
+        {msg && <p className="error">{msg}</p>}
+      </div>
     </section>
   );
 }
