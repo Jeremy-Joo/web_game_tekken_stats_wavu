@@ -77,6 +77,11 @@ const D = {
   xlsxBtn: { ko: '📥 엑셀 (전체 탭)', en: '📥 Excel (all tabs)', ja: '📥 Excel (全タブ)' },
   csvBtn: { ko: '📄 CSV (현재 탭)', en: '📄 CSV (current tab)', ja: '📄 CSV (現在のタブ)' },
   jsonBtn: { ko: '🧾 JSON (전체)', en: '🧾 JSON (all)', ja: '🧾 JSON (全体)' },
+  dlFailed: {
+    ko: '파일을 저장하지 못했습니다. 새로고침 후 다시 시도해 주세요.',
+    en: 'Could not save the file. Reload and try again.',
+    ja: 'ファイルを保存できませんでした。再読み込みして再度お試しください。',
+  },
   chart: { ko: '그래프', en: 'Chart', ja: 'グラフ' },
   table: { ko: '표', en: 'Table', ja: '表' },
   charAll: { ko: '전체 캐릭터', en: 'All characters', ja: '全キャラ' },

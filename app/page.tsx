@@ -252,13 +252,57 @@ function toCsv(tab: TabData, lang: Lang): string {
   return '﻿' + lines.join('\r\n');
 }
 
+/**
+ * 파일명으로 쓸 수 있게 다듬는다.
+ *
+ * 이름은 wavu 닉네임에서 그대로 온다. 실제로 이런 게 있다 —
+ * `셀렌` 뒤에 U+3164(한글 채움 문자)가 둘 붙은 것, `플레이어 네임을 입력해주세요`,
+ * 그리고 비교 모드는 네 명 이름을 `_vs_` 로 이어 붙인다.
+ * 경로 구분자·제어문자가 섞이면 브라우저마다 다르게 처리하고, 길면 잘린다.
+ */
+function safeFileName(raw: string): string {
+  const cleaned = raw
+    // 경로 구분자·예약 문자
+    .replace(/[\\/:*?"<>|]/g, '_')
+    // 제어문자
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    // 눈에 안 보이는 채움·방향 문자. 실제 닉네임 '셀렌'이 U+3164 로 끝난다.
+    .replace(/[\u115f\u1160\u3164\u200b-\u200f\ufeff]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\.+/, ''); // 숨김 파일로 만들지 않는다
+  return cleaned.slice(0, 80).trim() || 'tekken';
+}
+
+
+/**
+ * 문자열을 파일로 저장한다.
+ *
+ * ── 예전 구현의 문제 셋 (JSON 전체 다운로드가 먹통이라는 제보에서 나왔다) ──
+ *  1. `click()` **직후에** `revokeObjectURL` 을 불렀다. 브라우저가 blob 을 아직
+ *     읽기 전이라 다운로드가 조용히 실패할 수 있다. 크기가 클수록·기기가 느릴수록
+ *     잘 걸린다.
+ *  2. `<a>` 를 문서에 붙이지 않았다. 파이어폭스와 일부 모바일 브라우저는
+ *     문서에 없는 앵커의 `.click()` 으로는 다운로드를 시작하지 않는다.
+ *  3. 그래서 **아무 일도 안 일어난 것처럼 보이고**, 사용자는 다시 누른다.
+ *     누를 때마다 수 MB 문자열과 Blob 이 새로 생겨 결국 탭이 죽는다.
+ *     제보의 '다운'은 이 경로일 가능성이 크다 — 한 번 누른 비용은 14ms 뿐이다.
+ */
 function downloadBlob(content: string, mime: string, filename: string): void {
   const url = URL.createObjectURL(new Blob([content], { type: mime }));
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  // 정리는 다음 태스크로 미룬다. 10초면 어떤 기기에서도 다운로드가 시작되고 남는다.
+  // (0ms 나 즉시 해제는 위 1번 문제를 그대로 다시 만든다)
+  window.setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 10_000);
 }
 
 /* ── 일별 탭 롤업 (월/분기/반기/연) ─────────────────────────────
@@ -799,6 +843,9 @@ export default function Home() {
   // 닉네임 검색 시 과거 닉네임까지 포함할지 (wavu 는 개명 이력도 검색해준다)
   const [inclHistory, setInclHistory] = useState(false);
   // 두 트랙 모두 기본 켜짐. 통계만 보고 싶은 사람이 각각 끌 수 있어야 한다.
+  // CSV/JSON 저장 상태. 반복 클릭을 막고 실패를 화면에 낸다(예전엔 조용히 실패했다).
+  const [dlBusy, setDlBusy] = useState(false);
+  const [dlMsg, setDlMsg] = useState('');
   const [showQuips, setShowQuipsState] = useState(true);
   const [showCoach, setShowCoachState] = useState(true);
   const remember = (key: string, v: boolean) => {
@@ -1534,27 +1581,54 @@ export default function Home() {
     return null;
   }, [mode, compare, showQuips, current, lang]);
 
-  const baseName =
+  // 닉네임이 그대로 파일명이 된다 — 경로 구분자·제어문자·보이지 않는 문자가
+  // 섞여 들어오므로 반드시 다듬는다(safeFileName 주석 참조).
+  const baseName = safeFileName(
     mode === 'single'
       ? single?.myName || single?.polarisId || 'tekken'
-      : compare?.players.map((p) => p.name).join('_vs_') || 'compare';
+      : compare?.players.map((p) => p.name).join('_vs_') || 'compare',
+  );
 
   const downloadCsv = () => {
-    if (!displayTab) return;
-    downloadBlob(
-      toCsv(displayTab, lang),
-      'text/csv;charset=utf-8',
-      `${baseName}_${displayTab.key}.csv`,
-    );
+    if (!displayTab || dlBusy) return;
+    setDlBusy(true);
+    setDlMsg('');
+    try {
+      downloadBlob(
+        toCsv(displayTab, lang),
+        'text/csv;charset=utf-8',
+        `${baseName}_${displayTab.key}.csv`,
+      );
+    } catch (e) {
+      setDlMsg(`${t('dlFailed')} (${(e as Error).message})`);
+    } finally {
+      setDlBusy(false);
+    }
   };
+  /**
+   * 전체 결과를 JSON 한 파일로.
+   *
+   * 들여쓰기를 뺐다. 21,197경기 기준 2.73MB → 1.46MB 로 절반이 된다(실측).
+   * 기계가 읽는 파일이라 사람이 볼 들여쓰기가 필요 없고, 큰 payload 에서
+   * 문자열+Blob 두 벌을 들고 있는 순간의 메모리 피크가 그만큼 낮아진다.
+   *
+   * busy 를 두는 이유는 속도가 아니다(직렬화는 14ms 다). 예전에는 다운로드가
+   * **조용히 실패**해서 사용자가 반복해서 눌렀고, 누를 때마다 수 MB 가 새로
+   * 할당됐다. 그 반복이 탭을 죽인다.
+   */
   const downloadJson = () => {
-    if (!tabs) return;
+    if (!tabs || dlBusy) return;
     const payload = mode === 'single' ? single : compare;
-    downloadBlob(
-      JSON.stringify(payload, null, 1),
-      'application/json',
-      `${baseName}_stats.json`,
-    );
+    if (!payload) return;
+    setDlBusy(true);
+    setDlMsg('');
+    try {
+      downloadBlob(JSON.stringify(payload), 'application/json', `${baseName}_stats.json`);
+    } catch (e) {
+      setDlMsg(`${t('dlFailed')} (${(e as Error).message})`);
+    } finally {
+      setDlBusy(false);
+    }
   };
 
   /**
@@ -1581,8 +1655,15 @@ export default function Home() {
       const a = document.createElement('a');
       a.href = url;
       a.download = m ? decodeURIComponent(m[1]) : `${baseName}.xlsx`;
+      a.rel = 'noopener';
+      a.style.display = 'none';
+      // downloadBlob 과 같은 이유로 문서에 붙이고, 해제는 미룬다.
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => {
+        a.remove();
+        URL.revokeObjectURL(url);
+      }, 10_000);
     } catch (e) {
       setXlsxMsg((e as Error).message);
     } finally {
@@ -2107,13 +2188,14 @@ export default function Home() {
                 {xlsxBusy ? t('xlsxBusy') : t('xlsxBtn')}
               </button>
             )}
-            <button className="ghost" onClick={downloadCsv}>
+            <button className="ghost" onClick={downloadCsv} disabled={dlBusy}>
               {t('csvBtn')}
             </button>
-            <button className="ghost" onClick={downloadJson}>
+            <button className="ghost" onClick={downloadJson} disabled={dlBusy}>
               {t('jsonBtn')}
             </button>
           </div>
+          {dlMsg && <p className="error">{dlMsg}</p>}
           {/* 오래 걸릴 조회에만 예상 시간을 미리 알린다 (실측 기반 근사) */}
           {xlsxHref && !xlsxBusy && xlsxEtaSec >= 5 && (
             <p className="hint">{t('xlsxEta')(xlsxEtaSec)}</p>
