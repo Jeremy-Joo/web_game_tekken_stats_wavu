@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { TAB_LABELS } from '../i18n';
+import { FEATURE_EVENTS, type FeatureEvent } from '@/lib/ga-events';
 
 interface PlayerRow {
   id: string;
@@ -43,6 +44,11 @@ interface Audience {
   countries: BreakdownRow[];
   languages: BreakdownRow[];
 }
+interface FeatureRow {
+  name: FeatureEvent;
+  count: number;
+  users: number;
+}
 interface Stats {
   days: number;
   totalViews: number;
@@ -53,6 +59,7 @@ interface Stats {
   /** null = 이 리포트만 실패했다는 뜻. 나머지 화면은 정상이다 (API 라우트 주석 참조). */
   tabs: TabRow[] | null;
   audience: Audience | null;
+  features: FeatureRow[] | null;
   error?: string;
   setup?: boolean; // true = 환경변수/권한 등 설정이 덜 된 상태
 }
@@ -460,6 +467,38 @@ export default function AdminPage() {
               }))}
               unit=""
             />
+          )}
+
+          {/* ── 어느 기능을 쓰나 ─────────────────────────────────────
+              탭 열람은 위에서 보지만, 버튼으로 들어가는 기능(무작위·리포트·공유·
+              내려받기)은 주소가 안 바뀌어서 페이지뷰로는 잡히지 않는다.
+              한 번도 안 쓰인 기능도 0 으로 남긴다 — 목록에서 사라지면 '안 쓰인다'는
+              사실 자체가 안 보인다. */}
+          <h2 className="admin-h2">어느 기능을 쓰나</h2>
+          {data.features === null ? (
+            <p className="hint">이 리포트만 실패했습니다 (나머지 수치는 정상입니다).</p>
+          ) : data.features.every((f) => f.count === 0) ? (
+            <p className="hint">
+              아직 기록이 없습니다. 이 이벤트는 2026-08-04 배포부터 쌓이므로, 그 이전
+              기간을 보고 있다면 0 이 정상입니다 (안 쓰였다는 뜻이 아닙니다).
+            </p>
+          ) : (
+            <>
+              <BarList
+                rows={data.features.map((f) => ({
+                  label: FEATURE_EVENTS[f.name],
+                  value: f.count,
+                }))}
+                unit="회"
+              />
+              <p className="hint">
+                쓴 사람 수:{' '}
+                {data.features
+                  .filter((f) => f.users > 0)
+                  .map((f) => `${FEATURE_EVENTS[f.name]} ${f.users}명`)
+                  .join(' · ') || '없음'}
+              </p>
+            </>
           )}
 
           {/* ── 누가 보나 ────────────────────────────────────────────

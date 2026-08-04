@@ -14,6 +14,7 @@
 
 import { useState } from 'react';
 import type { Lang } from './i18n';
+import { gaEvent } from '@/lib/ga-events';
 import { POOL_REGIONS, type PoolRegion } from '@/lib/wavu/pool';
 
 const TXT = {
@@ -56,6 +57,8 @@ export default function RandomPlayer({
       const res = await fetch(`/api/random?region=${region}`);
       const d = (await res.json()) as { id?: string; error?: string };
       if (!res.ok || !d.id) throw new Error(d.error ?? `HTTP ${res.status}`);
+      // 실제로 한 명 뽑힌 경우에만 센다. 후보를 못 찾아 실패한 건 사용이 아니다.
+      gaEvent('random_pick');
       onPick(d.id);
     } catch (e) {
       setMsg((e as Error).message);

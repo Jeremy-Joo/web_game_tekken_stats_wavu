@@ -13,6 +13,7 @@
 // 그리고 GA4 → 관리 → 속성 액세스 관리에서 그 서비스 계정 이메일을 '뷰어'로 추가해야 한다.
 
 import { createSign } from 'node:crypto';
+import { FEATURE_NAMES, type FeatureEvent } from './ga-events';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
@@ -386,4 +387,55 @@ export async function audience(days: number): Promise<Audience> {
     breakdown(days, 'language', 10),
   ]);
   return { devices, countries, languages };
+}
+
+export interface FeatureRow {
+  name: FeatureEvent;
+  /** 이벤트 발생 횟수. */
+  count: number;
+  /** 그 기능을 한 번이라도 쓴 사람 수. */
+  users: number;
+}
+
+/**
+ * 기능별 사용량.
+ *
+ * eventName 하나로 가른다 — 이름을 기능마다 따로 둔 이유는 lib/ga-events.ts 주석 참조.
+ * IN_LIST 로 우리 이름만 뽑아서, GA 가 자동으로 넣는 이벤트(page_view, scroll,
+ * click, user_engagement …)가 목록을 덮지 않게 한다.
+ *
+ * **2026-08-04 배포부터 쌓인다.** 그 이전 기간은 전부 0 이며, 이는 '아무도 안 썼다'가
+ * 아니라 '셀 방법이 없었다'는 뜻이다 — 화면에서 그렇게 구분해 보여준다.
+ */
+export async function featureUsage(days: number): Promise<FeatureRow[]> {
+  const rows = await runReport({
+    dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+    dimensions: [{ name: 'eventName' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: {
+      filter: {
+        fieldName: 'eventName',
+        inListFilter: { values: [...FEATURE_NAMES] },
+      },
+    },
+    limit: 50,
+  });
+
+  const got = new Map(
+    rows.map((r) => [
+      r.dimensionValues?.[0]?.value ?? '',
+      {
+        count: Number(r.metricValues?.[0]?.value ?? 0),
+        users: Number(r.metricValues?.[1]?.value ?? 0),
+      },
+    ]),
+  );
+
+  // 한 번도 안 쓰인 기능은 GA 가 행 자체를 안 준다. 목록에서 사라지면 '안 쓰인다'는
+  // 사실이 안 보이므로, 우리가 아는 이름을 전부 채워 0 으로 남긴다.
+  return FEATURE_NAMES.map((name) => ({
+    name,
+    count: got.get(name)?.count ?? 0,
+    users: got.get(name)?.users ?? 0,
+  })).sort((a, b) => b.count - a.count);
 }

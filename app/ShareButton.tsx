@@ -9,6 +9,7 @@
 // 리포트의 ShareBar 와 같은 동작이지만 파일을 나눴다. 저쪽은 인쇄 버튼이 붙어 있고
 // 리포트 전용 문자열(strings.ts)을 쓴다 — 합치면 조회 화면이 리포트 사전을 끌어온다.
 
+import { gaEvent } from '@/lib/ga-events';
 import { useState } from 'react';
 import type { Lang } from './i18n';
 
@@ -26,6 +27,7 @@ export default function ShareButton({ lang, title }: { lang: Lang; title: string
   const [msg, setMsg] = useState('');
 
   const share = async () => {
+    gaEvent('share_click');
     // location.href 를 쓰므로 지금 보고 있는 상태(식별코드·기간·탭)가 그대로 공유된다.
     // 옛 주소(*.vercel.app)로 들어온 사람은 미들웨어가 이미 정식 도메인으로 넘겼다.
     const url = window.location.href;
