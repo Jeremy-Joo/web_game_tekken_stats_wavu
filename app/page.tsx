@@ -5,6 +5,7 @@
 // 레이팅 추이 탭만 클라이언트에서 SVG 그래프를 추가로 그린다.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { gaEvent } from '@/lib/ga-events';
 import {
   TrendChart,
   DailyChart,
@@ -1076,6 +1077,9 @@ export default function Home() {
           if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
           setCompare(data);
           setSingle(null);
+          // 누른 횟수가 아니라 성사된 횟수를 센다 — 오타로 실패한 시도까지 세면
+          // '이 기능이 쓰이나'라는 물음에 답이 안 된다.
+          gaEvent('compare_run');
           // 단일 모드와 동일하게 — 공유 URL 의 tab= 이 조회 완료로 덮이지 않게 보존
           setActiveTab((prev) =>
             data.tabs.some((tb) => tb.key === prev) ? prev : (data.tabs[0]?.key ?? ''),
@@ -1625,6 +1629,7 @@ export default function Home() {
 
   const downloadCsv = () => {
     if (!displayTab || dlBusy) return;
+    gaEvent('download_csv');
     setDlBusy(true);
     setDlMsg('');
     try {
@@ -1652,6 +1657,7 @@ export default function Home() {
    */
   const downloadJson = () => {
     if (!tabs || dlBusy) return;
+    gaEvent('download_json');
     const payload = mode === 'single' ? single : compare;
     if (!payload) return;
     setDlBusy(true);
@@ -1674,6 +1680,7 @@ export default function Home() {
    */
   const downloadXlsx = async () => {
     if (!xlsxHref || xlsxBusy) return;
+    gaEvent('download_xlsx');
     setXlsxBusy(true);
     setXlsxMsg('');
     try {
@@ -1750,7 +1757,10 @@ export default function Home() {
             <button
               key={l.code}
               className={lang === l.code ? 'on' : ''}
-              onClick={() => setLang(l.code)}
+              onClick={() => {
+                gaEvent('lang_switch');
+                setLang(l.code);
+              }}
             >
               {l.label}
             </button>
@@ -2248,6 +2258,7 @@ export default function Home() {
               <a
                 className="btn-link report-btn"
                 href={`/player/${single.polarisId}/report${lang === 'ko' ? '' : `?lang=${lang}`}`}
+                onClick={() => gaEvent('report_open')}
               >
                 {t('reportBtn')}
               </a>

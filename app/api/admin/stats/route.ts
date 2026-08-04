@@ -16,6 +16,7 @@ import {
   trafficSources,
   tabViews,
   audience,
+  featureUsage,
   GaError,
 } from '@/lib/ga';
 
@@ -58,7 +59,11 @@ export async function POST(req: NextRequest) {
     // 곁다리 둘은 없어도 화면이 성립한다. allSettled 로 따로 받아서, 이쪽이
     // 실패했다고 위의 핵심 데이터까지 못 보게 되는 일을 막는다.
     // (GA4 측정기준 이름이 바뀌거나 권한이 모자랄 때 여기만 깨질 수 있다)
-    const [tabsR, audR] = await Promise.allSettled([tabViews(days), audience(days)]);
+    const [tabsR, audR, featR] = await Promise.allSettled([
+      tabViews(days),
+      audience(days),
+      featureUsage(days),
+    ]);
 
     return NextResponse.json({
       days,
@@ -69,6 +74,7 @@ export async function POST(req: NextRequest) {
       sources,
       tabs: tabsR.status === 'fulfilled' ? tabsR.value : null,
       audience: audR.status === 'fulfilled' ? audR.value : null,
+      features: featR.status === 'fulfilled' ? featR.value : null,
     });
   } catch (e) {
     // 설정 미비(환경변수·권한)와 일시적 오류를 구분해 화면이 원인을 알려줄 수 있게
