@@ -7,6 +7,7 @@ import {
   buildWeak,
   buildStrong,
   buildRound,
+  buildStage,
   buildH2h,
   buildDaily,
   buildSessions,
@@ -33,6 +34,8 @@ export interface PlayerResult {
   polarisId: string;
   myName: string;
   recordCount: number;
+  /** 가장 최근 경기의 레이팅. 조언 수위를 가르는 데 쓴다(jokes.pickCoach). */
+  currentRating: number | null;
   firstDt: string | null;
   lastDt: string | null;
   chars: string[];
@@ -127,6 +130,11 @@ export function computeFromRecords(
     // 내 캐릭터로 무엇을 하나
     tab('total', '캐릭터', buildTotal(records)),
     tab('round', '라운드', buildRound(records, 'my')),
+    // 스테이지 — 내 성적을 조건별로 자른 표라 '캐릭터·라운드'와 같은 묶음에 뒀다.
+    // 사실 '어디서 하면 어떤가'는 기존 여섯 묶음 어디에도 딱 맞지 않는다.
+    // 새 묶음을 만들면 엑셀 시트 색·순서 검사까지 건드려야 해서, 일단 여기 두고
+    // 로컬에서 보면서 자리를 정한다. **묶음을 옮길 거면 TAB_GROUP·SHEET_ORDER 도 같이.**
+    tab('stage', '스테이지', buildStage(records)),
     // 누구를 만나면 어떤가 (roundByOpp 가 이 뒤에 붙는다 — SHEET_ORDER 참조)
     tab('pivot', '상대 캐릭', buildPivot(records)),
     tab('strong', '강점 매치업', buildStrong(records)),
@@ -151,6 +159,7 @@ export function computeFromRecords(
     polarisId,
     myName,
     recordCount: records.length,
+    currentRating: last?.myRating ?? null,
     firstDt: first ? formatDt(first.dt) : null,
     lastDt: last ? formatDt(last.dt) : null,
     chars,
@@ -177,6 +186,7 @@ export const TAB_GROUP: Record<string, TabGroup> = {
   flow: 'summary',
   total: 'mine',
   round: 'mine',
+  stage: 'mine',
   pivot: 'versus',
   strong: 'versus',
   weak: 'versus',
@@ -204,6 +214,7 @@ export const SHEET_ORDER: string[] = [
   'flow',
   'total',
   'round',
+  'stage',
   'pivot',
   'strong',
   'weak',

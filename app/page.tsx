@@ -135,6 +135,7 @@ interface PlayerResponse {
   polarisId: string;
   myName: string;
   recordCount: number; // 필터 적용 후
+  currentRating: number | null; // 마지막 경기 레이팅 — 조언 수위를 가른다
   totalCount: number; // 전체 이력
   firstDt: string | null;
   lastDt: string | null;
@@ -2661,6 +2662,8 @@ export default function Home() {
                           lang,
                           // 농담과 다른 씨앗 — 같은 짝만 반복해서 나오지 않게
                           single.recordCount * 3 + Math.round(single.advice.recentDeltaPp),
+                          // 중상위 이상에게는 다른 조언 묶음이 나간다 (jokes.COACH_HIGH_MIN_RATING)
+                          single.currentRating,
                         )}
                       </p>
                     )}

@@ -385,15 +385,15 @@ function traits(f: QuipFacts, lang: Lang): string[] {
     push({
       ko: [
         `3-0 으로 지는 비율이 ${f.shutoutLossPct}%입니다. 그건 매치업이 아니라 정보 부족입니다.`,
-        `${f.shutoutLossPct}% 는 한 라운드도 못 따고 끝난 경기입니다. 프레임을 한 번 찾아보세요.`,
+        `${f.shutoutLossPct}% 는 한 라운드도 못 따고 끝난 경기입니다. 그 판들은 시작 전에 이미 갈려 있었습니다.`,
       ],
       en: [
         `${f.shutoutLossPct}% of your losses are 3-0. That is not a matchup, that is missing information.`,
-        `In ${f.shutoutLossPct}% of games you took zero rounds. Go look up the frame data.`,
+        `In ${f.shutoutLossPct}% of games you took zero rounds. Those were decided before they began.`,
       ],
       ja: [
         `3-0で負ける割合が${f.shutoutLossPct}%です。相性ではなく情報不足です。`,
-        `${f.shutoutLossPct}%は1ラウンドも取れずに終わった試合です。フレームを調べましょう。`,
+        `${f.shutoutLossPct}%は1ラウンドも取れずに終わった試合です。始まる前に決まっていた試合ですね。`,
       ],
     });
   }
