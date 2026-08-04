@@ -1,0 +1,132 @@
+// 공유 카드(OG 이미지) 공용 부품.
+//
+// 카톡·디스코드·트위터에 링크를 붙이면 뜨는 미리보기 이미지다.
+// **사람마다 다르게 만든다.** 공통 이미지를 쓰면 누구 링크인지 알 수 없어 공유가 안 퍼진다.
+//
+// 두 라우트가 같은 카드를 쓴다:
+//   /player/<식별코드>            ← 조회하면 주소창이 이 주소가 된다. 제일 많이 오간다
+//   /player/<식별코드>/report
+// 예전에는 리포트에만 있었고 플레이어 페이지에는 **og:image 가 아예 없었다**(실측 0건).
+// 그쪽 링크를 붙이면 그림 없는 맨 텍스트로 나갔다. 같은 그림을 쓰는 게 맞아서 여기로 합쳤다.
+//
+// next/og 의 ImageResponse 는 Satori 로 SVG 를 거쳐 PNG 를 만든다 —
+// **flex 기반의 제한된 CSS 만 쓸 수 있다.** 화면 CSS 를 그대로 가져오면 안 되고,
+// display:flex 가 없는 div 는 그리다 만다(자식이 둘 이상이면 에러가 난다).
+
+import { ImageResponse } from 'next/og';
+import { getRecords } from '@/lib/wavu/cache';
+import { SITE_HOST } from '@/lib/site';
+
+/** OG 카드 표준 크기. 카톡·디스코드·트위터가 다 이 비율(1.91:1)을 쓴다. */
+export const OG_SIZE = { width: 1200, height: 630 };
+
+export const OG_CONTENT_TYPE = 'image/png';
+
+/** wavu 는 대시 포함 표기(53de-Q2dm-Lday)도 쓰므로 영숫자만 남긴다. */
+export const normalizeId = (raw: string) =>
+  decodeURIComponent(raw).replace(/[^A-Za-z0-9]/g, '');
+
+const BG = 'linear-gradient(150deg, #0f1115 0%, #171a21 55%, #1b2333 100%)';
+const INK = '#e6e8ec';
+const MUTED = '#9aa1ad';
+const BLUE = '#6ea8fe';
+
+/**
+ * 한 사람의 요약 카드.
+ *
+ * 데이터를 못 얻어도 **카드는 나간다** — 이름 자리에 식별코드가 들어갈 뿐이다.
+ * 공유 링크가 깨진 이미지로 뜨는 것보다 낫다.
+ */
+export async function renderPlayerCard(rawId: string): Promise<ImageResponse> {
+  const id = normalizeId(rawId);
+
+  let name = id;
+  let games = 0;
+  let wins = 0;
+  let mainChar = '';
+  let rating = 0;
+
+  try {
+    const { records, myName } = await getRecords(id);
+    if (myName) name = myName;
+    games = records.length;
+    wins = records.filter((r) => r.result === 'W').length;
+
+    const byChar = new Map<string, number>();
+    for (const r of records) byChar.set(r.myChar, (byChar.get(r.myChar) ?? 0) + 1);
+    mainChar = [...byChar.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+
+    const latest = records.reduce((m, r) => (r.dt > m.dt ? r : m), records[0]);
+    rating = latest?.myRating ?? 0;
+  } catch {
+    /* 못 얻어도 카드는 나간다 */
+  }
+
+  const wr = games ? Math.round((wins * 1000) / games) / 10 : 0;
+  const good = wr >= 50;
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '64px 72px',
+          background: BG,
+          color: INK,
+          fontFamily: 'sans-serif',
+        }}
+      >
+        <div style={{ display: 'flex', fontSize: 30, color: BLUE, fontWeight: 700 }}>
+          🏆 {SITE_HOST}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              display: 'flex',
+              fontSize: name.length > 14 ? 76 : 96,
+              fontWeight: 800,
+              lineHeight: 1.1,
+            }}
+          >
+            {name}
+          </div>
+          <div style={{ display: 'flex', fontSize: 30, color: MUTED, marginTop: 14 }}>
+            {mainChar ? `${mainChar} · ` : ''}
+            {games.toLocaleString()}경기
+            {rating ? ` · 레이팅 ${rating.toLocaleString()}` : ''}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 40 }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {/* '전체 기간'을 못 박아 둔다. 화면은 시즌·기간으로 좁혀 볼 수 있는데
+                OG 라우트에는 searchParams 가 들어오지 않아 카드가 항상 전체로 그려진다.
+                범위별 카드를 만들 수도 있지만, 공유 링크가 대표해야 할 단위는 '한 조각'이
+                아니라 '그 사람'이라 전체로 두고 기준만 밝히는 쪽을 골랐다. */}
+            <div style={{ display: 'flex', fontSize: 26, color: MUTED }}>승률 · 전체 기간</div>
+            <div
+              style={{
+                display: 'flex',
+                fontSize: 108,
+                fontWeight: 800,
+                lineHeight: 1,
+                color: good ? '#4ade80' : '#f87171',
+              }}
+            >
+              {wr.toFixed(1)}%
+            </div>
+          </div>
+          <div style={{ display: 'flex', fontSize: 30, color: MUTED, paddingBottom: 14 }}>
+            {wins.toLocaleString()}승 {(games - wins).toLocaleString()}패
+          </div>
+        </div>
+      </div>
+    ),
+    OG_SIZE,
+  );
+}
