@@ -404,7 +404,20 @@ export default async function ReportPage({ params, searchParams }: Props) {
   const points: TrendPoint[] = ordered
     .map((r, i) => ({ i, t: r.dt.getTime(), y: r.myRating, c: r.myChar }))
     .filter((_, i) => i % stride === 0 || i === ordered.length - 1);
-  const trendChars = charRows.slice(0, 6).map((c) => c.name);
+  // **최근에 친 순서**로 고른다. 경기 수 순으로 하면 요즘 안 쓰는 캐릭터가 자리를
+  // 차지하고 지난주에 바꾼 주력이 빠진다 — 실측으로 확인했다(캐릭터 23종 유저에서
+  // 8일 전까지 친 Bryan 232판·Armor King 221판이 빠지고 훨씬 오래된 둘이 대신 올라왔다).
+  // 기준은 메인 차트의 `byRecent`(app/charts.tsx)와 같다: 마지막 경기 시각 내림차순,
+  // 같으면 경기 수 많은 쪽.
+  const lastByChar = new Map<string, number>();
+  for (const r of ordered) lastByChar.set(r.myChar, r.dt.getTime()); // ordered 는 오름차순
+  const gamesOf = new Map(charRows.map((c) => [c.name, c.games]));
+  const trendChars = [...lastByChar.keys()].sort(
+    (a, b) =>
+      lastByChar.get(b)! - lastByChar.get(a)! || (gamesOf.get(b) ?? 0) - (gamesOf.get(a) ?? 0),
+  );
+  // 몇 종을 실제로 그렸는지는 차트가 정한다(점이 남은 것만 그린다) — 여기서 자르지 않는다.
+  const trendTotal = lastByChar.size;
   // 시즌 경계를 **경기 순번**으로 옮긴다 — 차트 x 축이 판수라서다.
   const seasonMarks = spans
     .map((sp) => {
@@ -702,7 +715,13 @@ export default async function ReportPage({ params, searchParams }: Props) {
         <section className="rp-sec">
           <h2 className="rp-h2">{R.secTrend[lang]}</h2>
           <div className="rp-card">
-            <ReportChart points={points} chars={trendChars} seasons={seasonMarks} />
+            <ReportChart
+              points={points}
+              chars={trendChars}
+              seasons={seasonMarks}
+              lang={lang}
+              total={trendTotal}
+            />
           </div>
         </section>
       )}

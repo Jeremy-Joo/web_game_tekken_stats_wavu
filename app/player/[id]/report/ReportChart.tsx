@@ -34,8 +34,11 @@ export default function ReportChart({
   points,
   chars,
   seasons = [],
+  lang = 'ko',
+  total,
 }: {
   points: TrendPoint[];
+  /** **최근에 친 순서**로 정렬돼 온다. 여기서 앞에서부터 6종까지만 그린다. */
   chars: string[];
   /**
    * 시즌 경계에 세로 점선을 긋는다. 가로축이 수백~수만 판이라 구간 표시가 없으면
@@ -43,6 +46,9 @@ export default function ReportChart({
    * 경계 날짜를 여기 적지 않는다 — seasons.ts 가 game_version 에서 파생시킨다.
    */
   seasons?: SeasonMark[];
+  lang?: 'ko' | 'en' | 'ja';
+  /** 그 사람이 쓴 캐릭터 전체 종수. 몇 종을 빼고 그렸는지 밝히는 데 쓴다. */
+  total?: number;
 }) {
   const ref = useRef<SVGSVGElement>(null);
   const [hoverX, setHoverX] = useState<number | null>(null);
@@ -128,6 +134,18 @@ export default function ReportChart({
           </span>
         ))}
       </div>
+      {/* 몇 종을 빼고 그렸는지 밝힌다. 조용히 자르면 '이 사람은 6종만 쓴다'로 읽힌다 —
+          실제로는 23종을 쓰는 사람도 있다. 리포트는 눌러서 켜는 화면이 아니라
+          한 장짜리 요약이라, 고르게 하는 대신 기준과 누락을 말로 밝힌다. */}
+      {total != null && total > shown.length && (
+        <p className="rp-note">
+          {lang === 'ko'
+            ? `캐릭터 ${total}종 중 최근에 쓴 ${shown.length}종만 그렸습니다.`
+            : lang === 'ja'
+              ? `${total}キャラ中、直近に使用した${shown.length}キャラのみ表示しています。`
+              : `Showing the ${shown.length} most recently played of ${total} characters.`}
+        </p>
+      )}
       <svg
         ref={ref}
         viewBox={`0 0 ${W} ${H}`}
