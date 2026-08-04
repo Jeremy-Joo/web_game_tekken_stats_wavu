@@ -24,12 +24,25 @@ export interface TrendPoint {
   c: string; // 캐릭터
 }
 
+/** 시즌 경계 — 그 시즌 첫 경기의 **순번**. x 축이 판수라 날짜가 아니라 순번으로 받는다. */
+export interface SeasonMark {
+  key: string;
+  i: number;
+}
+
 export default function ReportChart({
   points,
   chars,
+  seasons = [],
 }: {
   points: TrendPoint[];
   chars: string[];
+  /**
+   * 시즌 경계에 세로 점선을 긋는다. 가로축이 수백~수만 판이라 구간 표시가 없으면
+   * "언제부터 달라졌나"를 눈으로 못 짚는다.
+   * 경계 날짜를 여기 적지 않는다 — seasons.ts 가 game_version 에서 파생시킨다.
+   */
+  seasons?: SeasonMark[];
 }) {
   const ref = useRef<SVGSVGElement>(null);
   const [hoverX, setHoverX] = useState<number | null>(null);
@@ -149,6 +162,26 @@ export default function ReportChart({
             {fmt(p.t)}
           </text>
         ))}
+        {/* 시즌 경계 — 선 아래에 깔아 데이터를 가리지 않는다.
+            보이는 구간 밖(기간을 좁힌 리포트)은 그리지 않는다. */}
+        {seasons.map((sm) =>
+          sm.i > iMin && sm.i < iMax ? (
+            <g key={sm.key}>
+              <line
+                x1={x(sm.i)}
+                x2={x(sm.i)}
+                y1={PAD.t}
+                y2={H - PAD.b}
+                stroke="#6b7280"
+                strokeWidth="1"
+                strokeDasharray="4 4"
+              />
+              <text x={x(sm.i) + 4} y={PAD.t + 11} fontSize="11" fill="#9aa1ad">
+                {sm.key}
+              </text>
+            </g>
+          ) : null,
+        )}
         {shown.map((s, i) => (
           <polyline
             key={s.c}

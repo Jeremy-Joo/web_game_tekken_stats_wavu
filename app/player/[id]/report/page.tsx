@@ -28,6 +28,7 @@ import { buildQuipFacts } from '@/lib/tekken/quip-facts';
 import { guessTimezone, hourHistogramUtcFromRecords } from '@/lib/wavu/region';
 import { R, parseLang, weekdayText, hourText, REPORT_LANGS, type Lang } from './strings';
 import ReportChart, { type TrendPoint } from './ReportChart';
+import { ActivityHeatmap } from '@/app/charts';
 import ShareBar from './ShareBar';
 import './report.css';
 
@@ -404,6 +405,13 @@ export default async function ReportPage({ params, searchParams }: Props) {
     .map((r, i) => ({ i, t: r.dt.getTime(), y: r.myRating, c: r.myChar }))
     .filter((_, i) => i % stride === 0 || i === ordered.length - 1);
   const trendChars = charRows.slice(0, 6).map((c) => c.name);
+  // 시즌 경계를 **경기 순번**으로 옮긴다 — 차트 x 축이 판수라서다.
+  const seasonMarks = spans
+    .map((sp) => {
+      const first = ordered.findIndex((r) => dateKey(r.dt) >= sp.start);
+      return first >= 0 ? { key: sp.key, i: first } : null;
+    })
+    .filter((v): v is { key: string; i: number } => v !== null);
 
   // ── 라운드 지표 ───────────────────────────────────────────────
   const round = tabs.round;
@@ -675,12 +683,26 @@ export default async function ReportPage({ params, searchParams }: Props) {
         </section>
       )}
 
+      {/* ── 활동 히트맵 ──
+          일별 탭과 같은 숫자를 달력 격자로 옮긴 것이다(새 계산 없음).
+          리포트가 "이 사람은 어떤 플레이어인가"를 한 흐름으로 말하는 페이지인데,
+          '몰아서 하는가 / 꾸준한가'는 표로는 안 잡히고 격자에서 한눈에 보인다. */}
+      {(tabs.daily?.rows.length ?? 0) > 0 && (
+        <section className="rp-sec">
+          <h2 className="rp-h2">{R.secActivity[lang]}</h2>
+          <div className="rp-card">
+            <ActivityHeatmap rows={tabs.daily.rows} lang={lang} />
+            <p className="rp-note">{R.activityNote[lang]}</p>
+          </div>
+        </section>
+      )}
+
       {/* ── 레이팅 추이 ── */}
       {points.length > 1 && (
         <section className="rp-sec">
           <h2 className="rp-h2">{R.secTrend[lang]}</h2>
           <div className="rp-card">
-            <ReportChart points={points} chars={trendChars} />
+            <ReportChart points={points} chars={trendChars} seasons={seasonMarks} />
           </div>
         </section>
       )}

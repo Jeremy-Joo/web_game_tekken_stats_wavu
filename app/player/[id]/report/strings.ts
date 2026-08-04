@@ -107,6 +107,12 @@ export const R = {
 
   // ── 섹션 제목 ──
   secForm: { ko: '최근 흐름', en: 'Recent form', ja: '最近の調子' } as S,
+  secActivity: { ko: '언제 쳤나', en: 'When you played', ja: 'いつ打ったか' },
+  activityNote: {
+    ko: '칸 하나가 하루입니다. 색이 진할수록 그날 많이 쳤습니다.',
+    en: 'One cell is a day; darker means more games that day.',
+    ja: '1マスが1日です。濃いほどその日の試合数が多いことを示します。',
+  },
   secTrend: { ko: '레이팅 추이', en: 'Rating trend', ja: 'レート推移' } as S,
   secChars: { ko: '캐릭터별 성적', en: 'By character', ja: 'キャラ別成績' } as S,
   secMatchups: { ko: '매치업', en: 'Matchups', ja: 'マッチアップ' } as S,

@@ -332,6 +332,10 @@ const D = {
     en: (off: string) => `Local time (${off})`,
     ja: (off: string) => `現地時間 (${off})`,
   },
+  sessBars: { ko: '세션별', en: 'By session', ja: 'セッション別' },
+  sessLength: { ko: '판수 대비', en: 'By length', ja: '試合数比' },
+  trendByGame: { ko: '경기 순번', en: 'By game', ja: '試合順' },
+  trendByDate: { ko: '날짜', en: 'By date', ja: '日付' },
   tzKst: { ko: '한국 시간 (UTC+9)', en: 'Korea time (UTC+9)', ja: '韓国時間 (UTC+9)' },
   // 라운드 탭 보기 전환 — 내 캐릭터별(기본) ↔ 상대 캐릭터별로 펼치기
   roundByMine: { ko: '내 캐릭터별', en: 'By my character', ja: '自キャラ別' },
