@@ -9,7 +9,7 @@
     "lint": "next lint",
     "probe": "tsx scripts/probe-wavu.ts",
     "probe:facts": "tsx scripts/probe-quip-facts.ts",
-    "check": "tsx scripts/check-tokens.ts && tsx scripts/check-search.ts && tsx scripts/check-region.ts && tsx scripts/check-aggregations.ts && tsx scripts/check-advice.ts && tsx scripts/check-quip-facts.ts && tsx scripts/check-fact-jokes.ts && tsx scripts/check-seasons.ts && tsx scripts/check-ga-events.ts && tsx scripts/check-sheet-order.ts && tsx scripts/check-barcode.ts",
+    "check": "tsx scripts/check-tokens.ts && tsx scripts/check-search.ts && tsx scripts/check-region.ts && tsx scripts/check-aggregations.ts && tsx scripts/check-advice.ts && tsx scripts/check-quip-facts.ts && tsx scripts/check-fact-jokes.ts && tsx scripts/check-seasons.ts && tsx scripts/check-ga-events.ts && tsx scripts/check-sheet-order.ts && tsx scripts/check-barcode.ts && tsx scripts/check-hexagon.ts",
     "validate": "tsx scripts/validate.ts"
   },
   "dependencies": {
