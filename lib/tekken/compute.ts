@@ -57,6 +57,18 @@ export interface PlayerResult {
    * 무관하게 작으므로 두 벌을 다 실어도 응답이 안 커지고, 덕분에 전환이 즉시 된다.
    */
   roundByOpp: TabData;
+  /**
+   * 시즌 탭을 **game_version 단위**로 다시 묶은 것 (화면의 '버전별').
+   *
+   * 시즌은 game_version 의 맨 앞자리라(models.seasonOf), 같은 시즌 안의 밸런스
+   * 패치가 한 줄로 뭉친다 — 실측으로 S3 는 30002(293경기)와 30101(175경기)이
+   * 468경기 한 줄이었다. 캐릭터 성능이 바뀐 전후를 섞어 놓은 셈이라 따로 볼 길이 필요하다.
+   *
+   * localTime·roundByOpp 와 같은 이유로 tabs 밖에 있다 — 탭 목록을 늘리지 않고
+   * 같은 탭 안에서 보기만 바꾼다. 행이 **버전 수만큼**(실측 12행)이라 경기 수와
+   * 무관하게 작으므로 두 벌을 다 실어도 응답이 안 커지고 전환이 즉시 된다.
+   */
+  seasonByVersion: TabData;
 }
 
 const tab = (key: string, label: string, t: Table): TabData => ({
@@ -170,6 +182,17 @@ export function computeFromRecords(
       : null,
     // 라벨을 '라운드'와 다르게 둔다 — 엑셀 시트명이 라벨이라 겹치면 만들 수 없다.
     roundByOpp: tab('round_opp', '라운드 (상대 캐릭)', buildRound(records, 'opp')),
+    // 라벨을 '시즌'과 다르게 둔다 — 위와 같은 이유(시트명 충돌).
+    //
+    // 키에 시즌을 앞세운다('S3-30101'). 버전 번호만 있으면 30101 이 몇 시즌인지
+    // 외우고 있어야 읽히는데, 맨 앞자리가 곧 시즌이라(models.seasonOf) 공짜로 붙는다.
+    // 정렬도 그대로다 — summaryBy 가 사전순으로 세우고, S1<S2<S3 인 데다 시즌 안에서는
+    // 자리수가 같아(30002 < 30101) 사전순이 곧 시간순이다.
+    seasonByVersion: tab(
+      'season_version',
+      '시즌 (버전별)',
+      summaryBy(records, (r) => `${r.season}-${r.gameVersion}`, 'Version'),
+    ),
   };
 }
 
@@ -198,6 +221,7 @@ export const TAB_GROUP: Record<string, TabGroup> = {
   sessions: 'when',
   daily: 'when',
   season: 'change',
+  season_version: 'change',
   rank: 'change',
   trend: 'change',
   matches: 'raw',
@@ -206,9 +230,9 @@ export const TAB_GROUP: Record<string, TabGroup> = {
 /**
  * 엑셀 시트 순서.
  *
- * tabs 배열과 같되, 거기 없는 둘(roundByOpp·localTime)을 제 묶음 안에 끼워 넣는다.
- * 이 둘은 화면에서 '같은 탭 안의 보기 전환'이라 tabs 에 없지만, 엑셀에는 시트로
- * 들어가므로 자리를 정해줘야 한다 — 안 그러면 맨 뒤에 붙어 묶음이 깨진다.
+ * tabs 배열과 같되, 거기 없는 셋(roundByOpp·localTime·seasonByVersion)을 제 묶음 안에
+ * 끼워 넣는다. 이 셋은 화면에서 '같은 탭 안의 보기 전환'이라 tabs 에 없지만, 엑셀에는
+ * 시트로 들어가므로 자리를 정해줘야 한다 — 안 그러면 맨 뒤에 붙어 묶음이 깨진다.
  */
 export const SHEET_ORDER: string[] = [
   'flow',
@@ -226,6 +250,7 @@ export const SHEET_ORDER: string[] = [
   'sessions',
   'daily',
   'season',
+  'season_version',
   'rank',
   'trend',
   'matches',

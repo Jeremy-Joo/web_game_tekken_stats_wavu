@@ -27,6 +27,8 @@ const records: MatchRecord[] = Array.from({ length: 400 }, (_, i) => ({
   myRounds: i % 3 === 0 ? 1 : 3,
   oppRounds: i % 3 === 0 ? 3 : 1,
   season: i < 200 ? 'S1' : 'S2',
+  // 시즌 안에서 한 번 더 갈린다 — 버전별 표가 실제로 여러 행이 되도록.
+  gameVersion: i < 200 ? 10301 : i < 300 ? 20001 : 20500,
   myRank: 20,
   oppRank: 20,
   myPower: 100000,
@@ -35,7 +37,11 @@ const records: MatchRecord[] = Array.from({ length: 400 }, (_, i) => ({
 const result = computeFromRecords(records, 'testtesttest', 'tester', { tzShiftMinutes: -540 });
 
 // 화면에 나오는 표는 전부 자리와 묶음이 있어야 한다
-const extra = [result.roundByOpp, ...(result.localTime ? [result.localTime] : [])];
+const extra = [
+  result.roundByOpp,
+  result.seasonByVersion,
+  ...(result.localTime ? [result.localTime] : []),
+];
 const allKeys = [...result.tabs.map((t) => t.key), ...extra.map((t) => t.key)];
 
 for (const k of allKeys) {

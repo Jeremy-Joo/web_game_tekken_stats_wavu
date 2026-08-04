@@ -91,6 +91,21 @@ const D = {
   hlToggle: { ko: '우위 항목 하이라이트', en: 'Highlight advantages', ja: '優位項目をハイライト' },
   // 상대전적 → 비교 목록에 담기 (화면을 벗어나지 않는다)
   addToCompare: { ko: '비교 목록에 추가', en: 'Add to compare list', ja: '比較リストに追加' },
+  // 비교 결과 위 한 줄 — 서로 붙은 기록이 있을 때만. 누르면 '맞대결 상세' 탭으로 간다.
+  // 승패는 **앞사람 기준**이라 이름을 다시 붙인다 — 누구의 2승인지 안 밝히면 못 읽는다.
+  h2hHint: {
+    ko: (a: string, b: string, g: number, aw: number, bw: number) =>
+      `⚔ ${a} ↔ ${b} ${g}경기 · ${a} ${aw}승 ${bw}패 — 맞대결 상세 보기`,
+    en: (a: string, b: string, g: number, aw: number, bw: number) =>
+      `⚔ ${a} vs ${b} — ${g} games · ${a} ${aw}W ${bw}L — see head-to-head`,
+    ja: (a: string, b: string, g: number, aw: number, bw: number) =>
+      `⚔ ${a} ↔ ${b} ${g}試合 · ${a} ${aw}勝${bw}敗 — 対戦詳細を見る`,
+  },
+  h2hHintMore: {
+    ko: (n: number) => `(외 ${n}쌍)`,
+    en: (n: number) => `(+${n} more pairs)`,
+    ja: (n: number) => `(他${n}組)`,
+  },
   // 전적 목록·상대전적 표의 '나와 비교' 열 머리 — 상대 식별코드 바로 다음.
   // 이름·식별코드 열은 각각 글자·조회 링크 하나씩만 맡고, 담기는 이 열이 맡는다.
   cmpCol: { ko: '나와 비교', en: 'Vs me', ja: '自分と比較' },
@@ -352,6 +367,9 @@ const D = {
   // 라운드 탭 보기 전환 — 내 캐릭터별(기본) ↔ 상대 캐릭터별로 펼치기
   roundByMine: { ko: '내 캐릭터별', en: 'By my character', ja: '自キャラ別' },
   roundByOpp: { ko: '상대 캐릭터별로 펼쳐보기', en: 'Expand by opponent', ja: '相手キャラ別に展開' },
+  // 시즌 탭 보기 전환 — 시즌별(기본) ↔ game_version 별(같은 시즌 안의 밸런스 패치까지)
+  seasonBySeason: { ko: '시즌별', en: 'By season', ja: 'シーズン別' },
+  seasonByVersion: { ko: '버전별로 나눠보기', en: 'Split by version', ja: 'バージョン別に分割' },
   tzRegion: {
     ko: (region: string, off: string) => `이 플레이어는 ${region} 서버입니다 — 현지 시각은 ${off} 기준입니다.`,
     en: (region: string, off: string) => `This player is on the ${region} server — local time is ${off}.`,

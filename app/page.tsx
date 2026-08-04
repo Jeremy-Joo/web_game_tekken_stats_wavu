@@ -175,6 +175,8 @@ interface PlayerResponse {
   localTime?: TabData | null;
   /** 라운드 탭을 상대 캐릭터별로 묶은 것 (같은 탭 안의 보기 전환용). */
   roundByOpp?: TabData | null;
+  /** 시즌 탭을 game_version 별로 묶은 것 (같은 탭 안의 보기 전환용). */
+  seasonByVersion?: TabData | null;
   /** 서버 지역과 거기서 추정한 현지 시간대. lib/wavu/region.ts 참조. */
   timezone?: {
     region: { code: string; label: string } | null;
@@ -810,6 +812,9 @@ export default function Home() {
   const [tzView, setTzView] = useState<TzView>('local');
   // 라운드 탭 보기. 기본은 '내 캐릭터별' — 지금까지의 동작을 그대로 둔다.
   const [roundView, setRoundView] = useState<'my' | 'opp'>('my');
+  // 시즌 탭 보기. 기본은 '시즌별' — 지금까지의 동작을 그대로 둔다.
+  // 버전별은 같은 시즌 안의 밸런스 패치까지 갈라 보고 싶을 때만 쓴다.
+  const [seasonView, setSeasonView] = useState<'season' | 'version'>('season');
   // 상대전적에서 눌러 담은 비교 대상 (나는 제외 — 목록을 만들 때 앞에 붙인다)
   const [picked, setPicked] = useState<Favorite[]>([]);
   const [pickMsg, setPickMsg] = useState('');
@@ -1290,6 +1295,7 @@ export default function Home() {
     // 화면 상태가 어느 버튼과도 안 맞는 자리에 걸린다.
     if (sp.get('rv') === 'opp') setRoundView('opp');
     if (sp.get('tz') === 'kst') setTzView('kst');
+    if (sp.get('sv') === 'version') setSeasonView('version');
     setBootRun(true);
   }, []);
 
@@ -1329,6 +1335,7 @@ export default function Home() {
     // 기본값일 때는 싣지 않는다(pm 과 같은 방침) — 흔한 주소를 길게 만들지 않는다.
     if (roundView === 'opp') sp.set('rv', 'opp');
     if (tzView === 'kst') sp.set('tz', 'kst');
+    if (seasonView === 'version') sp.set('sv', 'version');
     const qs = sp.toString();
     const path = single1
       ? `/player/${encodeURIComponent(single.polarisId)}`
@@ -1385,6 +1392,7 @@ export default function Home() {
     seasonSel,
     roundView,
     tzView,
+    seasonView,
   ]);
 
   /** 비교 목록에 식별코드 추가 (중복 제외). */
@@ -1532,6 +1540,13 @@ export default function Home() {
   // 상대 캐릭터별 라운드 표도 한 명 모드에서만 온다 (비교 모드에는 없다).
   const roundOppTab = mode === 'single' ? (single?.roundByOpp ?? null) : null;
 
+  // 버전별 시즌 표도 한 명 모드 전용. 버전이 하나뿐이면(=한 패치 안에서만 뛴
+  // 사람) 전환해봐야 같은 한 줄이라 전환 자체를 안 그린다.
+  const seasonVersionTab =
+    mode === 'single' && (single?.seasonByVersion?.rows.length ?? 0) > 1
+      ? (single?.seasonByVersion ?? null)
+      : null;
+
   const displayTab =
     current?.key === 'daily'
       ? rollupDaily(current, effGran, seasons)
@@ -1548,7 +1563,10 @@ export default function Home() {
           : // 라운드도 같은 방식 — 상대 캐릭터별 표로 갈아끼운다.
             current?.key === 'round' && roundView === 'opp' && roundOppTab
             ? roundOppTab
-            : current;
+            : // 시즌도 같은 방식 — game_version 별 표로 갈아끼운다.
+              current?.key === 'season' && seasonView === 'version' && seasonVersionTab
+              ? seasonVersionTab
+              : current;
 
   // 비교 표(캐릭터·상대 캐릭·공통 상대)에서 표본이 얇은 행을 걸러낼 수 있는가.
   // 실측: 39행 중 3행이 5경기 미만이었고 그중 둘이 '3전 100%' 였다.
@@ -1667,6 +1685,38 @@ export default function Home() {
       players: compare.players.length,
     });
   }, [mode, compare, showQuips, lang]);
+
+  /**
+   * 맞대결 신호 — **서로 붙은 기록이 있을 때만** 개요 위에 한 줄.
+   *
+   * '맞대결 상세'는 탭 여덟 개 중 하나라 있는 줄도 모르고 지나친다. 표를 여기 옮기는 게
+   * 아니라 **있다는 것만 알리고 그 탭으로 보낸다.** 없으면 아예 안 그린다 —
+   * compare.ts 가 기록 없는 쌍의 탭 자체를 감추는 것과 같은 기준이다.
+   *
+   * 농담이 아니라 사실이라 `showQuips`(한 줄 멘트 체크박스)와 무관하게 나온다.
+   */
+  const h2hHint = useMemo(() => {
+    if (mode !== 'compare' || !compare) return null;
+    const h2h = compare.tabs.find((tb) => tb.key === 'h2h');
+    const detail = compare.tabs.find((tb) => tb.key === 'h2h_detail');
+    if (!h2h || !detail || h2h.rows.length === 0) return null;
+    const c = h2h.columns;
+    const [ai, bi, gi, awi, bwi] = ['player_a', 'player_b', 'games', 'a_wins', 'b_wins'].map(
+      (k) => c.indexOf(k),
+    );
+    if ([ai, bi, gi, awi, bwi].some((i) => i < 0)) return null;
+    // 가장 많이 붙은 쌍 하나만 말한다 — 4명이면 쌍이 여섯까지 나오는데
+    // 다 나열하면 '한 줄'이 아니라 표가 된다. 나머지는 개수로만 밝힌다.
+    const row = [...h2h.rows].sort((x, y) => Number(y[gi]) - Number(x[gi]))[0];
+    return {
+      pairs: h2h.rows.length,
+      a: String(row[ai]),
+      b: String(row[bi]),
+      games: Number(row[gi]),
+      aWins: Number(row[awi]),
+      bWins: Number(row[bwi]),
+    };
+  }, [mode, compare]);
 
   /** 탭별 한 줄 — 맞대결 / 캐릭터 폭 / 공통 상대. 해당 탭에서만 보인다. */
   const tabQuip = useMemo(() => {
@@ -2368,6 +2418,15 @@ export default function Home() {
               <span className="quips-off">{t('quipsOff')}</span>
             </p>
           )}
+          {/* 맞대결이 있다는 신호. 이미 그 탭을 보고 있으면 같은 말을 두 번 하지 않는다. */}
+          {h2hHint && current?.key !== 'h2h' && current?.key !== 'h2h_detail' && (
+            <p className="h2h-hint">
+              <button type="button" onClick={() => setActiveTab('h2h_detail')}>
+                {t('h2hHint')(h2hHint.a, h2hHint.b, h2hHint.games, h2hHint.aWins, h2hHint.bWins)}
+                {h2hHint.pairs > 1 && ` ${t('h2hHintMore')(h2hHint.pairs - 1)}`}
+              </button>
+            </p>
+          )}
         </>
       )}
 
@@ -2771,6 +2830,29 @@ export default function Home() {
                       }}
                     >
                       {t('roundByOpp')}
+                    </button>
+                  </div>
+                )}
+
+                {/* 시즌 보기 전환 — 기본은 시즌별(지금까지의 동작).
+                    버전이 하나뿐인 사람에겐 seasonVersionTab 이 null 이라 안 그린다. */}
+                {current.key === 'season' && seasonVersionTab && (
+                  <div className="mode-switch period">
+                    <button
+                      className={seasonView === 'season' ? 'on' : ''}
+                      onClick={() => setSeasonView('season')}
+                    >
+                      {t('seasonBySeason')}
+                    </button>
+                    <button
+                      className={seasonView === 'version' ? 'on' : ''}
+                      onClick={() => {
+                        // 이미 그 보기면 세지 않는다 — 같은 버튼을 두 번 눌러도 사용은 한 번이다.
+                        if (seasonView !== 'version') gaEvent('season_by_version');
+                        setSeasonView('version');
+                      }}
+                    >
+                      {t('seasonByVersion')}
                     </button>
                   </div>
                 )}

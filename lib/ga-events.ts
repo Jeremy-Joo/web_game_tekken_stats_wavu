@@ -26,6 +26,7 @@ export const FEATURE_EVENTS = {
   // 기본값에서 **벗어나는 쪽으로 바꿀 때만** 센다(되돌리기까지 세면 왕복이 2회가 된다).
   round_by_opp: '라운드 — 상대 캐릭터별로 펼쳐보기',
   tz_kst: '시간대 — 한국 시간으로 보기',
+  season_by_version: '시즌 — 버전별로 나눠보기',
   lang_switch: '언어 전환',
 } as const;
 
