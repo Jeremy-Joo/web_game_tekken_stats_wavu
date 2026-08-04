@@ -140,7 +140,7 @@ export default function ReportChart({
       {total != null && total > shown.length && (
         <p className="rp-note">
           {lang === 'ko'
-            ? `캐릭터 ${total}종 중 최근에 쓴 ${shown.length}종만 그렸습니다.`
+            ? `캐릭터 ${total}종 중 최근에 사용한 ${shown.length}종만 표시했습니다.`
             : lang === 'ja'
               ? `${total}キャラ中、直近に使用した${shown.length}キャラのみ表示しています。`
               : `Showing the ${shown.length} most recently played of ${total} characters.`}
