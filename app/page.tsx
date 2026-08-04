@@ -28,11 +28,6 @@ import {
 import { looksLikeId, toPolarisId } from '@/lib/wavu/token';
 import { COMPARE_MIN_GAMES } from '@/lib/tekken/compare';
 import {
-  ratingPercentile,
-  RATING_BASELINE_N,
-  RATING_BASELINE_AT,
-} from '@/lib/tekken/rating-percentile';
-import {
   pickJoke,
   pickCoach,
   pickCondition,
@@ -2304,24 +2299,7 @@ export default function Home() {
               {summary.rating !== null && summary.rating > 0 && (
                 <div className="sum-block">
                   <span className="sum-label">{t('sumRating')}</span>
-                  <span className="sum-value">
-                    {summary.rating.toLocaleString()}
-                    {/* 상위 몇 % — 무엇 대비인지를 툴팁에 같이 낸다.
-                        표본 밖(최고/최저)이면 단정하지 않고 '이상/이하'로 쓴다. */}
-                    {(() => {
-                      const p = ratingPercentile(summary.rating);
-                      if (!p) return null;
-                      // 표본 최저 미만에는 배지를 안 낸다 — 낮은 사람 옆에
-                      // '하위권' 같은 딱지를 붙일 이유가 없고, 정확하지도 않다.
-                      if (p.clamped === 'low') return null;
-                      const label = p.clamped === 'high' ? t('topPctHigh') : t('topPct')(p.top);
-                      return (
-                        <span className="sum-pct" title={t('topPctHint')(RATING_BASELINE_N, RATING_BASELINE_AT)}>
-                          {label}
-                        </span>
-                      );
-                    })()}
-                  </span>
+                  <span className="sum-value">{summary.rating.toLocaleString()}</span>
                 </div>
               )}
               {summary.games === 0 && summary.lastDt && (

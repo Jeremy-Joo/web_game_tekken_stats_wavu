@@ -246,21 +246,6 @@ const D = {
   totalRows: { ko: '행', en: ' rows', ja: '行' },
   loadMore: { ko: '더 보기', en: 'Load more', ja: 'もっと見る' },
   noRows: { ko: '표시할 행이 없습니다.', en: 'No rows to display.', ja: '表示する行がありません。' },
-  topPct: {
-    ko: (v: number) => `상위 ${v}%`,
-    en: (v: number) => `top ${v}%`,
-    ja: (v: number) => `上位 ${v}%`,
-  },
-  // 표본 밖은 단정하지 않는다 — 표본 최고보다 높은 사람에게 '상위 0%'라고 할 수 없다.
-  topPctHigh: { ko: '상위 0.1% 이내', en: 'top 0.1%', ja: '上位0.1%以内' },
-  topPctHint: {
-    ko: (n: number, at: string) =>
-      `${at} 기준 랭크를 돌던 플레이어 ${n.toLocaleString()}명 중 위치입니다. 게임 보유자 전체가 아니라 활동 중인 사람 기준입니다.`,
-    en: (n: number, at: string) =>
-      `Position among ${n.toLocaleString()} players active in ranked as of ${at} — not all owners, only active players.`,
-    ja: (n: number, at: string) =>
-      `${at} 時点でランクを回していたプレイヤー ${n.toLocaleString()}人中の位置です。保有者全体ではなく活動中のプレイヤー基準です。`,
-  },
   pinHint: {
     ko: '다음 방문에 이 계정이 자동으로 조회됩니다 (이 브라우저에만 저장)',
     en: 'This account loads automatically on your next visit (stored in this browser only)',
