@@ -78,17 +78,32 @@ export default function RootLayout({
         <Analytics />
         {GA_ID && (
           <>
-            {/* afterInteractive: 첫 화면 렌더를 막지 않는다 */}
+            {/* 스텁은 hydration 전에 반드시 실행돼야 한다.
+                afterInteractive 였을 때는, 공유 링크로 바로 들어와 부팅 조회가 먼저
+                끝나면 window.gtag 가 아직 없어서 player_lookup 이 통째로 사라졌다
+                (app/page.tsx). 스텁만 먼저 있으면 호출이 dataLayer 에 쌓이고, 아래
+                gtag.js 가 로드될 때 밀린 것부터 처리한다 — 구글 기본 스니펫이 애초에
+                그렇게 설계돼 있다.
+
+                next/script 의 beforeInteractive 를 쓰지 않는 이유: 그건 인라인으로
+                나가지 않고 self.__next_s 큐에 넣어 Next 런타임이 대신 실행한다.
+                실행 시점이 Next 내부 동작에 달리는데, 이건 세 줄짜리 스텁이라
+                평범한 script 로 두면 파싱 시점에 확실히 돈다. 네트워크도 안 탄다. */}
+            <script
+              // eslint-disable-next-line react/no-danger
+              dangerouslySetInnerHTML={{
+                __html: `window.dataLayer=window.dataLayer||[];
+function gtag(){dataLayer.push(arguments);}
+window.gtag=gtag;
+gtag('js',new Date());
+gtag('config','${GA_ID}');`,
+              }}
+            />
+            {/* 실제 라이브러리는 첫 화면 렌더를 막지 않게 뒤로 미룬다 */}
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
               strategy="afterInteractive"
             />
-            <Script id="ga-init" strategy="afterInteractive">
-              {`window.dataLayer=window.dataLayer||[];
-function gtag(){dataLayer.push(arguments);}
-gtag('js',new Date());
-gtag('config','${GA_ID}');`}
-            </Script>
           </>
         )}
       </body>

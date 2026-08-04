@@ -11,6 +11,9 @@ import { useEffect, useState } from 'react';
 interface PlayerRow {
   id: string;
   name: string;
+  /** 실제 조회 건수(player_lookup 이벤트). 2026-08-04 이전 기간은 0 — lib/ga.ts 참조. */
+  lookups: number;
+  /** 페이지뷰. 탭·필터 조작까지 포함하므로 '탐색 깊이'다. */
   views: number;
   users: number;
   firstDate: string;
@@ -166,11 +169,13 @@ export default function AdminPage() {
 
   const downloadCsv = () => {
     if (!data) return;
-    const lines = ['#,이름,식별코드,조회수,비율(%),사용자,첫 조회,마지막 조회,조회일 수,패턴'];
+    const lines = [
+      '#,이름,식별코드,조회,페이지뷰,깊이,비율(%),사용자,첫 조회,마지막 조회,조회일 수,패턴',
+    ];
     data.players.forEach((p, i) => {
       lines.push(
         [
-          i + 1, p.name || '', p.id, p.views, pct(p.views), p.users,
+          i + 1, p.name || '', p.id, p.lookups, p.views, depth(p), pct(p.views), p.users,
           p.firstDate, p.lastDate, p.daysSeen, pattern(p),
         ].map(csvCell).join(','),
       );
@@ -222,9 +227,15 @@ export default function AdminPage() {
   const pattern = (p: PlayerRow): string => {
     if (p.users >= 3) return '여러 명';
     if (p.users >= 2) return '2명';
-    if (p.views >= 5) return '1명 반복';
+    // 조회는 한 번인데 화면을 여러 번 만졌으면 '반복'이 아니라 '깊게 봤다'가 맞다.
+    if (p.lookups >= 2) return '1명 반복';
+    if (p.views >= 10) return '1명 정독';
     return '1회성';
   };
+
+  /** 조회 1건당 화면을 몇 번 만졌나. 조회 수가 0(과거 기간)이면 낼 수 없다. */
+  const depth = (p: PlayerRow): string =>
+    p.lookups > 0 ? (p.views / p.lookups).toFixed(1) : '—';
 
   return (
     <main>
@@ -334,7 +345,8 @@ export default function AdminPage() {
                   <th>#</th>
                   <th>이름</th>
                   <th>식별코드</th>
-                  <th>조회수</th>
+                  <th title="player_lookup 이벤트 — 실제로 조회된 횟수">조회</th>
+                  <th title="페이지뷰 ÷ 조회 — 조회 한 번에 화면을 몇 번 만졌나">깊이</th>
                   <th>비율</th>
                   <th>사용자</th>
                   <th>첫 조회</th>
@@ -358,7 +370,8 @@ export default function AdminPage() {
                       </a>
                     </td>
                     <td>{p.id}</td>
-                    <td>{p.views}</td>
+                    <td>{p.lookups || '—'}</td>
+                    <td>{depth(p)}</td>
                     <td>{pct(p.views)}%</td>
                     <td>{p.users}</td>
                     <td>{p.firstDate?.slice(5) ?? ''}</td>
