@@ -52,6 +52,23 @@ const r3 = parseRegionHtml('<html><head><title>Error • Wavu Wank</title></head
 check('에러 페이지는 not_player_page (지역 없음으로 위장하지 않는다)',
   !r3.ok && r3.reason === 'not_player_page');
 
+// ── 지역 칸은 있는데 비어 있음 = '모름'. 리더보드에 못 오른 계정 (실측 5am4b7f5hdGd) ──
+// 이걸 unknown_shape 로 세면 로그가 '구조 변경'을 가리켜서, 멀쩡한 걸 고치러 가게 된다.
+// 실제 응답 그대로 — 줄바꿈과 들여쓰기가 들어 있다(정규식이 \s* 로 넘겨야 하는 부분)
+const rEmpty = parseRegionHtml(
+  PAGE(`<span class="region">
+   <a href="/leaderboard/">
+
+   </a>
+</span>`),
+);
+check("빈 지역 칸은 성공 + null ('모름')", rEmpty.ok && rEmpty.region === null,
+  JSON.stringify(rEmpty));
+
+// 빈 칸 처리가 정상 케이스를 삼키지 않는지 — 바로 위 4지역 검사와 겹쳐 보는 회귀 방지
+const rStill = parseRegionHtml(PAGE('<span class="region"><a href="/leaderboard/asia">Asia</a></span>'));
+check('빈 칸 처리가 정상 지역을 삼키지 않는다', rStill.ok && rStill.region?.code === 'asia');
+
 // ── 구조 변화: 지역 표기는 있는데 링크 형식이 바뀜 ──
 const r4 = parseRegionHtml(PAGE('<span class="region"><b>Asia</b></span>'));
 check('표기는 있는데 못 뽑으면 unknown_shape', !r4.ok && r4.reason === 'unknown_shape');

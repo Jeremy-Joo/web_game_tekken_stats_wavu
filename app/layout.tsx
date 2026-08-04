@@ -78,17 +78,24 @@ export default function RootLayout({
         <Analytics />
         {GA_ID && (
           <>
-            {/* afterInteractive: 첫 화면 렌더를 막지 않는다 */}
+            {/* 스텁은 hydration 전에 만든다.
+                이게 afterInteractive 면, 공유 링크로 바로 들어와 부팅 조회가 먼저
+                끝나는 경우 window.gtag 가 아직 없어서 player_lookup 이 통째로
+                사라진다(app/page.tsx). 스텁만 먼저 두면 호출이 dataLayer 에 쌓이고,
+                아래 gtag.js 가 로드될 때 밀린 것부터 처리한다 — 구글 기본 스니펫이
+                애초에 그렇게 설계돼 있다. */}
+            <Script id="ga-init" strategy="beforeInteractive">
+              {`window.dataLayer=window.dataLayer||[];
+function gtag(){dataLayer.push(arguments);}
+window.gtag=gtag;
+gtag('js',new Date());
+gtag('config','${GA_ID}');`}
+            </Script>
+            {/* 실제 라이브러리는 첫 화면 렌더를 막지 않게 뒤로 미룬다 */}
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
               strategy="afterInteractive"
             />
-            <Script id="ga-init" strategy="afterInteractive">
-              {`window.dataLayer=window.dataLayer||[];
-function gtag(){dataLayer.push(arguments);}
-gtag('js',new Date());
-gtag('config','${GA_ID}');`}
-            </Script>
           </>
         )}
       </body>
