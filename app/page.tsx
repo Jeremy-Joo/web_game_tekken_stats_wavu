@@ -1222,6 +1222,10 @@ export default function Home() {
     }
     if (sp.get('ch')) setCharSel(sp.get('ch')!);
     if (sp.get('tab')) setActiveTab(sp.get('tab')!);
+    // 값을 대조해서 넣는다 — 주소는 남이 고칠 수 있고, 모르는 값이 들어오면
+    // 화면 상태가 어느 버튼과도 안 맞는 자리에 걸린다.
+    if (sp.get('rv') === 'opp') setRoundView('opp');
+    if (sp.get('tz') === 'kst') setTzView('kst');
     setBootRun(true);
   }, []);
 
@@ -1255,6 +1259,12 @@ export default function Home() {
     }
     if (mode === 'single' && charSel) sp.set('ch', charSel);
     if (activeTab) sp.set('tab', activeTab);
+    // 탭 안의 보기 전환도 싣는다. tab 을 실으면서 이걸 빼면, "라운드 탭 보라"는
+    // 링크를 받은 사람이 **다른 표**를 보게 된다 — 상대 캐릭터별 라운드는 링크로
+    // 짚어 보여주는 게 존재 이유라 특히 그렇다.
+    // 기본값일 때는 싣지 않는다(pm 과 같은 방침) — 흔한 주소를 길게 만들지 않는다.
+    if (roundView === 'opp') sp.set('rv', 'opp');
+    if (tzView === 'kst') sp.set('tz', 'kst');
     const qs = sp.toString();
     const path = single1
       ? `/player/${encodeURIComponent(single.polarisId)}`
@@ -1297,7 +1307,21 @@ export default function Home() {
         page_location: window.location.href,
       });
     }
-  }, [single, compare, mode, activeTab, charSel, periodMode, month, year, start, end, seasonSel]);
+  }, [
+    single,
+    compare,
+    mode,
+    activeTab,
+    charSel,
+    periodMode,
+    month,
+    year,
+    start,
+    end,
+    seasonSel,
+    roundView,
+    tzView,
+  ]);
 
   /** 비교 목록에 식별코드 추가 (중복 제외). */
   const appendToIds = (fid: string, name?: string) => {
