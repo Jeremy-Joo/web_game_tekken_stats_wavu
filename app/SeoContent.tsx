@@ -38,7 +38,7 @@ const C: Record<Lang, Block> = {
         q: '무엇을 볼 수 있나요',
         a: [
           '캐릭터별 성적 — 사용한 캐릭터마다 경기 수와 승률, 라운드 지표까지 나눠서 봅니다.',
-          '매치업 — 상대 캐릭터별 승률에서 강점과 약점을 뽑습니다. 5판 이상 만난 상대만 다룹니다.',
+          '매치업 — 상대 캐릭터별 승률에서 강점과 약점을 뽑습니다. 표본 기준은 전체 경기 수에 맞춰 자동으로 조정되고, 적게 상대한 캐릭터는 순위에서 뒤로 밀립니다.',
           '레이팅 추이 — 경기 순서대로 그린 그래프입니다. 캐릭터를 바꾼 시점이 어디였는지도 같이 보입니다.',
           '세션 분석 — 한 세션에서 몇 판째부터 성적이 꺾이는지 계산합니다. "오늘 몇 판까지 하는 게 좋은가"에 대한 답입니다.',
           '시간대·요일 — 언제 강하고 언제 약한지. 표본이 적은 구간은 제외합니다.',
@@ -99,7 +99,7 @@ const C: Record<Lang, Block> = {
         q: 'What you can see',
         a: [
           'Per-character results — games, win rate and round stats for every character you have played.',
-          'Matchups — best and worst opponent characters by win rate, counting only those you have faced 5+ times.',
+          'Matchups — best and worst opponent characters by win rate. The sample threshold scales with your total games, and matchups you have played less rank lower.',
           'Rating trend — plotted by game order, with character switches visible along the way.',
           'Session analysis — how deep into a session your results start to fall off. An answer to "how many games should I play today".',
           'Time of day and weekday — when you are strong and when you are not. Thin buckets are excluded.',
@@ -156,7 +156,7 @@ const C: Record<Lang, Block> = {
         q: '何が見られますか',
         a: [
           'キャラ別成績 — 使用キャラごとの試合数・勝率・ラウンド指標。',
-          'マッチアップ — 相手キャラ別の勝率から得意・苦手を抽出します。5戦以上対戦した相手のみが対象です。',
+          'マッチアップ — 相手キャラ別の勝率から得意・苦手を抽出します。サンプル基準は総試合数に応じて自動調整され、対戦数が少ない相手は順位が下がります。',
           'レート推移 — 試合順に描いたグラフ。キャラを変えた時期も一緒に見えます。',
           'セッション分析 — 1回のプレイで何戦目から成績が落ちるかを算出します。「今日は何戦までにするか」への答えです。',
           '時間帯・曜日 — いつ強く、いつ弱いか。サンプルの少ない区間は除外します。',
