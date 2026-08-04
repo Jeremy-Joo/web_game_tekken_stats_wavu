@@ -381,6 +381,7 @@ export const TAB_LABELS: Record<string, Entry> = {
   strong: { ko: '강점 매치업', en: 'Strong matchups', ja: '得意マッチ' },
   weak: { ko: '약점 매치업', en: 'Weak matchups', ja: '苦手マッチ' },
   round: { ko: '라운드', en: 'Rounds', ja: 'ラウンド' },
+  stage: { ko: '스테이지', en: 'Stages', ja: 'ステージ' },
   h2h: { ko: '상대전적', en: 'Head-to-head', ja: '対戦成績' },
   daily: { ko: '일별', en: 'Daily', ja: '日別' },
   sessions: { ko: '세션', en: 'Sessions', ja: 'セッション' },
@@ -487,6 +488,7 @@ export function cellText(lang: Lang, v: string): string {
  */
 export const COL_I18N: Record<string, Entry> = {
   my_char: { ko: '내 캐릭터', en: 'My char', ja: '自キャラ' },
+  stage: { ko: '스테이지', en: 'Stage', ja: 'ステージ' },
   opp_char: { ko: '상대 캐릭터', en: 'Vs char', ja: '相手キャラ' },
   opp_name: { ko: '상대 이름', en: 'Opponent', ja: '相手名' },
   opp_polaris: { ko: '상대 식별코드', en: 'Opp ID', ja: '相手ID' },

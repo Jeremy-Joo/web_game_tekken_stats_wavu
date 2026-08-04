@@ -9,6 +9,7 @@
 import type { MatchRecord } from './models';
 import { Table } from './table';
 import { formatDt, formatDtMin, dateKey } from './models';
+import { stageName } from '@/lib/wavu/stages';
 
 /** C# Math.Round / py round 와 같은 은행가 반올림(half-to-even). */
 export function roundTo(value: number, digits: number): number {
@@ -813,19 +814,48 @@ export function buildFlow(
   return t;
 }
 
-/*
- * 스테이지별 성적은 만들지 않는다 (한 번 만들었다가 뺐다).
+/**
+ * 스테이지별 성적.
  *
- * `stage_id` 는 수집되지만 **이름을 알아낼 방법이 없다.** 캐릭터는 wavu HTML 페이지에
- * 이름이 글자로 있어서 JSON 의 chara_id 와 시각으로 조인해 41종을 실측 도출했는데,
- * 스테이지는 HTML·JSON 어디에도 이름이 없다 (플레이어 페이지 576KB 전문 검색 확인:
- * 'stage'/'Stage'/'Arena' 전부 0건). 짝지을 정답지가 없다.
+ * **오래 못 만들던 표다.** `stage_id` 는 계속 수집하고 있었지만 이름을 알 길이 없어
+ * `#500 70.14%` 같은 읽을 수 없는 행만 나왔고, 그래서 한 번 만들었다가 뺐다.
+ * 2026-08-04 에 매핑을 확보·검증해서 되살렸다 — `lib/wavu/stages.ts` 와
+ * docs/population-features.md 5-B 에 근거가 있다.
  *
- * 그래서 표를 만들면 `#500  1,765경기  70.14%` 처럼 **읽을 수 없는 행**만 남는다.
- * 추측한 이름을 붙이는 선택지는 버렸다 — 틀리면 숫자보다 나쁘다(단 이름과 같은 방침).
+ * 변형(낮/저녁)은 `stageKey` 가 묶는다. 묶는 근거도 빈도 실측이다 —
+ * Urban Square 두 종은 합쳐서 한 칸이지만 Arena 와 Arena (Underground) 는 각자 한 칸이라,
+ * 앞은 묶고 뒤는 안 묶는다. stages.ts 의 STAGE_MERGE 주석 참조.
  *
- * wavu 가 이름을 노출하거나 매핑이 확보되면 그때 만들 것. 그전까지는 만들지 말 것.
+ * 원본에 `stage_id` 가 없는 경기는 `#?` 로 **표에 남긴다.** 빼면 합계가 안 맞는데
+ * 왜 안 맞는지 화면에서 알 수 없게 된다.
  */
+export function buildStage(df: MatchRecord[]): Table {
+  const t = new Table('stage', 'Total', 'W', 'L', 'WinRate(%)');
+
+  const byStage = new Map<string, { name: string; w: number; l: number }>();
+  for (const r of df) {
+    const name = stageName(r.stageId);
+    let g = byStage.get(name);
+    if (!g) {
+      g = { name, w: 0, l: 0 };
+      byStage.set(name, g);
+    }
+    if (r.result === 'W') g.w++;
+    else g.l++;
+  }
+
+  const groups = [...byStage.values()]
+    .map((g) => ({ ...g, total: g.w + g.l }))
+    .sort((x, y) => y.total - x.total || wr(y.w, y.total) - wr(x.w, x.total) || cmpOIC(x.name, y.name));
+
+  for (const g of groups) t.add(g.name, g.total, g.w, g.l, wr(g.w, g.total));
+
+  const aw = groups.reduce((s, x) => s + x.w, 0);
+  const al = groups.reduce((s, x) => s + x.l, 0);
+  t.add('ALL', aw + al, aw, al, wr(aw, aw + al));
+
+  return t;
+}
 
 /** 임의 키 요약 (시즌별 등). */
 export function summaryBy(
