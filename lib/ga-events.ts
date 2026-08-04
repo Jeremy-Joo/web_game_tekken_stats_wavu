@@ -21,6 +21,11 @@ export const FEATURE_EVENTS = {
   download_csv: 'CSV 내려받기',
   download_json: 'JSON 내려받기',
   compare_run: '여러 명 비교',
+  // 탭 안의 보기 전환. 주소가 안 바뀌어서 페이지뷰로는 흔적이 없다 —
+  // 이 옵션들이 제 값을 하는지 알려면 이것뿐이다.
+  // 기본값에서 **벗어나는 쪽으로 바꿀 때만** 센다(되돌리기까지 세면 왕복이 2회가 된다).
+  round_by_opp: '라운드 — 상대 캐릭터별로 펼쳐보기',
+  tz_kst: '시간대 — 한국 시간으로 보기',
   lang_switch: '언어 전환',
 } as const;
 

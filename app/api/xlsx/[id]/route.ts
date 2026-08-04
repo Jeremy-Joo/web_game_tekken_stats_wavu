@@ -133,9 +133,15 @@ export async function GET(
       tzShiftMinutes: tz.offsetMinutes - KST_MINUTES,
     });
     // 현지 시각 시트는 KST 와 다를 때만 붙는다 — 같은 표를 두 번 넣지 않는다.
-    const sheets = result.localTime
-      ? [...result.tabs, result.localTime]
-      : result.tabs;
+    // 상대 캐릭터별 라운드는 화면에서 보기 전환으로만 볼 수 있어 엑셀에도 넣는다.
+    // (라벨을 '라운드'와 다르게 둔 것이 이것 때문이다 — 시트명이 라벨이라 겹치면
+    //  파일을 못 만든다. compute.ts 의 roundByOpp 주석 참조)
+    // 행 수가 캐릭터 수로 묶여 있어(최대 42행) 시트를 더해도 파일이 커지지 않는다.
+    const sheets = [
+      ...result.tabs,
+      ...(result.localTime ? [result.localTime] : []),
+      result.roundByOpp,
+    ];
     const buf = await tabsToXlsx(sheets, {
       title: `${myName || id} (${id})${char ? ` — ${char}` : ''}`,
       subtitle: period,

@@ -2587,7 +2587,11 @@ export default function Home() {
                     </button>
                     <button
                       className={roundView === 'opp' ? 'on' : ''}
-                      onClick={() => setRoundView('opp')}
+                      onClick={() => {
+                        // 이미 그 보기면 세지 않는다 — 같은 버튼을 두 번 눌러도 사용은 한 번이다.
+                        if (roundView !== 'opp') gaEvent('round_by_opp');
+                        setRoundView('opp');
+                      }}
                     >
                       {t('roundByOpp')}
                     </button>
@@ -2606,7 +2610,11 @@ export default function Home() {
                     </button>
                     <button
                       className={tzView === 'kst' ? 'on' : ''}
-                      onClick={() => setTzView('kst')}
+                      onClick={() => {
+                        // 기본은 현지 시각이다 — KST 로 바꾸는 쪽만 센다.
+                        if (tzView !== 'kst') gaEvent('tz_kst');
+                        setTzView('kst');
+                      }}
                     >
                       {t('tzKst')}
                     </button>
