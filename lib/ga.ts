@@ -116,6 +116,17 @@ export async function runReport(body: Record<string, unknown>): Promise<ReportRo
 export interface PlayerView {
   id: string;
   name: string;
+  /**
+   * 실제 조회 건수. player_lookup 이벤트를 센다 (app/page.tsx).
+   *
+   * **2026-08-04 배포부터 쌓인다.** 그 이전 기간에는 0 이 나온다 — 이벤트가
+   * 없던 때라 '조회가 없었다'가 아니라 '셀 방법이 없었다'는 뜻이다.
+   */
+  lookups: number;
+  /**
+   * 페이지뷰. 탭·캐릭터필터·기간을 바꿀 때마다 올라가므로 조회 수가 아니라
+   * **탐색 깊이**로 읽어야 한다. 실측 비율은 조회 1건당 9.3 이었다.
+   */
   views: number;
   users: number;
   firstDate: string; // 'yyyy-MM-dd' — 이 기간에 처음 조회된 날
@@ -124,13 +135,61 @@ export interface PlayerView {
 }
 
 /**
+ * player_lookup 이벤트 수 → 식별코드별 실제 조회 건수.
+ *
+ * 커스텀 이벤트 파라미터가 아니라 표준 dimension(pagePath)으로 가른다 —
+ * 파라미터로 넘기면 GA4 관리화면에서 맞춤 측정기준을 따로 등록해야 Data API 로
+ * 읽을 수 있고, 등록 전 기간은 영영 안 나온다. pagePath 는 그런 준비가 없다.
+ */
+async function lookupCounts(days: number): Promise<Map<string, number>> {
+  const rows = await runReport({
+    dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+    dimensions: [{ name: 'pagePath' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: {
+      andGroup: {
+        expressions: [
+          {
+            filter: {
+              fieldName: 'eventName',
+              stringFilter: { matchType: 'EXACT', value: 'player_lookup' },
+            },
+          },
+          {
+            filter: {
+              fieldName: 'pagePath',
+              stringFilter: { matchType: 'BEGINS_WITH', value: '/player/' },
+            },
+          },
+        ],
+      },
+    },
+    limit: 20000,
+  });
+
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    const m = /^\/player\/([A-Za-z0-9-]+)/.exec(r.dimensionValues?.[0]?.value ?? '');
+    if (!m) continue;
+    const id = m[1].replace(/-/g, '');
+    out.set(id, (out.get(id) ?? 0) + Number(r.metricValues?.[0]?.value ?? 0));
+  }
+  return out;
+}
+
+/**
  * /player/<식별코드> 페이지뷰 → 조회된 플레이어 목록.
  * 이름은 페이지 제목에서 뽑는다 — 제목이 "이름 (식별코드) — …" 형식이라 그대로 쓸 수 있다.
+ *
+ * 조회 건수(lookups)와 탐색 깊이(views)는 원천이 다르다 — 위 lookupCounts 주석 참조.
  */
 export async function playerViews(days: number): Promise<PlayerView[]> {
   // date 를 함께 뽑아 '언제 조회됐는지'까지 안다. 행이 (플레이어 × 날짜)로 늘어나므로
   // limit 을 넉넉히 준다 — 200 이면 활동이 많은 기간에 뒤쪽 플레이어가 잘려 나간다.
-  const rows = await runReport({
+  // 서로 독립이라 같이 던진다. 하나가 실패하면 전체가 실패하는 편이 낫다 —
+  // 조용히 0 으로 채우면 '조회가 없었다'와 구별되지 않는다.
+  const [rows, lookups] = await Promise.all([
+    runReport({
     dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
     dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }, { name: 'date' }],
     metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }],
@@ -142,7 +201,9 @@ export async function playerViews(days: number): Promise<PlayerView[]> {
     },
     orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
     limit: 20000,
-  });
+    }),
+    lookupCounts(days),
+  ]);
 
   // 같은 플레이어라도 쿼리(?tab=...)·날짜가 다르면 행이 갈라지므로 식별코드로 합친다
   const byId = new Map<string, PlayerView>();
@@ -177,6 +238,7 @@ export async function playerViews(days: number): Promise<PlayerView[]> {
     byId.set(id, {
       id,
       name: cur?.name || name, // 한 행이라도 제대로 된 제목이 있으면 그걸 쓴다
+      lookups: lookups.get(id) ?? 0, // 이미 식별코드로 합쳐진 값이라 더하지 않는다
       views: (cur?.views ?? 0) + views,
       users: Math.max(cur?.users ?? 0, users), // 사용자 수는 합산이 성립하지 않는다
       firstDate: cur?.firstDate && cur.firstDate < date ? cur.firstDate : date,
@@ -187,7 +249,12 @@ export async function playerViews(days: number): Promise<PlayerView[]> {
 
   for (const [id, p] of byId) p.daysSeen = daysById.get(id)?.size ?? 0;
 
-  return [...byId.values()].sort((a, b) => b.views - a.views);
+  // 조회 수로 정렬하되, 이벤트가 없던 기간(전부 0)에는 페이지뷰로 떨어진다.
+  // 그렇게 안 하면 과거를 조회했을 때 목록 순서가 통째로 무의미해진다.
+  const anyLookup = [...byId.values()].some((p) => p.lookups > 0);
+  return [...byId.values()].sort((a, b) =>
+    anyLookup ? b.lookups - a.lookups || b.views - a.views : b.views - a.views,
+  );
 }
 
 export interface DayCount {
