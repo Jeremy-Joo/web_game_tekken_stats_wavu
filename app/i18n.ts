@@ -91,6 +91,9 @@ const D = {
   hlToggle: { ko: '우위 항목 하이라이트', en: 'Highlight advantages', ja: '優位項目をハイライト' },
   // 상대전적 → 비교 목록에 담기 (화면을 벗어나지 않는다)
   addToCompare: { ko: '비교 목록에 추가', en: 'Add to compare list', ja: '比較リストに追加' },
+  // 전적 목록·상대전적 표의 '나와 비교' 열 머리 — 상대 식별코드 바로 다음.
+  // 이름·식별코드 열은 각각 글자·조회 링크 하나씩만 맡고, 담기는 이 열이 맡는다.
+  cmpCol: { ko: '나와 비교', en: 'Vs me', ja: '自分と比較' },
   pickLabel: {
     ko: (n: number, max: number) => `비교 목록 ${n}/${max}명`,
     en: (n: number, max: number) => `Compare list ${n}/${max}`,

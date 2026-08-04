@@ -4,7 +4,7 @@
 // 표 렌더는 서버가 준 TabData 를 그대로 그린다(집계는 전부 서버).
 // 레이팅 추이 탭만 클라이언트에서 SVG 그래프를 추가로 그린다.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { gaEvent } from '@/lib/ga-events';
 import {
   TrendChart,
@@ -634,12 +634,15 @@ function DataTable({
   rowHl,
   lang = 'ko',
   onCompare,
+  pickedIds,
 }: {
   tab: TabData;
   rowHl?: ((row: (string | number | null)[]) => Set<number>) | null;
   lang?: Lang;
-  /** 주어지면 상대 이름/식별코드 클릭이 '비교 목록에 담기'가 된다 (한 명 모드 전용). */
+  /** 주어지면 '나와 비교' 열이 생긴다 (한 명 모드 전용). */
   onCompare?: (oppPolaris: string, oppName: string) => void;
+  /** 이미 비교 목록에 담긴 식별코드 — 버튼이 담긴 상태로 보인다. */
+  pickedIds?: Set<string>;
 }) {
   const tt = makeT(lang);
   const [query, setQuery] = useState('');
@@ -662,11 +665,18 @@ function DataTable({
   const visible = filtered.slice(0, limit);
   const searchable = tab.rows.length > 30;
 
-  // 상대 식별코드가 있는 표(상대전적·공통 상대)는 이름/ID 클릭 → 새 창에서 그 플레이어 조회
+  /* 상대 식별코드가 있는 표(전적 목록·상대전적·공통 상대)의 열 역할.
+     한 셀에 두 동작을 겹쳐 놓지 않는다 — 예전에는 이름/ID 아무 데나 누르면
+     '비교 목록에 담기'였고 그 옆 ↗ 만 조회였는데, 이름을 누르면 조회로 갈 거라
+     기대하는 쪽이 많았다. 지금은 열마다 동작이 하나다.
+       · 상대 이름     — 링크 없음 (글자만)
+       · 상대 식별코드 — 그 사람 조회 (새 창. 보던 표를 잃지 않는다)
+       · 나와 비교     — 비교 목록에 담기 (아래에서 끼워 넣는 표시용 열) */
   const polIdx = tab.columns.indexOf('opp_polaris');
   const nameIdx = tab.columns.indexOf('opp_name'); // 칩에 보일 닉네임
-  const isLinkCol = (j: number) =>
-    polIdx >= 0 && (j === polIdx || tab.columns[j] === 'opp_name');
+  // '나와 비교' 열은 데이터가 아니라 화면에서만 끼운다 —
+  // CSV·엑셀·API 응답의 컬럼 구성을 건드리지 않기 위해서다.
+  const cmpCol = !!onCompare && polIdx >= 0;
 
   return (
     <>
@@ -692,10 +702,13 @@ function DataTable({
         <table>
           <thead>
             <tr>
-              {tab.columns.map((c) => (
-                <th key={c} title={c !== colText(lang, c) ? c : undefined}>
-                  {colText(lang, c)}
-                </th>
+              {tab.columns.map((c, j) => (
+                <Fragment key={c}>
+                  <th title={c !== colText(lang, c) ? c : undefined}>{colText(lang, c)}</th>
+                  {cmpCol && j === polIdx && (
+                    <th className="cmp-col">{tt('cmpCol')}</th>
+                  )}
+                </Fragment>
               ))}
             </tr>
           </thead>
@@ -706,64 +719,59 @@ function DataTable({
                 <tr key={i}>
                   {r.map((v, j) => {
                     const pol = polIdx >= 0 ? String(r[polIdx] ?? '') : '';
-                    const linked = v !== null && pol && isLinkCol(j);
+                    const oppName = nameIdx >= 0 ? String(r[nameIdx] ?? '') : '';
+                    // 식별코드 열만 링크다 — 누르면 그 사람 조회로 넘어간다.
+                    const linked = v !== null && pol && j === polIdx;
+                    const picked = pickedIds?.has(pol) ?? false;
                     return (
-                      <td
-                        key={j}
-                        className={
-                          [cellClass(tab.columns[j], v), hl?.has(j) ? 'hl' : undefined]
-                            .filter(Boolean)
-                            .join(' ') || undefined
-                        }
-                      >
-                        {linked ? (
-                          <span className="plink-cell">
-                            {/* 기본 동작 = 비교 목록에 담기 (화면은 그대로 둔다).
-                                onCompare 가 없는 화면(이미 비교 모드 등)에서는
-                                예전처럼 그 플레이어 조회로 떨어진다. */}
-                            {onCompare ? (
+                      <Fragment key={j}>
+                        <td
+                          className={
+                            [cellClass(tab.columns[j], v), hl?.has(j) ? 'hl' : undefined]
+                              .filter(Boolean)
+                              .join(' ') || undefined
+                          }
+                        >
+                          {linked ? (
+                            <a
+                              className="plink"
+                              href={`/player/${encodeURIComponent(pol)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={tt('openPlayer')}
+                            >
+                              {v}
+                            </a>
+                          ) : v === null ? (
+                            ''
+                          ) : typeof v === 'string' ? (
+                            cellText(lang, v)
+                          ) : (
+                            v
+                          )}
+                        </td>
+                        {/* 나와 비교 — 누르면 비교 목록에 담기만 한다(화면은 그대로).
+                            다 고르면 검색칸 아래 목록에서 새 창으로 열거나 복사한다. */}
+                        {cmpCol && j === polIdx && (
+                          <td className="cmp-col">
+                            {pol && (
                               <button
                                 type="button"
-                                className="plink"
-                                title={`${pol} — ${tt('addToCompare')}`}
-                                onClick={() =>
-                                  onCompare(pol, nameIdx >= 0 ? String(r[nameIdx] ?? '') : '')
+                                className={picked ? 'cmp-btn on' : 'cmp-btn'}
+                                aria-pressed={picked}
+                                title={
+                                  picked
+                                    ? tt('already')(oppName || pol)
+                                    : `${oppName || pol} — ${tt('addToCompare')}`
                                 }
+                                onClick={() => onCompare?.(pol, oppName)}
                               >
-                                {v}
+                                {picked ? '✓' : '⚔'}
                               </button>
-                            ) : (
-                              <a
-                                className="plink"
-                                href={`/player/${encodeURIComponent(pol)}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                title={pol}
-                              >
-                                {v}
-                              </a>
                             )}
-                            {/* 그 사람 전적만 따로 보고 싶을 때 — 새 창 */}
-                            {onCompare && (
-                              <a
-                                className="plink-out"
-                                href={`/player/${encodeURIComponent(pol)}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                title={tt('openPlayer')}
-                              >
-                                ↗
-                              </a>
-                            )}
-                          </span>
-                        ) : v === null ? (
-                          ''
-                        ) : typeof v === 'string' ? (
-                          cellText(lang, v)
-                        ) : (
-                          v
+                          </td>
                         )}
-                      </td>
+                      </Fragment>
                     );
                   })}
                 </tr>
@@ -1190,7 +1198,7 @@ export default function Home() {
   }, [periodSig]);
 
   /**
-   * 상대전적에서 상대를 눌렀을 때 — **비교 목록에 담기만 한다.**
+   * 표의 '나와 비교' 를 눌렀을 때 — **비교 목록에 담기만 한다.**
    *
    * 예전에는 곧바로 비교 조회로 넘어갔는데, 보던 상대전적 표가 사라지고
    * 한 명하고만 비교할 수 있었다. 표를 그대로 둔 채 여러 명을 골라 담고,
@@ -1212,6 +1220,9 @@ export default function Home() {
     setPicked((prev) => [...prev, { id: oppPolaris, name: oppName }]);
     setPickMsg(t('added')(label));
   };
+
+  /** 표의 '나와 비교' 버튼이 이미 담긴 행을 알아보는 데 쓴다. */
+  const pickedSet = useMemo(() => new Set(picked.map((p) => p.id)), [picked]);
 
   /** 비교 목록 = 나 + 고른 상대들. 복사·새 창 양쪽이 같은 값을 쓴다. */
   const pickedIds = single ? [single.polarisId, ...picked.map((p) => p.id)] : [];
@@ -2816,8 +2827,9 @@ export default function Home() {
                   rowHl={
                     mode === 'compare' && hlOn ? makeRowHighlighter(current) : null
                   }
-                  // 한 명 모드의 상대전적에서만 '비교 목록에 담기'가 성립한다
+                  // 한 명 모드에서만 '나와 비교'가 성립한다 (상대 식별코드가 있는 표에 붙는다)
                   onCompare={mode === 'single' && single ? addPick : undefined}
+                  pickedIds={pickedSet}
                 />
               </>
             )

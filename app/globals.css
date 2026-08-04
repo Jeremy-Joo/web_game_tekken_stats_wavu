@@ -780,7 +780,8 @@ td.win {
   font-weight: 600;
 }
 
-/* 표 안의 플레이어 링크 (상대전적 이름/ID → 새 창 조회) */
+/* 표 안의 플레이어 링크 — 상대 식별코드 열에만 걸린다 (→ 새 창 조회).
+   상대 이름은 글자만이다. 담기는 옆의 '나와 비교' 열이 맡는다. */
 td a.plink {
   color: var(--accent);
   text-decoration: none;
@@ -790,35 +791,31 @@ td a.plink:hover {
   text-decoration: underline;
 }
 
-/* 상대 이름/식별코드 셀 — 기본 클릭은 '나와 비교', ↗ 는 그 플레이어 새 창 */
-.plink-cell {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.35rem;
+/* '나와 비교' 열 — 아이콘 하나짜리라 폭을 최소로 두고,
+   전적 목록처럼 열이 많은 표에서 다른 열을 밀어내지 않게 한다. */
+th.cmp-col,
+td.cmp-col {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
 }
 
-td button.plink {
-  /* 버튼이지만 링크처럼 보여야 한다 (기존 a.plink 와 같은 모양) */
+td.cmp-col button.cmp-btn {
   all: unset;
   cursor: pointer;
   color: var(--accent);
-  min-height: 0;
-  padding: 0;
+  padding: 0 0.25rem;
+  line-height: 1.4;
+  border-radius: 4px;
 }
 
-td button.plink:hover {
-  text-decoration: underline;
+td.cmp-col button.cmp-btn:hover {
+  background: rgba(110, 168, 254, 0.16);
 }
 
-td a.plink-out {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 0.85em;
-  flex: none;
-}
-
-td a.plink-out:hover {
-  color: var(--accent);
+/* 이미 담긴 상대 — 다시 눌러도 중복으로 담기지 않는다는 걸 표시로 알린다 */
+td.cmp-col button.cmp-btn.on {
+  color: var(--win);
 }
 
 /* 비교 표 우위 하이라이트 */
