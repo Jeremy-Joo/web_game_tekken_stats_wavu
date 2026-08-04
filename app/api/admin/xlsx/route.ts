@@ -56,14 +56,26 @@ export async function POST(req: NextRequest) {
         key: 'players',
         label: '조회된 플레이어',
         columns: [
-          '#', '이름', '식별코드', '조회수', '비율(%)', '사용자',
+          '#', '이름', '식별코드', '조회', '페이지뷰', '깊이', '비율(%)', '사용자',
           '첫 조회', '마지막 조회', '조회일 수', '패턴',
         ],
         rows: players.map((p, i) => [
-          i + 1, p.name || '', p.id, p.views, pct(p.views), p.users,
+          i + 1, p.name || '', p.id, p.lookups,
+          p.views,
+          // 조회 1건당 화면을 몇 번 만졌나. 조회가 0 인 과거 기간에는 낼 수 없다.
+          p.lookups > 0 ? Number((p.views / p.lookups).toFixed(1)) : '',
+          pct(p.views), p.users,
           p.firstDate, p.lastDate, p.daysSeen,
           // 조회된 ID 가 본인인지 남인지는 알 수 없다 — 사용자 수로 갈라낸 '추정'이다
-          p.users >= 3 ? '여러 명' : p.users >= 2 ? '2명' : p.views >= 5 ? '1명 반복' : '1회성',
+          p.users >= 3
+            ? '여러 명'
+            : p.users >= 2
+              ? '2명'
+              : p.lookups >= 2
+                ? '1명 반복'
+                : p.views >= 10
+                  ? '1명 정독'
+                  : '1회성',
         ]),
       },
       {

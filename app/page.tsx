@@ -815,6 +815,12 @@ export default function Home() {
   const [single, setSingle] = useState<PlayerResponse | null>(null);
   const [compare, setCompare] = useState<CompareResponse | null>(null);
   const [activeTab, setActiveTab] = useState('');
+
+  /**
+   * 마지막으로 player_lookup 을 보낸 대상. '탭을 눌렀을 뿐'과 '새로 조회했다'를
+   * 가른다 — 아래 주소창 동기화 effect 는 탭·필터가 바뀔 때도 돌기 때문이다.
+   */
+  const lastLookupRef = useRef('');
   const [view, setView] = useState<'chart' | 'table'>('chart');
   const [dailyGran, setDailyGran] = useState<DailyGran>('day');
   const [dailyStyle, setDailyStyle] = useState<DailyStyle>('updown');
@@ -1258,7 +1264,29 @@ export default function Home() {
       document.title = `${who} — 철권8 전적 통계 | Tekken 8 Stats`;
     }
 
-    window.history.replaceState(null, '', qs ? `${path}?${qs}` : path);
+    const url = qs ? `${path}?${qs}` : path;
+
+    // 주소가 그대로면 아무것도 하지 않는다. replaceState 는 값이 같아도 기록 이벤트를
+    // 발생시켜서, 상태만 흔들리고 주소는 그대로인 경우에 페이지뷰가 헛으로 쌓인다.
+    const here = window.location.pathname + window.location.search;
+    if (here !== url) window.history.replaceState(null, '', url);
+
+    // ── 조회 수는 여기서 센다 ──────────────────────────────────────
+    // 페이지뷰(향상된 측정)는 탭·필터를 만질 때마다 올라가서 '조회 수'가 못 된다.
+    // 대상이 바뀐 순간에만 이벤트를 하나 보내고, 관리자 집계는 이걸 쓴다.
+    // 향상된 측정 자체는 GA4 관리화면 설정이라 코드로 끌 수 없어서, 끄는 대신
+    // 정확한 신호를 따로 만든다 — 페이지뷰는 '탐색 깊이'로 계속 쓸모가 있다.
+    const target = single1 ? `p:${single.polarisId}` : `c:${sp.get('ids') ?? ''}`;
+    if (target !== lastLookupRef.current) {
+      lastLookupRef.current = target;
+      // document.title 을 바꾼 뒤에 보낸다 — GA 는 이벤트 시점의 제목을 붙이고,
+      // 관리자 화면은 그 제목에서 이름을 뽑는다(lib/ga.ts 의 marker 주석 참조).
+      window.gtag?.('event', 'player_lookup', {
+        page_title: document.title,
+        page_location: window.location.href,
+        page_path: url,
+      });
+    }
   }, [single, compare, mode, activeTab, charSel, periodMode, month, year, start, end, seasonSel]);
 
   /** 비교 목록에 식별코드 추가 (중복 제외). */
@@ -1697,6 +1725,8 @@ export default function Home() {
     setCompare(null);
     setError('');
     setActiveTab('');
+    // 다음에 같은 사람을 다시 조회하면 그것도 한 건이다. 안 비우면 안 세어진다.
+    lastLookupRef.current = '';
     setPicked([]);
     setPickMsg('');
     // 여기도 제목이 먼저다 (위 effect 의 주석 참조 — GA 가 변경 시점의 제목을 읽는다)

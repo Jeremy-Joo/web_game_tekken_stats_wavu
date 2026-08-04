@@ -49,6 +49,8 @@ export type RegionParse =
 const PAGE_ANCHOR = 'class="player-ratings"';
 const REGION_MARK = 'class="region"';
 const REGION_RE = /class="region"[^>]*>\s*<a[^>]+href="\/leaderboard\/([A-Za-z0-9-]+)"[^>]*>\s*([^<]+?)\s*</;
+/** 지역 칸은 있는데 링크 대상도 표기도 빈 경우. 고장이 아니라 '지역 없음'이다. */
+const EMPTY_REGION_RE = /class="region"[^>]*>\s*<a[^>]+href="\/leaderboard\/"[^>]*>\s*<\/a>/;
 
 /** 플레이어 HTML 에서 지역을 뽑는다. 순수 함수 — 네트워크 없이 테스트된다. */
 export function parseRegionHtml(html: string): RegionParse {
@@ -57,6 +59,12 @@ export function parseRegionHtml(html: string): RegionParse {
   // 지역 표기 자체가 없는 것은 고장이 아니다 — 리더보드에 오르지 못한 신규 계정 등.
   // '모른다'와 '깨졌다'를 반드시 구분한다.
   if (!html.includes(REGION_MARK)) return { ok: true, region: null };
+
+  // 지역 칸은 있는데 안이 빈 경우가 있다 — 리더보드에 오르지 않은 계정이 그렇다.
+  //     <span class="region"><a href="/leaderboard/">  </a></span>
+  // 이건 '모른다'지 '깨졌다'가 아니다. 위 주석의 구분을 여기서도 지킨다.
+  // (실측 5am4b7f5hdGd — 이걸 unknown_shape 로 세면 로그가 구조 변경을 가리켜 오해를 부른다)
+  if (EMPTY_REGION_RE.test(html)) return { ok: true, region: null };
 
   const m = html.match(REGION_RE);
   if (!m) return { ok: false, reason: 'unknown_shape' };
