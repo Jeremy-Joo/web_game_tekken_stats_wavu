@@ -481,6 +481,46 @@ button.ghost,
   background: rgba(110, 168, 254, 0.06);
 }
 
+/* 승패 바코드 — 무드 멘트 아래 근거 그림 */
+.wlc {
+  margin: 0.65rem 0 0.9rem;
+}
+
+.wlc-head {
+  display: flex;
+  gap: 0.7rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin: 0 0 0.3rem;
+  font-size: 0.8rem;
+}
+
+.wlc-head b {
+  font-variant-numeric: tabular-nums;
+}
+
+.wlc-head span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.wlc-svg {
+  display: block;
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 4px;
+  background: var(--bg);
+}
+
+/* 승패 색은 사이트 관례(--win/--loss, 요약 카드의 sw/sl 과 동일)를 따른다.
+   초록/빨강은 색약에서 갈리지 않지만 여기서는 위/아래 위치가 본 인코딩이고
+   색은 보강이라 괜찮다 — 색을 못 읽어도 자리로 읽힌다. */
+.wlc-w { fill: var(--win); }
+.wlc-l { fill: var(--loss); }
+.wlc-mid { stroke: var(--border); stroke-width: 1; }
+
 .advice-mood {
   margin: 0 0 0.4rem;
   font-size: 0.95rem;

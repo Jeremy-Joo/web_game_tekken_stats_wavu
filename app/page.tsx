@@ -33,6 +33,7 @@ import {
 } from './jokes';
 import { seasonOf } from './season-jokes';
 import type { QuipFacts } from '@/lib/tekken/quip-facts';
+import WinLossCode from './WinLossCode';
 import RandomPlayer from './RandomPlayer';
 import ShareButton from './ShareButton';
 import VisitorCount from './VisitorCount';
@@ -153,6 +154,8 @@ interface PlayerResponse {
   } | null;
   /** 농담이 인용할 사실 (서버에서 계산해 실어 보낸다). 못 재면 null. */
   quipFacts?: QuipFacts | null;
+  /** 승패 바코드 문자열 (lib/tekken/barcode.ts). 기간·캐릭터 필터를 따른다. */
+  barcode?: string;
   filtered?: {
     start: string | null;
     end: string | null;
@@ -2512,6 +2515,9 @@ export default function Home() {
                         )}
                       </p>
                     )}
+                    {/* 무드 멘트의 근거 — 최근 승패를 시간 순서의 띠로. 멘트를 꺼도
+                        남긴다(조언과 같은 방침 — 이건 유머가 아니라 데이터다). */}
+                    {single.barcode && <WinLossCode seq={single.barcode} lang={lang} />}
                     {/* 조언은 유머와 독립이다 — 유머를 꺼도 이건 볼 수 있어야 한다 */}
                     {showCoach && (
                       <p className="advice-coach">

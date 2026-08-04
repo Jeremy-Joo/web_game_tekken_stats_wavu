@@ -14,6 +14,7 @@ import { normalizePolarisId, WavuError } from '@/lib/wavu/client';
 import { getRecords } from '@/lib/wavu/cache';
 import { filterByDate } from '@/lib/wavu/normalize';
 import { computeFromRecords } from '@/lib/tekken/compute';
+import { buildBarcodeSeq } from '@/lib/tekken/barcode';
 import { seasonSpans } from '@/lib/tekken/seasons';
 import { sessionAdvice } from '@/lib/tekken/advice';
 import { dateKey, type MatchRecord } from '@/lib/tekken/models';
@@ -103,6 +104,9 @@ export async function GET(
       // computeFromRecords 는 필터된 레코드 기준이라 recordCount 도 필터 후 값이다.
       // '전체 이력 건수'는 따로 실어 UI 가 "618 (전체 7,814)" 를 맞게 보여주게 한다.
       totalCount: records.length,
+      // 승패 바코드 — 기간·캐릭터 필터를 따른다(filtered). 전체 이력 기준이면
+      // 화면의 다른 숫자와 어긋나 보인다.
+      barcode: buildBarcodeSeq(filtered),
       charCounts,
       selectedChar: char ?? null,
       stats,
