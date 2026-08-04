@@ -234,7 +234,29 @@ interface TrendPt {
   dt: string;
 }
 
-export function TrendChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLang }) {
+/** 시즌 구간 (lib/tekken/seasons.ts 가 game_version 에서 파생시킨 것). */
+export interface SeasonSpan {
+  key: string;
+  start: string;
+  end: string;
+  games: number;
+}
+
+export function TrendChart({
+  rows,
+  lang = 'ko',
+  seasons,
+}: {
+  rows: Row[];
+  lang?: ChartLang;
+  /**
+   * 시즌 경계에 세로 점선을 긋는다. 가로축이 2년을 넘어가는데 구간 표시가 없으면
+   * "언제부터 달라졌나"를 눈으로 못 짚는다.
+   * **경계 날짜를 여기 적지 않는다** — seasons.ts 가 game_version 에서 파생시키므로
+   * 새 시즌이 열려도 저절로 따라간다(CLAUDE.md: 시즌 경계 날짜를 코드에 다시 적지 말 것).
+   */
+  seasons?: SeasonSpan[];
+}) {
   const { ref, x: hoverX, onMove, clear } = useSvgPointer();
 
   const model = useMemo(() => {
@@ -338,6 +360,30 @@ export function TrendChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLan
             {fmtDate(t)}
           </text>
         ))}
+        {/* 시즌 경계 — 선 아래에 깔아 데이터를 가리지 않게 한다.
+            보이는 구간 밖의 경계는 그리지 않는다(기간 필터를 좁히면 잘려나간다). */}
+        {(seasons ?? []).map((s) => {
+          const t = parseDt(s.start);
+          if (!(t > tMin && t < tMax)) return null;
+          const sx = x(t);
+          return (
+            <g key={s.key}>
+              <line
+                x1={sx}
+                x2={sx}
+                y1={PAD.t}
+                y2={H - PAD.b}
+                stroke={INK_MUTED}
+                strokeWidth="1"
+                strokeDasharray="4 4"
+                opacity="0.55"
+              />
+              <text x={sx + 4} y={PAD.t + 11} fontSize="11" fill={INK_MUTED}>
+                {s.key}
+              </text>
+            </g>
+          );
+        })}
         {shown.map((s, i) => (
           <polyline
             key={s.ch}
@@ -692,14 +738,19 @@ export function SessionChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartL
     const { ticks, lo, hi } = niceTicks(dMin, dMax);
     const plotW = W - PAD.l - PAD.r;
     const band = plotW / sess.length;
-    const barW = Math.min(24, Math.max(2, band - 2));
-    const x = (i: number) => PAD.l + i * band + (band - barW) / 2;
+    // 막대 **폭 = 세션 길이(판수)**. 높이만 쓰면 91판 세션의 -180 과 5판 세션의 -180 이
+    // 같은 크기로 보인다 — 전혀 다른 이야기인데. Games 컬럼이 있는데 안 쓰고 있었다.
+    const gMax = Math.max(...sess.map((s) => s.games), 1);
+    const wMax = Math.min(24, Math.max(3, band - 1));
+    const wMin = Math.max(2, Math.min(4, wMax));
+    const barOf = (g: number) => wMin + (wMax - wMin) * Math.sqrt(Math.min(1, g / gMax));
+    const x = (i: number) => PAD.l + i * band + (band - barOf(sess[i].games)) / 2;
     const y = (v: number) => H - PAD.b - ((v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
-    return { sess, truncated: allSess.length - sess.length, ticks, x, y, band, barW };
+    return { sess, truncated: allSess.length - sess.length, ticks, x, y, band, barOf };
   }, [rows]);
 
   if (!model) return <p className="hint">{CL.noData[lang]}</p>;
-  const { sess, truncated, ticks, x, y, band, barW } = model;
+  const { sess, truncated, ticks, x, y, band, barOf } = model;
   const hover = hoverI !== null ? sess[hoverI] : null;
   const labelEvery = Math.max(1, Math.ceil(sess.length / 6));
 
@@ -737,6 +788,7 @@ export function SessionChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartL
         ))}
         {sess.map((s, i) => {
           const up = s.delta >= 0;
+          const barW = barOf(s.games);
           const y0 = y(0);
           const y1 = y(s.delta);
           const top = up ? y1 : y0;
@@ -798,6 +850,297 @@ export function SessionChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartL
             <b>{hover.endRating.toLocaleString()}</b>
             <span className="tip-ch">{CL.endRating[lang]}</span>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════ 활동 히트맵 ══════════════
+   일별 탭(buildDaily)의 같은 숫자를 달력 격자로 옮긴 것. **새 계산이 없다.**
+
+   왜 표가 아니라 격자인가: 33행짜리 표를 다 읽어도 "몰아서 하는가 / 꾸준한가 /
+   언제 쉬었는가"가 안 잡힌다. 실측(JackFather 909경기)에서 최근 1년 19일 접속,
+   하루 최다 91판, 최장 공백 183일이 격자에서는 한눈에 보였다.
+
+   색 기준이 **절대값인 것이 중요하다.** 처음엔 그 사람의 최댓값을 기준으로 잡았는데,
+   그러면 (1) 몰아서 하는 사람일수록 자기 그림이 밋밋해지고 (2) **사람 간 비교가 안 된다**
+   — 91판과 12판이 같은 색이 될 수 있다. 이 사이트는 여러 명 비교가 기본 기능이라
+   같은 색이 같은 뜻이어야 한다. */
+
+/** 칸 색 경계(판수). 절대 기준 — 남의 기록이나 본인 최댓값에 안 흔들린다. */
+const HEAT_STEPS = [1, 10, 25, 50] as const;
+const HEAT_COLORS = ['#1b1f27', '#1e3a5f', '#2f5e9e', '#4a86d8', '#6ea8fe'];
+
+const HL = {
+  none: { ko: '없음', en: 'none', ja: 'なし' },
+  games: { ko: '판', en: ' games', ja: '戦' },
+  less: { ko: '적음', en: 'less', ja: '少' },
+  more: { ko: '많음', en: 'more', ja: '多' },
+  days: { ko: '플레이한 날', en: 'days played', ja: 'プレイ日' },
+  peak: { ko: '하루 최다', en: 'busiest day', ja: '最多' },
+  streak: { ko: '최장 연속', en: 'longest streak', ja: '最長連続' },
+  gap: { ko: '최장 공백', en: 'longest gap', ja: '最長ブランク' },
+  wd: { ko: ['일', '', '화', '', '목', '', '토'], en: ['S', '', 'T', '', 'T', '', 'S'], ja: ['日', '', '火', '', '木', '', '土'] },
+} as const;
+
+const heatColor = (n: number) => {
+  let i = 0;
+  for (const s of HEAT_STEPS) if (n >= s) i++;
+  return HEAT_COLORS[i];
+};
+
+const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+
+export function ActivityHeatmap({
+  rows,
+  lang = 'ko',
+  /** 며칠치를 보여줄지. 기본 1년. */
+  days = 371,
+}: {
+  rows: Row[];
+  lang?: ChartLang;
+  days?: number;
+}) {
+  const model = useMemo(() => {
+    // buildDaily 는 같은 날에 캐릭터별로 여러 행이 나온다 — 날짜로 합친다.
+    const byDay = new Map<string, number>();
+    let last = '';
+    for (const r of rows) {
+      const d = String(r[0] ?? '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      const g = Number(r[2]) || 0;
+      byDay.set(d, (byDay.get(d) ?? 0) + g);
+      if (d > last) last = d;
+    }
+    if (!last) return null;
+
+    const end = new Date(`${last}T00:00:00Z`);
+    const start = new Date(end.getTime() - (days - 1) * 86400000);
+    // 일요일에서 시작해야 열이 주 단위로 떨어진다.
+    start.setUTCDate(start.getUTCDate() - start.getUTCDay());
+
+    const cells: { d: Date; n: number }[] = [];
+    for (let t = start.getTime(); t <= end.getTime(); t += 86400000) {
+      const d = new Date(t);
+      cells.push({ d, n: byDay.get(dayKey(d)) ?? 0 });
+    }
+
+    let played = 0, peak = 0, streak = 0, run = 0, gap = 0, grun = 0;
+    for (const c of cells) {
+      if (c.n > 0) {
+        played++; run++; grun = 0;
+        if (c.n > peak) peak = c.n;
+        if (run > streak) streak = run;
+      } else {
+        run = 0; grun++;
+        if (grun > gap) gap = grun;
+      }
+    }
+    return { cells, played, peak, streak, gap };
+  }, [rows, days]);
+
+  if (!model) return <p className="hint">{CL.noData[lang]}</p>;
+  const { cells, played, peak, streak, gap } = model;
+
+  const CS = 11, GAP = 3, STEP = CS + GAP;
+  const LEFT = 22, TOP = 16;
+  const weeks = Math.ceil(cells.length / 7);
+  const w = LEFT + weeks * STEP;
+  const h = TOP + 7 * STEP + 2;
+
+  const months: { x: number; m: number }[] = [];
+  cells.forEach((c, i) => {
+    if (c.d.getUTCDay() === 0 && c.d.getUTCDate() <= 7) {
+      months.push({ x: LEFT + Math.floor(i / 7) * STEP, m: c.d.getUTCMonth() + 1 });
+    }
+  });
+
+  const stat = (v: number, label: string, unit = '') => (
+    <div className="heat-stat">
+      <b>{v.toLocaleString()}{unit}</b>
+      <span>{label}</span>
+    </div>
+  );
+
+  return (
+    <div className="chart-root">
+      <div className="heat-scroll">
+        <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} role="img" aria-label="일별 경기 수 히트맵">
+          {months.map((mo, i) => (
+            <text key={i} x={mo.x} y={11} fontSize="11" fill={INK_MUTED}>{mo.m}</text>
+          ))}
+          {HL.wd[lang].map((lb, i) =>
+            lb ? (
+              <text key={i} x={0} y={TOP + i * STEP + CS - 1} fontSize="11" fill={INK_MUTED}>{lb}</text>
+            ) : null,
+          )}
+          {cells.map((c, i) => (
+            <rect
+              key={i}
+              x={LEFT + Math.floor(i / 7) * STEP}
+              y={TOP + (i % 7) * STEP}
+              width={CS}
+              height={CS}
+              rx="2.5"
+              fill={heatColor(c.n)}
+            >
+              <title>{`${dayKey(c.d)} — ${c.n ? c.n + HL.games[lang] : HL.none[lang]}`}</title>
+            </rect>
+          ))}
+        </svg>
+      </div>
+      <div className="heat-legend">
+        <span>{HL.less[lang]}</span>
+        {HEAT_COLORS.map((c, i) => (
+          <i key={c} style={{ background: c }} title={i === 0 ? HL.none[lang] : `${HEAT_STEPS[i - 1]}+`} />
+        ))}
+        <span>{HL.more[lang]}</span>
+      </div>
+      <div className="heat-stats">
+        {stat(played, HL.days[lang])}
+        {stat(peak, HL.peak[lang], HL.games[lang])}
+        {stat(streak, HL.streak[lang])}
+        {stat(gap, HL.gap[lang])}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════ 승단 이력 (계단선) ══════════════
+   표만 있을 때의 문제: 단은 **캐릭터마다 따로 가는데** 표는 한 줄로 섞어 놓는다.
+   Paul 11~14단과 Jack-8 14~28단이 같은 열에 번갈아 나오면 척도가 뒤섞여 안 읽힌다.
+
+   레이팅 추이와 겹치지 않나 — 겹치는 부분이 있다(둘 다 시간축·우상향 경향).
+   대신 이 그림만 답하는 게 있다: **한 단에 얼마나 머물렀나.** 계단의 '폭'이 그것이고,
+   레이팅 선은 계속 움직이므로 그 정보를 못 준다. 표의 '이전 단 경기/승률'도 같은 축이다. */
+
+export function RankChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLang }) {
+  const { ref, x: hoverX, onMove, clear } = useSvgPointer();
+
+  const model = useMemo(() => {
+    // rows: [dt, From, To, Change, my_char, my_rating, PrevGames, PrevWinRate] (최신 우선)
+    const byChar = new Map<string, { t: number; rank: number }[]>();
+    const asc = [...rows].reverse();
+    for (const r of asc) {
+      const [dt, from, to, , ch] = r as [string, number, number, string, string];
+      if (typeof to !== 'number') continue;
+      const t = parseDt(dt);
+      let arr = byChar.get(ch);
+      if (!arr) byChar.set(ch, (arr = [{ t, rank: from }]));
+      arr.push({ t, rank: to });
+    }
+    if (!byChar.size) return null;
+
+    let tMin = Infinity, tMax = -Infinity, rMin = Infinity, rMax = -Infinity;
+    for (const pts of byChar.values())
+      for (const p of pts) {
+        if (p.t < tMin) tMin = p.t;
+        if (p.t > tMax) tMax = p.t;
+        if (p.rank < rMin) rMin = p.rank;
+        if (p.rank > rMax) rMax = p.rank;
+      }
+    if (tMax === tMin) tMax = tMin + 1;
+    // 마지막 단은 지금까지 이어진다 — 선을 오른쪽 끝까지 끈다.
+    const series = [...byChar.entries()]
+      .map(([ch, pts]) => ({ ch, pts: [...pts, { t: tMax, rank: pts[pts.length - 1].rank }] }))
+      .sort((a, b) => b.pts.length - a.pts.length)
+      .slice(0, MAX_SERIES);
+
+    const lo = Math.max(0, rMin - 1);
+    const hi = rMax + 1;
+    const x = (t: number) => PAD.l + ((t - tMin) / (tMax - tMin)) * (W - PAD.l - PAD.r);
+    const y = (v: number) => H - PAD.b - ((v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
+    // 단은 정수라 눈금도 정수로 — 소수 눈금이 나오면 "27.5단"처럼 읽혀 거짓이 된다.
+    const step = Math.max(1, Math.ceil((hi - lo) / 6));
+    const ticks: number[] = [];
+    for (let v = Math.ceil(lo); v <= hi; v += step) ticks.push(v);
+    return { series, x, y, ticks, tMin, tMax };
+  }, [rows]);
+
+  if (!model) return <p className="hint">{CL.noData[lang]}</p>;
+  const { series, x, y, ticks, tMin, tMax } = model;
+
+  const fmtDate = (t: number) => {
+    const d = new Date(t);
+    return `${String(d.getUTCFullYear()).slice(2)}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  };
+  const xTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => tMin + f * (tMax - tMin));
+
+  const hover = (() => {
+    if (hoverX === null) return null;
+    const t = tMin + ((hoverX - PAD.l) / (W - PAD.l - PAD.r)) * (tMax - tMin);
+    const at = series
+      .map((s, i) => {
+        let last: { t: number; rank: number } | null = null;
+        for (const p of s.pts) {
+          if (p.t <= t) last = p;
+          else break;
+        }
+        return last ? { ch: s.ch, color: SERIES[i], rank: last.rank } : null;
+      })
+      .filter((v): v is NonNullable<typeof v> => v !== null)
+      .sort((a, b) => b.rank - a.rank);
+    return at.length ? at : null;
+  })();
+
+  const rankUnit = lang === 'ko' ? '단' : lang === 'ja' ? '段' : '';
+
+  return (
+    <div className="chart-root">
+      <Legend items={series.map((s, i) => ({ label: s.ch, color: SERIES[i] }))} />
+      <svg
+        ref={ref}
+        viewBox={`0 0 ${W} ${H}`}
+        className="trend-svg"
+        onPointerMove={onMove}
+        onPointerLeave={clear}
+        role="img"
+        aria-label="캐릭터별 승단 이력 계단 그래프"
+      >
+        {ticks.map((v) => (
+          <g key={v}>
+            <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke={GRID} strokeWidth="1" />
+            <text x={PAD.l - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill={INK_MUTED}>
+              {v}
+            </text>
+          </g>
+        ))}
+        {xTicks.map((t, i) => (
+          <text
+            key={i}
+            x={x(t)}
+            y={H - 8}
+            textAnchor={i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle'}
+            fontSize="11"
+            fill={INK_MUTED}
+          >
+            {fmtDate(t)}
+          </text>
+        ))}
+        {series.map((s, i) => {
+          // 계단 — 단은 순간 바뀌므로 대각선으로 이으면 "천천히 올랐다"는 거짓이 된다.
+          let d = '';
+          s.pts.forEach((p, k) => {
+            if (k === 0) d += `M ${x(p.t).toFixed(1)} ${y(p.rank).toFixed(1)}`;
+            else d += ` H ${x(p.t).toFixed(1)} V ${y(p.rank).toFixed(1)}`;
+          });
+          return (
+            <path key={s.ch} d={d} fill="none" stroke={SERIES[i]} strokeWidth="2" strokeLinejoin="round" />
+          );
+        })}
+        {hoverX !== null && (
+          <line x1={hoverX} x2={hoverX} y1={PAD.t} y2={H - PAD.b} stroke={INK_MUTED} strokeWidth="1" />
+        )}
+      </svg>
+      {hover && (
+        <div className="chart-tip">
+          {hover.map((r) => (
+            <div key={r.ch} className="tip-row">
+              <span className="legend-line" style={{ background: r.color }} />
+              {r.ch} <b>{r.rank}{rankUnit}</b>
+            </div>
+          ))}
         </div>
       )}
     </div>

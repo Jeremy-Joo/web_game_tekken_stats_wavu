@@ -581,28 +581,36 @@ export function buildRankHistory(df: MatchRecord[]): Table {
     w: number;
   }
   const events: Ev[] = [];
-  let cur = ordered[0].myRank;
-  let segW = 0;
-  let segL = 0;
+
+  // **단은 캐릭터마다 따로 간다.** 하나의 cur 로 전체를 추적하면 캐릭터를 갈아탈 때
+  // 없던 승단·강등이 생긴다 — Jack-8(28단)로 치다 Zafina(27단)로 바꾸면 '▼강등 28→27'
+  // 이 기록됐다. 실측(JackFather 909경기): 58건 중 7건이 이 가짜였다.
+  // 직전 단 성적(segW/segL)도 같은 이유로 캐릭터별로 센다.
+  const cur = new Map<string, { rank: number; w: number; l: number }>();
 
   for (const r of ordered) {
-    if (r.myRank !== cur) {
-      // 직전 단에서의 성적(segW/segL)은 이 경기 **이전**까지다 — 이 경기는 새 단 소속.
+    let c = cur.get(r.myChar);
+    if (!c) {
+      // 이 캐릭의 첫 경기 — 시작 단일 뿐 승단이 아니다.
+      cur.set(r.myChar, { rank: r.myRank, w: 0, l: 0 });
+      c = cur.get(r.myChar)!;
+    } else if (r.myRank !== c.rank) {
+      // 직전 단에서의 성적은 이 경기 **이전**까지다 — 이 경기는 새 단 소속.
       events.push({
         dt: r.dt,
-        from: cur,
+        from: c.rank,
         to: r.myRank,
         char: r.myChar,
         rating: r.myRating,
-        games: segW + segL,
-        w: segW,
+        games: c.w + c.l,
+        w: c.w,
       });
-      cur = r.myRank;
-      segW = 0;
-      segL = 0;
+      c.rank = r.myRank;
+      c.w = 0;
+      c.l = 0;
     }
-    if (r.result === 'W') segW++;
-    else segL++;
+    if (r.result === 'W') c.w++;
+    else c.l++;
   }
 
   for (const x of events.reverse())

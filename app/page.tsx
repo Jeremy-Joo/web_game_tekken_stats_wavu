@@ -9,6 +9,8 @@ import { gaEvent } from '@/lib/ga-events';
 import {
   TrendChart,
   DailyChart,
+  ActivityHeatmap,
+  RankChart,
   SessionChart,
   AdviceChart,
   type DailyStyle,
@@ -222,7 +224,7 @@ const MAX_COMPARE = 4;
 
 const WIN_LOSS_COLS = new Set(['result', 'result_for_a']);
 const ROW_CHUNK = 100; // 긴 표는 이 단위로 끊어 보여준다
-const CHART_TABS = new Set(['trend', 'daily', 'sessions']); // 그래프로 그릴 수 있는 탭
+const CHART_TABS = new Set(['trend', 'daily', 'sessions', 'rank']); // 그래프로 그릴 수 있는 탭
 /**
  * 표 없이 그래프만 보여줄 탭.
  *
@@ -321,12 +323,16 @@ function downloadBlob(content: string, mime: string, filename: string): void {
 
 type DailyGran = 'day' | 'month' | 'quarter' | 'half' | 'year' | 'season';
 
-const DAILY_STYLE_LABEL: Record<DailyStyle, Record<Lang, string>> = {
+/** 일별 탭의 그래프 보기. 'heat' 만 DailyChart 가 아니라 ActivityHeatmap 이 그린다. */
+type DailyView = DailyStyle | 'heat';
+
+const DAILY_STYLE_LABEL: Record<DailyView, Record<Lang, string>> = {
   updown: { ko: '승▲ 패▼', en: 'W▲ L▼', ja: '勝▲ 敗▼' },
   stack: { ko: '누적', en: 'Stacked', ja: '積み上げ' },
   rate: { ko: '승률 라인', en: 'Win rate', ja: '勝率ライン' },
+  heat: { ko: '활동', en: 'Activity', ja: '活動' },
 };
-const DAILY_STYLES: DailyStyle[] = ['updown', 'stack', 'rate'];
+const DAILY_STYLES: DailyView[] = ['updown', 'stack', 'rate', 'heat'];
 
 const GRAN_LABEL: Record<DailyGran, Record<Lang, string>> = {
   day: { ko: '일별', en: 'Daily', ja: '日別' },
@@ -831,7 +837,7 @@ export default function Home() {
   const lastLookupRef = useRef('');
   const [view, setView] = useState<'chart' | 'table'>('chart');
   const [dailyGran, setDailyGran] = useState<DailyGran>('day');
-  const [dailyStyle, setDailyStyle] = useState<DailyStyle>('updown');
+  const [dailyStyle, setDailyStyle] = useState<DailyView>('updown');
   const [charSel, setCharSel] = useState(''); // ''=전체, 그 외=해당 캐릭터만 집계
   const [lang, setLangState] = useState<Lang>('ko');
   const t = makeT(lang);
@@ -2395,7 +2401,8 @@ export default function Home() {
                     ))}
                   </>
                 )}
-                {dailyOpts && dailyOpts.length > 1 && (
+                {/* 활동(히트맵)은 항상 일 단위라 기간 묶음이 아무 일도 안 한다 — 숨긴다. */}
+                {dailyStyle !== 'heat' && dailyOpts && dailyOpts.length > 1 && (
                   <>
                     <span className="gran-sep" />
                     {dailyOpts.map((g) => (
@@ -2412,9 +2419,17 @@ export default function Home() {
               </div>
               {chartOnly || view === 'chart' ? (
                 current.key === 'trend' ? (
-                  <TrendChart rows={current.rows} lang={lang} />
+                  <TrendChart rows={current.rows} lang={lang} seasons={single?.seasons} />
+                ) : current.key === 'rank' ? (
+                  <RankChart rows={current.rows} lang={lang} />
                 ) : current.key === 'daily' ? (
-                  <DailyChart rows={displayTab!.rows} lang={lang} style={dailyStyle} />
+                  dailyStyle === 'heat' ? (
+                    // 히트맵은 항상 일 단위다 — 기간 묶음(rollupDaily)을 적용한
+                    // displayTab 이 아니라 원본 행을 넘긴다.
+                    <ActivityHeatmap rows={current.rows} lang={lang} />
+                  ) : (
+                    <DailyChart rows={displayTab!.rows} lang={lang} style={dailyStyle} />
+                  )
                 ) : (
                   <SessionChart rows={current.rows} lang={lang} />
                 )

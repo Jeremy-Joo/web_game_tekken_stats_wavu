@@ -220,6 +220,35 @@ eq('seasonOf 0', seasonOf(0), '?');
   // 31단 구간은 승단을 만든 경기(1/03 승)부터 강등 직전(1/04 패)까지 2경기 → 50%
   eq('강등 전 31단은 2경기 50%', rk.rows[0].slice(6), [2, 50]);
 }
+// ── 승단 이력: 단은 **캐릭터마다 따로 간다** ──
+// 사고 이력: cur 하나로 전체를 추적해서, 캐릭터를 갈아탈 때 없던 승단·강등이 생겼다.
+// Jack-8(28단)로 치다 Zafina(27단)로 바꾸면 '▼강등 28→27' 이 기록됐다.
+// 실측(JackFather 909경기)에서 58건 중 7건이 이 가짜였다.
+{
+  const df = [
+    rec({ kst: '2026-01-01T10:00', result: 'W', myChar: 'Jack-8', myRank: 28 }),
+    rec({ kst: '2026-01-01T11:00', result: 'W', myChar: 'Zafina', myRank: 27 }), // 캐릭 전환
+    rec({ kst: '2026-01-01T12:00', result: 'L', myChar: 'Zafina', myRank: 27 }),
+    rec({ kst: '2026-01-01T13:00', result: 'W', myChar: 'Jack-8', myRank: 28 }), // 되돌아옴
+  ];
+  const rk = buildRankHistory(df);
+  eq('★ 캐릭터 전환은 승단·강등이 아니다', rk.rows.length, 0);
+}
+{
+  const df = [
+    rec({ kst: '2026-01-01T10:00', result: 'W', myChar: 'Jack-8', myRank: 28 }),
+    rec({ kst: '2026-01-01T11:00', result: 'W', myChar: 'Zafina', myRank: 27 }),
+    rec({ kst: '2026-01-01T12:00', result: 'W', myChar: 'Zafina', myRank: 28 }), // Zafina 만 승단
+    rec({ kst: '2026-01-01T13:00', result: 'L', myChar: 'Jack-8', myRank: 27 }), // Jack-8 만 강등
+  ];
+  const rk = buildRankHistory(df);
+  eq('캐릭터별로 각자 센다', rk.rows.length, 2);
+  eq('최신이 위 — Jack-8 강등', rk.rows[0].slice(1, 5), [28, 27, '▼ 강등', 'Jack-8']);
+  eq('Zafina 승단', rk.rows[1].slice(1, 5), [27, 28, '▲ 승단', 'Zafina']);
+  // Zafina 는 27단에서 1경기(1승) 치고 승단 → 직전 단 성적은 그 1경기다.
+  eq('직전 단 성적도 캐릭터별', rk.rows[1].slice(6), [1, 100]);
+}
+
 // 단 정보가 없으면 빈 표 (숫자 0 을 단으로 오인하지 않는다)
 eq(
   '단 기록이 없으면 빈 표',
