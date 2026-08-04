@@ -403,7 +403,7 @@ function Legend({
 
 const CLG: Record<string, Record<ChartLang, string>> = {
   clear: { ko: '전체 해제', en: 'Clear all', ja: '全解除' },
-  reset: { ko: '기본', en: 'Default', ja: '既定' },
+  reset: { ko: '기본값', en: 'Default', ja: '既定' },
   capped: { ko: '먼저 켜둔 것을 끄세요', en: 'Turn one off first', ja: '先に一つ消してください' },
   none: {
     ko: '표시할 캐릭터를 하나 이상 켜세요.',
@@ -1170,13 +1170,14 @@ const HEAT_COLORS = ['#1b1f27', '#1e3a5f', '#2f5e9e', '#4a86d8', '#6ea8fe'];
 
 const HL = {
   none: { ko: '없음', en: 'none', ja: 'なし' },
-  games: { ko: '판', en: ' games', ja: '戦' },
+  games: { ko: '경기', en: ' games', ja: '戦' },
   less: { ko: '적음', en: 'less', ja: '少' },
   more: { ko: '많음', en: 'more', ja: '多' },
   days: { ko: '플레이한 날', en: 'days played', ja: 'プレイ日' },
   peak: { ko: '하루 최다', en: 'busiest day', ja: '最多' },
   streak: { ko: '최장 연속', en: 'longest streak', ja: '最長連続' },
   gap: { ko: '최장 공백', en: 'longest gap', ja: '最長ブランク' },
+  dayUnit: { ko: '일', en: 'd', ja: '日' },
   wd: { ko: ['일', '', '화', '', '목', '', '토'], en: ['S', '', 'T', '', 'T', '', 'S'], ja: ['日', '', '火', '', '木', '', '土'] },
 } as const;
 
@@ -1294,10 +1295,10 @@ export function ActivityHeatmap({
         <span>{HL.more[lang]}</span>
       </div>
       <div className="heat-stats">
-        {stat(played, HL.days[lang])}
+        {stat(played, HL.days[lang], HL.dayUnit[lang])}
         {stat(peak, HL.peak[lang], HL.games[lang])}
-        {stat(streak, HL.streak[lang])}
-        {stat(gap, HL.gap[lang])}
+        {stat(streak, HL.streak[lang], HL.dayUnit[lang])}
+        {stat(gap, HL.gap[lang], HL.dayUnit[lang])}
       </div>
     </div>
   );
@@ -1526,12 +1527,12 @@ function SessionScatter({
   // 캐릭터별 상세에서는 x 가 '그 캐릭으로 친 판수'다 — 라벨이 그걸 말해야 한다.
   const gamesLbl = selectedChar
     ? lang === 'ko'
-      ? `${selectedChar} 로 친 판수`
+      ? `${selectedChar} 경기 수`
       : lang === 'ja'
         ? `${selectedChar} での試合数`
         : `games as ${selectedChar}`
     : lang === 'ko'
-      ? '세션 판수'
+      ? '세션 경기 수'
       : lang === 'ja'
         ? 'セッション試合数'
         : 'games in session';
@@ -1544,10 +1545,10 @@ function SessionScatter({
           ? `${sess.length}セッション — 傾向を出すには不足です (${MIN_SCATTER}以上)`
           : `${sess.length} sessions — too few for a trend (need ${MIN_SCATTER})`
       : lang === 'ko'
-        ? `추세: 1판 늘 때 ${slope >= 0 ? '+' : ''}${slope.toFixed(2)}`
+        ? `추세: 1경기 늘 때 레이팅 ${slope >= 0 ? '+' : ''}${slope.toFixed(2)}`
         : lang === 'ja'
-          ? `傾向: 1試合ごとに ${slope >= 0 ? '+' : ''}${slope.toFixed(2)}`
-          : `Trend: ${slope >= 0 ? '+' : ''}${slope.toFixed(2)} per extra game`;
+          ? `傾向: 1試合ごとにレート ${slope >= 0 ? '+' : ''}${slope.toFixed(2)}`
+          : `Trend: ${slope >= 0 ? '+' : ''}${slope.toFixed(2)} rating per extra game`;
 
   const charNote = selectedChar
     ? lang === 'ko'

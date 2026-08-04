@@ -246,6 +246,30 @@ const D = {
   totalRows: { ko: '행', en: ' rows', ja: '行' },
   loadMore: { ko: '더 보기', en: 'Load more', ja: 'もっと見る' },
   noRows: { ko: '표시할 행이 없습니다.', en: 'No rows to display.', ja: '表示する行がありません。' },
+  topPct: {
+    ko: (v: number) => `상위 ${v}%`,
+    en: (v: number) => `top ${v}%`,
+    ja: (v: number) => `上位 ${v}%`,
+  },
+  // 표본 밖은 단정하지 않는다 — 표본 최고보다 높은 사람에게 '상위 0%'라고 할 수 없다.
+  topPctHigh: { ko: '상위 0.1% 이내', en: 'top 0.1%', ja: '上位0.1%以内' },
+  topPctHint: {
+    ko: (n: number, at: string) =>
+      `${at} 기준 랭크를 돌던 플레이어 ${n.toLocaleString()}명 중 위치입니다. 게임 보유자 전체가 아니라 활동 중인 사람 기준입니다.`,
+    en: (n: number, at: string) =>
+      `Position among ${n.toLocaleString()} players active in ranked as of ${at} — not all owners, only active players.`,
+    ja: (n: number, at: string) =>
+      `${at} 時点でランクを回していたプレイヤー ${n.toLocaleString()}人中の位置です。保有者全体ではなく活動中のプレイヤー基準です。`,
+  },
+  pinHint: {
+    ko: '다음 방문에 이 계정이 자동으로 조회됩니다 (이 브라우저에만 저장)',
+    en: 'This account loads automatically on your next visit (stored in this browser only)',
+    ja: '次回訪問時にこのアカウントが自動照会されます (このブラウザにのみ保存)',
+  },
+  pinSet: { ko: '내 계정으로 고정', en: 'Pin as my account', ja: '自分のアカウントに固定' },
+  pinnedHere: { ko: '내 계정', en: 'my account', ja: '自分のアカウント' },
+  pinnedLabel: { ko: '내 계정:', en: 'My account:', ja: '自分のアカウント:' },
+  unpin: { ko: '해제', en: 'Unpin', ja: '解除' },
   recent: { ko: '최근 조회', en: 'Recent', ja: '最近の照会' },
   clearBtn: { ko: '지우기', en: 'Clear', ja: 'クリア' },
   sumToday: { ko: '오늘', en: 'Today', ja: '今日' },
@@ -333,7 +357,7 @@ const D = {
     ja: (off: string) => `現地時間 (${off})`,
   },
   sessBars: { ko: '세션별', en: 'By session', ja: 'セッション別' },
-  sessLength: { ko: '판수 대비', en: 'By length', ja: '試合数比' },
+  sessLength: { ko: '세션 길이별', en: 'By length', ja: 'セッション長別' },
   trendByGame: { ko: '경기 순번', en: 'By game', ja: '試合順' },
   trendByDate: { ko: '날짜', en: 'By date', ja: '日付' },
   tzKst: { ko: '한국 시간 (UTC+9)', en: 'Korea time (UTC+9)', ja: '韓国時間 (UTC+9)' },

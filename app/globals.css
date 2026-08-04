@@ -1241,3 +1241,30 @@ footer a {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* 내 계정 고정.
+   칩마다 버튼을 붙이지 않는다 — i18n.ts 의 "아이콘은 두지 않는다: 버튼이 여럿
+   붙어 있는 줄에서 시선이 분산되고 줄바꿈을 예측할 수 없다" 와 같은 문제가 된다.
+   고정된 하나만 줄로 밝히고, 고정하는 동작은 조회 결과 쪽에 둔다. */
+.pin-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.pin-line b {
+  color: var(--text);
+}
+.pin-set {
+  margin-left: 8px;
+}
+.pin-state {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 7px;
+}

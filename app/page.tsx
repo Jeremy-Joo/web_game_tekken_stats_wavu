@@ -28,6 +28,11 @@ import {
 import { looksLikeId, toPolarisId } from '@/lib/wavu/token';
 import { COMPARE_MIN_GAMES } from '@/lib/tekken/compare';
 import {
+  ratingPercentile,
+  RATING_BASELINE_N,
+  RATING_BASELINE_AT,
+} from '@/lib/tekken/rating-percentile';
+import {
   pickJoke,
   pickCoach,
   pickCondition,
@@ -83,6 +88,8 @@ async function readJson<T>(res: Response): Promise<T> {
 
 const QUIPS_KEY = 'tkwavu_quips';
 const COACH_KEY = 'tkwavu_coach';
+/** 내 계정 고정 (브라우저에만 저장). */
+const PIN_KEY = 'tkwavu_pin';
 
 /**
  * 비교 결과 멘트에 쓸 값을 뽑는다. 전부 **개요 탭에 이미 있는 숫자**다 —
@@ -331,7 +338,7 @@ const DAILY_STYLE_LABEL: Record<DailyView, Record<Lang, string>> = {
   updown: { ko: '승▲ 패▼', en: 'W▲ L▼', ja: '勝▲ 敗▼' },
   stack: { ko: '누적', en: 'Stacked', ja: '積み上げ' },
   rate: { ko: '승률 라인', en: 'Win rate', ja: '勝率ライン' },
-  heat: { ko: '활동', en: 'Activity', ja: '活動' },
+  heat: { ko: '달력', en: 'Calendar', ja: 'カレンダー' },
 };
 const DAILY_STYLES: DailyView[] = ['updown', 'stack', 'rate', 'heat'];
 
@@ -897,6 +904,26 @@ export default function Home() {
     remember(COACH_KEY, v);
   };
 
+  /**
+   * 내 계정 고정.
+   *
+   * 최근 조회 목록은 있었지만 **매번 다시 눌러야 했다.** 자기 전적을 보러 오는
+   * 사람이 대부분인데 들어올 때마다 같은 동작을 반복하게 만들 이유가 없다.
+   * 고정해두면 다음 방문에 자동으로 조회된다. 브라우저에만 남는다(서버 저장 없음).
+   */
+  const [pinned, setPinnedState] = useState<Favorite | null>(null);
+  /** 복원 직후 한 번만 자동 조회한다. run 이 아직 정의되기 전이라 ref 로 넘긴다. */
+  const autoRunRef = useRef<string | null>(null);
+  const setPinned = (f: Favorite | null) => {
+    setPinnedState(f);
+    try {
+      if (f) localStorage.setItem(PIN_KEY, JSON.stringify(f));
+      else localStorage.removeItem(PIN_KEY);
+    } catch {
+      /* ignore */
+    }
+  };
+
   // 최근 조회한 플레이어 (이 브라우저에만 저장, 최대 8명)
   const [recent, setRecent] = useState<Favorite[]>([]);
   const pushRecent = (items: Favorite[]) => {
@@ -925,6 +952,18 @@ export default function Home() {
       if (rc) {
         const arr = JSON.parse(rc) as Favorite[];
         if (Array.isArray(arr)) setRecent(arr.filter((f) => f && f.id).slice(0, 8));
+      }
+      const pin = localStorage.getItem(PIN_KEY);
+      if (pin) {
+        const f = JSON.parse(pin) as Favorite;
+        if (f && f.id) {
+          setPinnedState(f);
+          // 주소로 들어온 조회(?id=)가 있으면 그쪽이 우선이다 — 공유 링크를 덮지 않는다.
+          if (!new URLSearchParams(window.location.search).get('id')) {
+            setId(f.id);
+            autoRunRef.current = f.id;
+          }
+        }
       }
     } catch {
       /* ignore */
@@ -1362,6 +1401,14 @@ export default function Home() {
    * - replace: 조회 중 모호했던 항목을 바꿔 즉시 재조회
    * - append: 비교 목록에 덧붙이기만 (계속 검색해서 더 추가할 수 있게 조회는 안 함)
    */
+  // 고정해둔 계정을 복원 직후 한 번 자동 조회한다.
+  useEffect(() => {
+    const target = autoRunRef.current;
+    if (!target) return;
+    autoRunRef.current = null;
+    run(target);
+  }, [run]);
+
   /** 최근 조회 칩 → 모드에 맞게 입력칸 채우기 (단일=교체, 비교=덧붙임). */
   const fillFromChip = (f: Favorite) => {
     if (mode === 'single') {
@@ -2044,6 +2091,20 @@ export default function Home() {
           {t('coachOpt')}
         </label>
 
+        {/* 고정된 계정은 **한 줄로만** 밝힌다.
+            칩마다 버튼을 붙이면 버튼이 여럿인 줄이 되어 i18n.ts 의
+            "아이콘은 두지 않는다 — 시선이 분산되고 줄바꿈을 예측할 수 없다" 와
+            같은 문제가 생긴다. 고정하는 동작은 조회 결과 쪽에 둔다 —
+            방금 본 사람을 고정하는 게 실제 흐름이다. */}
+        {pinned && (
+          <p className="pin-line">
+            {t('pinnedLabel')} <b>{pinned.name}</b>
+            <button className="ghost small" onClick={() => setPinned(null)}>
+              {t('unpin')}
+            </button>
+          </p>
+        )}
+
         {recent.length > 0 && (
           <div className="fav-chips recent-chips">
             <span className="hint" style={{ margin: 0 }}>{t('recent')}:</span>
@@ -2061,6 +2122,7 @@ export default function Home() {
               className="ghost small"
               onClick={() => {
                 setRecent([]);
+                setPinned(null);
                 try {
                   localStorage.removeItem('tkwavu_recent');
                 } catch {
@@ -2200,6 +2262,20 @@ export default function Home() {
               ? ` (${single.filtered?.start ?? ''} ~ ${single.filtered?.end ?? ''}, ${t('totalSuffix')} ${single.totalCount})`
               : ''}
             {single.firstDt ? ` · ${single.firstDt.slice(0, 10)} ~ ${single.lastDt?.slice(0, 10)}` : ''}
+            {/* 방금 조회한 사람을 그 자리에서 고정한다. 비교 모드에는 안 나온다. */}
+            {pinned?.id === single.polarisId ? (
+              <span className="pin-state">{t('pinnedHere')}</span>
+            ) : (
+              <button
+                className="ghost small pin-set"
+                onClick={() =>
+                  setPinned({ id: single.polarisId, name: single.myName || single.polarisId })
+                }
+                title={t('pinHint')}
+              >
+                {t('pinSet')}
+              </button>
+            )}
           </p>
           {summary && (
             <div className="sum-card">
@@ -2228,7 +2304,24 @@ export default function Home() {
               {summary.rating !== null && summary.rating > 0 && (
                 <div className="sum-block">
                   <span className="sum-label">{t('sumRating')}</span>
-                  <span className="sum-value">{summary.rating.toLocaleString()}</span>
+                  <span className="sum-value">
+                    {summary.rating.toLocaleString()}
+                    {/* 상위 몇 % — 무엇 대비인지를 툴팁에 같이 낸다.
+                        표본 밖(최고/최저)이면 단정하지 않고 '이상/이하'로 쓴다. */}
+                    {(() => {
+                      const p = ratingPercentile(summary.rating);
+                      if (!p) return null;
+                      // 표본 최저 미만에는 배지를 안 낸다 — 낮은 사람 옆에
+                      // '하위권' 같은 딱지를 붙일 이유가 없고, 정확하지도 않다.
+                      if (p.clamped === 'low') return null;
+                      const label = p.clamped === 'high' ? t('topPctHigh') : t('topPct')(p.top);
+                      return (
+                        <span className="sum-pct" title={t('topPctHint')(RATING_BASELINE_N, RATING_BASELINE_AT)}>
+                          {label}
+                        </span>
+                      );
+                    })()}
+                  </span>
                 </div>
               )}
               {summary.games === 0 && summary.lastDt && (
