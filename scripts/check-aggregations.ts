@@ -220,8 +220,18 @@ eq('seasonOf 0', seasonOf(0), '?');
   const rk = buildRankHistory(df);
   eq('단이 바뀐 횟수만큼 행', rk.rows.length, 2);
   eq('최신 사건이 위', rk.rows[0][0], '2026-01-05 10:00');
-  eq('★ 강등도 기록된다', rk.rows[0].slice(1, 4), [31, 30, '▼ 강등']);
-  eq('승단도 기록된다', rk.rows[1].slice(1, 4), [30, 31, '▲ 승단']);
+  eq('★ 강등도 기록된다', rk.rows[0].slice(1, 4), [
+    'God of Destruction II',
+    'God of Destruction I',
+    '▼ 강등',
+  ]);
+  // 이름 사전순이면 'God of Destruction II' < 'God of Destruction I' 라 거꾸로 뒤집힌다.
+  // 판정은 숫자로 하므로 여기가 ▲ 여야 맞다 (ranks.ts / buildRankHistory 주석 참조).
+  eq('승단도 기록된다', rk.rows[1].slice(1, 4), [
+    'God of Destruction I',
+    'God of Destruction II',
+    '▲ 승단',
+  ]);
   // 30단에서 2경기 1승 1패 → 50%. 승단을 만든 그 경기는 새 단 몫이라 안 센다.
   eq('직전 단 성적 (경기/승률)', rk.rows[1].slice(6), [2, 50]);
   // 31단 구간은 승단을 만든 경기(1/03 승)부터 강등 직전(1/04 패)까지 2경기 → 50%
@@ -250,8 +260,18 @@ eq('seasonOf 0', seasonOf(0), '?');
   ];
   const rk = buildRankHistory(df);
   eq('캐릭터별로 각자 센다', rk.rows.length, 2);
-  eq('최신이 위 — Jack-8 강등', rk.rows[0].slice(1, 5), [28, 27, '▼ 강등', 'Jack-8']);
-  eq('Zafina 승단', rk.rows[1].slice(1, 5), [27, 28, '▲ 승단', 'Zafina']);
+  eq('최신이 위 — Jack-8 강등', rk.rows[0].slice(1, 5), [
+    'Tekken God Supreme',
+    'Tekken God',
+    '▼ 강등',
+    'Jack-8',
+  ]);
+  eq('Zafina 승단', rk.rows[1].slice(1, 5), [
+    'Tekken God',
+    'Tekken God Supreme',
+    '▲ 승단',
+    'Zafina',
+  ]);
   // Zafina 는 27단에서 1경기(1승) 치고 승단 → 직전 단 성적은 그 1경기다.
   eq('직전 단 성적도 캐릭터별', rk.rows[1].slice(6), [1, 100]);
 }

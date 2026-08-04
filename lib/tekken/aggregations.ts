@@ -10,6 +10,7 @@ import type { MatchRecord } from './models';
 import { Table } from './table';
 import { formatDt, formatDtMin, dateKey } from './models';
 import { stageName } from '@/lib/wavu/stages';
+import { rankName } from '@/lib/wavu/ranks';
 
 /** C# Math.Round / py round 와 같은 은행가 반올림(half-to-even). */
 export function roundTo(value: number, digits: number): number {
@@ -661,11 +662,14 @@ export function buildRankHistory(df: MatchRecord[]): Table {
     else c.l++;
   }
 
+  // 단은 이름으로 싣는다 — `27 → 28` 은 단을 외우고 있어야 읽힌다(ranks.ts).
+  // 승단/강등 판정은 이름이 아니라 **숫자로** 남긴다. 이름 비교는 사전순이라
+  // 'God of Destruction II' < 'God of Destruction I' 처럼 거꾸로 뒤집힌다.
   for (const x of events.reverse())
     t.add(
       formatDt(x.dt).slice(0, 16),
-      x.from,
-      x.to,
+      rankName(x.from),
+      rankName(x.to),
       x.to > x.from ? '▲ 승단' : '▼ 강등',
       x.char,
       x.rating,

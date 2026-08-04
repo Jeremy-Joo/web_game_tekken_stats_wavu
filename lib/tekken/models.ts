@@ -28,7 +28,7 @@ export interface MatchRecord {
   myRating: number;
   myDelta: number; // rating_change
   myPower: number; // 테켄 파워
-  myRank: number; // 단(숫자) — wavu 가 이름을 노출하지 않아 숫자 그대로 둔다
+  myRank: number; // 계급(숫자 0~37). 화면에 낼 때 이름을 붙인다 — lib/wavu/ranks.ts
 
   score: string; // "3-1"
   myRounds: number;

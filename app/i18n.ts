@@ -564,11 +564,13 @@ export const COL_I18N: Record<string, Entry> = {
   Unit: { ko: '구분', en: 'Group', ja: '区分' },
   Bucket: { ko: '항목', en: 'Item', ja: '項目' },
   // 승단 이력
-  From: { ko: '이전 단', en: 'From', ja: '前の段位' },
-  To: { ko: '바뀐 단', en: 'To', ja: '後の段位' },
+  // '단' 이 아니라 '계급'이다 — 29단 위(God of Destruction I~∞)는 단이 아니라서
+  // 'God of Destruction I' 옆에 '이전 단'이 붙으면 어긋나 보인다. 일본어 段位 도 같다.
+  From: { ko: '이전 계급', en: 'From', ja: '前のランク' },
+  To: { ko: '바뀐 계급', en: 'To', ja: '後のランク' },
   Change: { ko: '변동', en: 'Change', ja: '変動' },
-  PrevGames: { ko: '이전 단 경기', en: 'Games at prev', ja: '前段位の試合' },
-  'PrevWinRate(%)': { ko: '이전 단 승률(%)', en: 'Prev WR(%)', ja: '前段位勝率(%)' },
+  PrevGames: { ko: '이전 계급 경기', en: 'Games at prev', ja: '前ランクの試合' },
+  'PrevWinRate(%)': { ko: '이전 계급 승률(%)', en: 'Prev WR(%)', ja: '前ランク勝率(%)' },
   player: { ko: '플레이어', en: 'Player', ja: 'プレイヤー' },
   a_char: { ko: 'A 캐릭터', en: 'A char', ja: 'Aキャラ' },
   b_char: { ko: 'B 캐릭터', en: 'B char', ja: 'Bキャラ' },

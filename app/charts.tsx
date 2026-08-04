@@ -15,6 +15,7 @@
 // - 축·격자·라벨 텍스트는 데이터색을 입지 않는다(잉크 토큰만).
 
 import { useMemo, useRef, useState } from 'react';
+import { rankIndex, rankName } from '@/lib/wavu/ranks';
 
 export type ChartLang = 'ko' | 'en' | 'ja';
 
@@ -42,6 +43,8 @@ const GOOD = '#0ca30c'; // 승 / 레이팅 상승
 const CRIT = '#d03b3b'; // 패 / 레이팅 하락
 const INK_MUTED = '#898781';
 const GRID = '#2c2c2a';
+/** 그림 영역 배경. 격자선 위에 얹은 글자에 테두리로 깔아 선과 안 겹쳐 보이게 한다. */
+const PLOT_BG = '#16161a';
 const BASELINE = '#383835';
 const SURFACE = '#171a21';
 
@@ -1306,7 +1309,7 @@ export function ActivityHeatmap({
 
 /* ══════════════ 승단 이력 (계단선) ══════════════
    표만 있을 때의 문제: 단은 **캐릭터마다 따로 가는데** 표는 한 줄로 섞어 놓는다.
-   Paul 11~14단과 Jack-8 14~28단이 같은 열에 번갈아 나오면 척도가 뒤섞여 안 읽힌다.
+   Paul 11~14 계급과 Jack-8 14~28 계급이 같은 열에 번갈아 나오면 척도가 뒤섞여 안 읽힌다.
 
    레이팅 추이와 겹치지 않나 — 겹치는 부분이 있다(둘 다 시간축·우상향 경향).
    대신 이 그림만 답하는 게 있다: **한 단에 얼마나 머물렀나.** 계단의 '폭'이 그것이고,
@@ -1317,11 +1320,17 @@ export function RankChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLang
 
   const base = useMemo(() => {
     // rows: [dt, From, To, Change, my_char, my_rating, PrevGames, PrevWinRate] (최신 우선)
+    //
+    // From/To 는 **이름**이다(aggregations.buildRankHistory). 세로축은 숫자라야
+    // 그릴 수 있으므로 되돌린다 — 표에 숫자 열을 따로 더하면 사람이 안 보는 열이
+    // 둘 늘고 엑셀에도 따라 들어간다. 이름이 전부 서로 달라 되돌릴 수 있다.
     const byChar = new Map<string, { t: number; rank: number }[]>();
     const asc = [...rows].reverse();
     for (const r of asc) {
-      const [dt, from, to, , ch] = r as [string, number, number, string, string];
-      if (typeof to !== 'number') continue;
+      const [dt, fromName, toName, , ch] = r as [string, string, string, string, string];
+      const from = rankIndex(String(fromName));
+      const to = rankIndex(String(toName));
+      if (from == null || to == null) continue;
       const t = parseDt(dt);
       let arr = byChar.get(ch);
       if (!arr) byChar.set(ch, (arr = [{ t, rank: from }]));
@@ -1394,7 +1403,8 @@ export function RankChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLang
     return at.length ? at : null;
   })();
 
-  const rankUnit = lang === 'ko' ? '단' : lang === 'ja' ? '段' : '';
+  // 세로축도 이름을 쓰므로 번호는 안 붙인다 — 축과 눈으로 이어지기 때문이다.
+  const rankLabel = (rank: number) => rankName(rank);
 
   return (
     <div className="chart-root">
@@ -1419,11 +1429,26 @@ export function RankChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLang
         role="img"
         aria-label="캐릭터별 승단 이력 계단 그래프"
       >
+        {/* 눈금 이름을 **격자선 위 안쪽**에 얹는다. 왼쪽 여백(PAD.l=46)에 두면
+            'God of Destruction VII' 이 안 들어가는데, PAD 는 이 파일의 차트 전부가
+            같이 쓰는 값이라 여기 하나 때문에 넓힐 수 없다. 안쪽에 두면 가로를
+            안 먹는다.
+            계단선이 정수 위에 정확히 놓이므로 글자가 선과 겹칠 수 있다 —
+            paintOrder 로 배경색 테두리를 먼저 칠해 글자를 읽히게 한다. */}
         {ticks.map((v) => (
           <g key={v}>
             <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke={GRID} strokeWidth="1" />
-            <text x={PAD.l - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill={INK_MUTED}>
-              {v}
+            <text
+              x={PAD.l + 4}
+              y={y(v) - 4}
+              textAnchor="start"
+              fontSize="10"
+              fill={INK_MUTED}
+              stroke={PLOT_BG}
+              strokeWidth="3"
+              paintOrder="stroke"
+            >
+              {rankName(v)}
             </text>
           </g>
         ))}
@@ -1459,7 +1484,7 @@ export function RankChart({ rows, lang = 'ko' }: { rows: Row[]; lang?: ChartLang
           {hover.map((r) => (
             <div key={r.ch} className="tip-row">
               <span className="legend-line" style={{ background: r.color }} />
-              {r.ch} <b>{r.rank}{rankUnit}</b>
+              {r.ch} <b>{rankLabel(r.rank)}</b>
             </div>
           ))}
         </div>
