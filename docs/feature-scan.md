@@ -19,7 +19,7 @@
 > 셋을 한 사람 데이터로 합쳐보니 **서로가 서로의 근거가 되는 게 확인됐다** — 4-C 참조.
 > 이게 이 문서의 결론을 바꿨다: 셋은 별개 기능이 아니라 **한 묶음**이다.
 
-관련 문서: [advice-text.md](advice-text.md) · [joke-themes.md](joke-themes.md) · [mood-baseline.md](mood-baseline.md)
+관련 문서: [population-features.md](population-features.md) · [advice-text.md](advice-text.md) · [joke-themes.md](joke-themes.md) · [mood-baseline.md](mood-baseline.md)
 
 ---
 
@@ -92,7 +92,7 @@ CLAUDE.md 는 "스테이지 이름 매핑이 없어 만들지 말 것"으로 막
 | 레이팅 그래프 구간 표시 | ✅ 시즌 경계선 | 조사 시점엔 없었다 → 4장 ② |
 | 퍼센타일 배지 ("상위 12%") | ❌ **만들었다가 뺐다** | → 5장 |
 | 내 계정 고정 | ✅ | 조사 시점엔 최근 조회뿐이었다 → 5장 |
-| 리더보드 | ❌ | **안 만든다** → 6장 |
+| 리더보드 | ❌ | **안 만든다** → 6장. 2026-08-04 실측으로 재확인 → [population-features.md](population-features.md) |
 | 실시간 오버레이 | ❌ | 보류 (`obs_scoreboard_py` 와 연결 여지는 있음) |
 
 **이미 갖고 있는데 저들에게 없는 것** — 2026-08-04 조사로 확인한 순서다.
@@ -346,7 +346,8 @@ wavu 는 이름을 어디에도 안 준다(플레이어 HTML 560KB·API 문서 �
 
 | | 이유 |
 |---|---|
-| 리더보드 · 캐릭터 메타 통계 | 전수 수집 필요. wavu 구조상 불가능하고 ewgf 가 이미 잘 한다 |
+| 리더보드 | **불가능하다** — 표본은 분포의 모양은 보존해도 꼭짓점은 보존하지 않는다. 2026-08-04 실측 → [population-features.md](population-features.md) 2장 |
+| ~~캐릭터 메타 통계~~ | **위 줄에 묶어둔 게 잘못이었다.** 리더보드와 다른 종류다 — 표본으로 되고, 41,000경기면 수렴한다. 막고 있는 건 수집이 아니라 **단 이름 매핑**이다 → [population-features.md](population-features.md) 3장 |
 | 실시간 매치 감지 ("지금 게임 중") | 폴링이 필요해 **Blob 정지 사태와 같은 운영 비용 문제를 다시 만든다** |
 | 프리미엄 과금 | tracker.gg 방식. 이 규모에선 관리 비용만 생긴다 |
 
