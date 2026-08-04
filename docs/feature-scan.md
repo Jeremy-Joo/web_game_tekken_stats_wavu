@@ -19,7 +19,7 @@
 > 셋을 한 사람 데이터로 합쳐보니 **서로가 서로의 근거가 되는 게 확인됐다** — 4-C 참조.
 > 이게 이 문서의 결론을 바꿨다: 셋은 별개 기능이 아니라 **한 묶음**이다.
 
-관련 문서: [population-features.md](population-features.md) · [advice-text.md](advice-text.md) · [joke-themes.md](joke-themes.md) · [mood-baseline.md](mood-baseline.md)
+관련 문서: [sitemap.md](sitemap.md) · [population-features.md](population-features.md) · [advice-text.md](advice-text.md) · [joke-themes.md](joke-themes.md) · [mood-baseline.md](mood-baseline.md)
 
 ---
 

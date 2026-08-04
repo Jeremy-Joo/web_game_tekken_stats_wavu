@@ -10,7 +10,7 @@
 | **리더보드** | **불가능. 포기한다** | 표본으로는 최상위를 관측할 수 없다 → 2장 |
 | **인구 통계 (픽률·단 분포)** | **가능하다. 다만 조건이 있다** | 40,000경기면 값이 수렴한다 → 3장 |
 
-관련 문서: [feature-scan.md](feature-scan.md) · [advice-text.md](advice-text.md)
+관련 문서: [sitemap.md](sitemap.md) · [feature-scan.md](feature-scan.md) · [advice-text.md](advice-text.md)
 
 > **이 문서를 계속 갱신한다.** 시즌이 바뀌거나 wavu API 가 변하면 아래 수치가 통째로
 > 낡는다. 재측정 방법은 각 장에 적어뒀다.
