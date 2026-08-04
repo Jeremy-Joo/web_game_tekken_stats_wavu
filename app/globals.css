@@ -718,6 +718,31 @@ button.ghost,
   font-weight: 700;
 }
 
+/* 맞대결 신호 — 비교 결과 위 한 줄. 사실을 말하는 줄이라 멘트(.condition)와
+   구분되게 테두리를 준다. 줄 전체가 '맞대결 상세' 탭으로 가는 버튼이다. */
+.h2h-hint {
+  margin: 0 0 0.6rem;
+}
+
+.h2h-hint button {
+  all: unset;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(110, 168, 254, 0.08);
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.h2h-hint button:hover {
+  border-color: var(--accent);
+}
+
 /* ── 표: 가로 스크롤 + 첫 열 고정 ── */
 .table-wrap {
   overflow-x: auto;
@@ -792,12 +817,35 @@ td a.plink:hover {
 }
 
 /* '나와 비교' 열 — 아이콘 하나짜리라 폭을 최소로 두고,
-   전적 목록처럼 열이 많은 표에서 다른 열을 밀어내지 않게 한다. */
+   전적 목록처럼 열이 많은 표에서 다른 열을 밀어내지 않게 한다.
+
+   맨 끝 열일 때(= 전적 목록)만 **오른쪽에 고정한다.** 폰(375px)에서 표가 914px 이라
+   이 열이 아홉 칸 뒤에 숨어 담으려면 매번 끝까지 밀어야 했다. 첫 열을 왼쪽에
+   붙여둔 것과 같은 처리이고, 표가 화면에 다 들어가는 폭에서는 아무 차이가 없다.
+
+   **`:last-child` 가 조건인 이유**: 상대전적에서는 이 열이 아홉 중 셋째다.
+   가운데 열에 `right:0` 을 걸면 스크롤할 때 오른쪽 열들 위로 떠서 겹친다.
+   게다가 거기서는 스크롤 없이도 이미 보인다(실측 x 257~321 / 화면 375). */
 th.cmp-col,
 td.cmp-col {
   width: 1%;
   white-space: nowrap;
   text-align: center;
+}
+
+th.cmp-col:last-child,
+td.cmp-col:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+}
+
+/* 머리글은 위(sticky top)와 오른쪽에 동시에 걸리므로 본문 칸보다 위에 와야 한다 */
+thead th.cmp-col:last-child {
+  z-index: 3;
+  background: #1d212b;
 }
 
 td.cmp-col button.cmp-btn {
@@ -816,6 +864,17 @@ td.cmp-col button.cmp-btn:hover {
 /* 이미 담긴 상대 — 다시 눌러도 중복으로 담기지 않는다는 걸 표시로 알린다 */
 td.cmp-col button.cmp-btn.on {
   color: var(--win);
+}
+
+@media (max-width: 480px) {
+  /* 좁은 화면에서는 좌우 여백만 줄인다.
+     머리글을 접어 폭을 줄여봤더니(72px→24px) 글자가 세로로 서면서
+     **머리글 줄 높이가 세 배**가 됐다 — 폭 48px 아끼고 높이 46px 을 낸 셈이라 되돌렸다. */
+  th.cmp-col,
+  td.cmp-col {
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
+  }
 }
 
 /* 비교 표 우위 하이라이트 */
