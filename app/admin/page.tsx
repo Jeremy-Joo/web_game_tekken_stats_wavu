@@ -7,6 +7,7 @@
 // 비밀번호는 이 브라우저 세션에만 기억한다(탭을 닫으면 사라짐).
 
 import { useEffect, useState } from 'react';
+import { TAB_LABELS } from '../i18n';
 
 interface PlayerRow {
   id: string;
@@ -29,6 +30,19 @@ interface SourceRow {
   source: string;
   users: number;
 }
+interface TabRow {
+  key: string;
+  views: number;
+}
+interface BreakdownRow {
+  label: string;
+  users: number;
+}
+interface Audience {
+  devices: BreakdownRow[];
+  countries: BreakdownRow[];
+  languages: BreakdownRow[];
+}
 interface Stats {
   days: number;
   totalViews: number;
@@ -36,12 +50,60 @@ interface Stats {
   players: PlayerRow[];
   daily: DayRow[];
   sources: SourceRow[];
+  /** null = 이 리포트만 실패했다는 뜻. 나머지 화면은 정상이다 (API 라우트 주석 참조). */
+  tabs: TabRow[] | null;
+  audience: Audience | null;
   error?: string;
   setup?: boolean; // true = 환경변수/권한 등 설정이 덜 된 상태
 }
 
+/**
+ * 이름 + 가로 막대 목록. 탭·기기·국가·언어가 전부 같은 모양이라 하나로 쓴다.
+ * 관리자 전용 화면이라 차트 라이브러리를 들이지 않는다(메인의 DailyBars 와 같은 방침).
+ */
+function BarList({
+  rows,
+  unit,
+}: {
+  rows: { label: string; value: number }[];
+  unit: string;
+}) {
+  if (!rows.length) return <p className="hint">데이터가 없습니다.</p>;
+  const max = Math.max(...rows.map((r) => r.value), 1);
+  const total = rows.reduce((s, r) => s + r.value, 0);
+  return (
+    <div className="barlist">
+      {rows.map((r) => (
+        <div className="barlist-row" key={r.label}>
+          <span className="barlist-label" title={r.label}>
+            {r.label}
+          </span>
+          <span className="barlist-track">
+            <span className="barlist-fill" style={{ width: `${(r.value / max) * 100}%` }} />
+          </span>
+          <span className="barlist-num">
+            {r.value.toLocaleString()}
+            {unit}
+          </span>
+          <span className="barlist-pct">
+            {total ? ((r.value * 100) / total).toFixed(1) : '0.0'}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const PW_KEY = 'tkwavu_admin_pw';
 const RANGES = [7, 28, 90, 365];
+
+/** GA4 deviceCategory 값. 그 외 값이 오면 원문 그대로 보여준다. */
+const DEVICE_KO: Record<string, string> = {
+  mobile: '모바일',
+  desktop: 'PC',
+  tablet: '태블릿',
+  smart_tv: 'TV',
+};
 
 /** CSV 한 칸 이스케이프 (쉼표·따옴표·줄바꿈이 든 닉네임 대비). */
 function csvCell(v: string | number): string {
@@ -49,13 +111,28 @@ function csvCell(v: string | number): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+/**
+ * 파일 내려받기.
+ *
+ * 예전 방식(앵커를 문서에 붙이지 않고 click 직후 revoke)은 브라우저가 아직 URL 을
+ * 읽는 중에 그 URL 을 없애서, 클릭해도 아무 일이 안 일어나고 다시 누르게 만든다.
+ * 메인 화면에서 같은 코드로 "다운로드 누르면 다운된다"는 제보를 받아 고쳤는데,
+ * 이 화면에는 그대로 남아 있었다. app/page.tsx 의 downloadBlob 과 같은 방식으로 맞춘다.
+ */
 function download(content: BlobPart, mime: string, filename: string): void {
   const url = URL.createObjectURL(new Blob([content], { type: mime }));
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  // 넉넉히 기다렸다 치운다 — 큰 파일은 브라우저가 읽는 데 시간이 걸린다.
+  window.setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 10_000);
 }
 
 /** KST 기준 파일명 도장. */
@@ -221,6 +298,25 @@ export default function AdminPage() {
     data?.totalViews ? ((n * 100) / data.totalViews).toFixed(1) : '0.0';
 
   /**
+   * 조회 1건당 화면을 몇 번 만졌나로 ID 를 세 갈래로 나눈다.
+   * 조회 수가 0 인 ID(이벤트 이전 기간)는 나눌 수가 없어 통째로 뺀다 —
+   * 0 을 '얕게 봤다'로 세면 과거 기간이 전부 이탈로 보인다.
+   */
+  const depthBands = (() => {
+    const rows = (data?.players ?? []).filter((p) => p.lookups > 0);
+    let shallow = 0;
+    let mid = 0;
+    let deep = 0;
+    for (const p of rows) {
+      const d = p.views / p.lookups;
+      if (d < 3) shallow++;
+      else if (d < 10) mid++;
+      else deep++;
+    }
+    return { shallow, mid, deep, total: rows.length };
+  })();
+
+  /**
    * 조회 패턴 추정. 조회된 ID 가 방문자 본인인지 남인지는 알 수 없지만,
    * '몇 명이 봤는지'가 갈라주는 신호가 된다 — 확정이 아니라 추정임을 라벨로 드러낸다.
    */
@@ -324,6 +420,84 @@ export default function AdminPage() {
 
           <h2 className="admin-h2">일별 유입</h2>
           <DailyBars rows={data.daily} />
+
+          {/* ── 얼마나 파고드나 ──────────────────────────────────────
+              조회만 세면 "왔다"까지밖에 모른다. 조회 한 건당 화면을 몇 번 만졌는지로
+              나누면 그냥 결과만 보고 나간 쪽과 끝까지 판 쪽이 갈린다. */}
+          <h2 className="admin-h2">얼마나 파고드나</h2>
+          {depthBands.total > 0 ? (
+            <>
+              <BarList
+                rows={[
+                  { label: '1~2회 (결과만 보고 나감)', value: depthBands.shallow },
+                  { label: '3~9회 (탭 몇 개 열어봄)', value: depthBands.mid },
+                  { label: '10회 이상 (끝까지 팜)', value: depthBands.deep },
+                ]}
+                unit="명"
+              />
+              <p className="hint">
+                조회된 ID {depthBands.total.toLocaleString()}개 기준. 값은 페이지뷰 ÷ 조회라서,
+                조회 수가 쌓이기 시작한 2026-08-04 이후 기간에서만 뜻이 있습니다.
+              </p>
+            </>
+          ) : (
+            <p className="hint">
+              조회 수(player_lookup)가 아직 없는 기간입니다 — 2026-08-04 배포부터 쌓입니다.
+            </p>
+          )}
+
+          {/* ── 어느 탭을 여나 ────────────────────────────────────────
+              탭이 15개다. 아무도 안 여는 게 있으면 지울 근거가 되고, 늘 열리는 게
+              있으면 기본으로 열어줄 근거가 된다. */}
+          <h2 className="admin-h2">어느 탭을 여나</h2>
+          {data.tabs === null ? (
+            <p className="hint">이 리포트만 실패했습니다 (나머지 수치는 정상입니다).</p>
+          ) : (
+            <BarList
+              rows={data.tabs.map((t) => ({
+                label: TAB_LABELS[t.key]?.ko ?? t.key,
+                value: t.views,
+              }))}
+              unit=""
+            />
+          )}
+
+          {/* ── 누가 보나 ────────────────────────────────────────────
+              모바일 비중과 나라·언어. 레이아웃과 번역을 어디에 맞출지의 근거다. */}
+          <h2 className="admin-h2">누가 보나</h2>
+          {data.audience === null ? (
+            <p className="hint">이 리포트만 실패했습니다 (나머지 수치는 정상입니다).</p>
+          ) : (
+            <div className="aud-grid">
+              <div>
+                <h3 className="admin-h3">기기</h3>
+                <BarList
+                  rows={data.audience.devices.map((r) => ({
+                    label: DEVICE_KO[r.label] ?? r.label,
+                    value: r.users,
+                  }))}
+                  unit="명"
+                />
+              </div>
+              <div>
+                <h3 className="admin-h3">국가</h3>
+                <BarList
+                  rows={data.audience.countries.map((r) => ({ label: r.label, value: r.users }))}
+                  unit="명"
+                />
+              </div>
+              <div>
+                <h3 className="admin-h3">브라우저 언어</h3>
+                <BarList
+                  rows={data.audience.languages.map((r) => ({ label: r.label, value: r.users }))}
+                  unit="명"
+                />
+                <p className="hint">
+                  브라우저 설정값이라 이 사이트에서 고른 언어와 다를 수 있습니다.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="row dl-row">
             <button className="ghost" onClick={downloadCsv}>

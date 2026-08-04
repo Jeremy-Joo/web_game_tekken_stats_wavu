@@ -244,6 +244,87 @@ select {
   color: var(--text);
 }
 
+.admin-h3 {
+  font-size: 0.82rem;
+  margin: 0 0 0.4rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* 이름 + 가로 막대 목록 (탭·기기·국가·언어가 같은 모양을 쓴다).
+   grid 로 잡아야 이름 길이가 제각각이어도 막대 시작점이 한 줄로 선다. */
+.barlist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.barlist-row {
+  display: grid;
+  grid-template-columns: minmax(0, 9.5rem) 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.barlist-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.barlist-track {
+  background: var(--border);
+  border-radius: 3px;
+  height: 0.6rem;
+  overflow: hidden;
+}
+
+.barlist-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+/* 숫자는 폭이 들쭉날쭉하면 읽기 어렵다 — 등폭 숫자로 고정하고 우측 정렬 */
+.barlist-num,
+.barlist-pct {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--muted);
+}
+
+.barlist-num {
+  min-width: 3.6rem;
+}
+
+.barlist-pct {
+  min-width: 3rem;
+}
+
+/* 기기·국가·언어를 나란히. 좁으면 한 줄씩 쌓인다 */
+.aud-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.2rem;
+}
+
+@media (min-width: 720px) {
+  .aud-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  /* 좁으면 이름 칸을 줄여야 막대가 남는다 */
+  .barlist-row {
+    grid-template-columns: minmax(0, 6.5rem) 1fr auto auto;
+    font-size: 0.76rem;
+  }
+}
+
 /* 최근 조회 칩 줄 */
 .recent-chips {
   align-items: center;
