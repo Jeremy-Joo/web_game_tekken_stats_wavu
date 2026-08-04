@@ -9,6 +9,7 @@ import {
   roundTo, wr, pct, avg,
   buildTotal, buildRound, buildSessions, buildH2h, buildDaily,
   buildVsRating, buildFlow, buildTimePatterns, buildRankHistory,
+  matchupMinGames, wilsonBound,
   buildRatingTrend, widenTrend,
 } from '../lib/tekken/aggregations';
 import { seasonOf, kstFromEpoch, dateKey, type MatchRecord } from '../lib/tekken/models';
@@ -20,6 +21,12 @@ const eq = (name: string, got: unknown, want: unknown) => {
   const ok = JSON.stringify(got) === JSON.stringify(want);
   if (!ok) failed++;
   console.log(`${ok ? 'ok  ' : 'FAIL'}  ${name}${ok ? '' : `  기대=${JSON.stringify(want)} 실제=${JSON.stringify(got)}`}`);
+};
+
+/** 참/거짓만 보는 단언 (eq 로는 값 비교가 어려운 부등식용). */
+const ok2 = (name: string, cond: boolean, detail: string) => {
+  if (!cond) failed++;
+  console.log(`${cond ? 'ok  ' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`);
 };
 
 /** KST 'yyyy-MM-ddTHH:mm' → epoch 초. (kstFromEpoch 가 +9h 하므로 UTC 로 되돌려 넣는다) */
@@ -268,6 +275,36 @@ eq(
   const wide = widenTrend(table, chars);
   eq('와이드는 4 + 캐릭터수', wide.columns.length, 4 + chars.length);
   eq('와이드 첫 행: 자기 캐릭터 칸에만 값', wide.rows[0].slice(4), [1500, null]);
+}
+
+// ── 매치업 표본 보정 ──
+// 사고 이력: 하한이 5판 고정이고 정렬이 순수 승률순이라 **표본이 작을수록 위로 왔다.**
+// 실측(JackFather 909판) 강점 1위가 'Miary Zo 10판 90%' 였고 'Kazuya 49판 79.6%' 가
+// 3위였다. 9승 1패는 운으로도 나오지만 39승 10패는 아니다.
+{
+  eq('하한: 200판 → 5판 (아래로 묶임)', matchupMinGames(200), 5);
+  eq('하한: 909판 → 9판', matchupMinGames(909), 9);
+  eq('하한: 21,271판 → 30판 (위로 묶임)', matchupMinGames(21271), 30);
+  eq('하한: 0판이어도 5 밑으로 안 간다', matchupMinGames(0), 5);
+
+  // 윌슨 하한: 표본이 크면 같은 승률이라도 위로 온다.
+  const small = wilsonBound(9, 10, 'lower');   // 90% / 10판
+  const big = wilsonBound(39, 49, 'lower');    // 79.6% / 49판
+  ok2(
+    '★ 49판 79.6% 가 10판 90% 보다 강점 상위',
+    big > small,
+    `49판 하한 ${big.toFixed(1)} vs 10판 하한 ${small.toFixed(1)}`,
+  );
+  // 약점은 상한으로 — 낙관적으로 봐도 낮아야 진짜 약점이다.
+  const wSmall = wilsonBound(3, 12, 'upper');  // 25% / 12판
+  const wBig = wilsonBound(9, 29, 'upper');    // 31% / 29판
+  ok2(
+    '★ 29판 31% 가 12판 25% 보다 약점 상위',
+    wBig < wSmall,
+    `29판 상한 ${wBig.toFixed(1)} vs 12판 상한 ${wSmall.toFixed(1)}`,
+  );
+  ok2('하한 <= 상한', wilsonBound(5, 20, 'lower') <= wilsonBound(5, 20, 'upper'), '');
+  ok2('표본 0 이면 하한 0', wilsonBound(0, 0, 'lower') === 0, '');
 }
 
 // ── 시즌 구간 파생 ──

@@ -72,6 +72,43 @@ export function cmpOIC(a: string, b: string): number {
 
 // 임계값 (py main.py 상수와 동일).
 export const WEAK_MIN_GAMES = 5;
+
+/* ── 매치업 표본 보정 ──────────────────────────────────────────────
+   예전에는 **표본 하한이 5판 고정**이었고 정렬이 **순수 승률순**이었다.
+   그러면 표본이 작을수록 위로 온다 — 실측(JackFather 909판)에서
+   강점 1위가 `Miary Zo 10판 90%` 였고 `Kazuya 49판 79.6%` 가 3위였다.
+   9승 1패는 운으로도 나오지만 39승 10패는 아니다. 순서가 뒤집혀 있었다.
+
+   두 곳을 고친다. 각자 다른 절반을 푼다.
+    (1) 하한을 판수에 맞춘다 — 200판 유저와 20,000판 유저에게 같은 5판을
+        요구할 이유가 없다. 다만 표본 적정성은 **절대량**이라 위로도 묶는다.
+        30판이면 승률 오차가 ±9%p 수준이고, 그 이상 요구하면 쓸 수 있는
+        데이터를 버리는 쪽이 된다(실측: 21,271판 유저는 41종 전부 100판 이상).
+    (2) 순위를 **윌슨 하한**으로 매긴다. "적어도 이만큼은 된다"를 비교하므로
+        표본이 작으면 자동으로 뒤로 밀린다. 하한을 낮춰도 5판짜리가 1위로
+        올라오지 않는 이유가 이것이다. */
+
+/** 표본 하한 — 전체 판수의 1%, 단 5~30판 사이. */
+export function matchupMinGames(total: number): number {
+  return Math.max(5, Math.min(30, Math.round(total / 100)));
+}
+
+/**
+ * 윌슨 점수 구간. `side='lower'` 는 보수적 추정("적어도 이만큼"),
+ * `'upper'` 는 낙관적 추정("잘해야 이만큼")이다.
+ *
+ * 강점은 하한으로 줄 세운다 — 표본이 커야 위로 온다.
+ * 약점은 **상한**으로 줄 세운다 — 낙관적으로 봐도 낮아야 진짜 약점이다.
+ */
+export function wilsonBound(w: number, n: number, side: 'lower' | 'upper'): number {
+  if (n <= 0) return side === 'lower' ? 0 : 100;
+  const z = 1.96; // 95%
+  const p = w / n;
+  const d = 1 + (z * z) / n;
+  const c = p + (z * z) / (2 * n);
+  const m = z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n));
+  return (((side === 'lower' ? c - m : c + m) / d) * 100);
+}
 export const WEAK_MAX_WR = 50.0;
 export const H2H_MIN_GAMES = 2;
 export const SESSION_GAP_MINUTES = 120;
@@ -161,12 +198,17 @@ export function buildPivot(
 /** 약점 매치업 — 표본 충분 + 승률 낮은 상대 캐릭터. 약한 순 정렬. */
 export function buildWeak(
   df: MatchRecord[],
-  minG = WEAK_MIN_GAMES,
+  minG = matchupMinGames(df.length),
   maxWr = WEAK_MAX_WR,
 ): Table {
+  // 낙관적으로 봐도(상한) 낮은 순 — 5판 1승4패가 40판 35% 위로 오지 않는다.
   const rows = groupByOpp(df)
     .filter((x) => x.games >= minG && wr(x.w, x.games) < maxWr)
-    .sort((a, b) => wr(a.w, a.games) - wr(b.w, b.games) || b.games - a.games);
+    .sort(
+      (a, b) =>
+        wilsonBound(a.w, a.games, 'upper') - wilsonBound(b.w, b.games, 'upper') ||
+        b.games - a.games,
+    );
   const t = new Table('opp_char', 'Games', 'W', 'L', 'WinRate(%)');
   for (const x of rows) t.add(x.opp, x.games, x.w, x.l, wr(x.w, x.games));
   return t;
@@ -179,12 +221,17 @@ export function buildWeak(
  */
 export function buildStrong(
   df: MatchRecord[],
-  minG = WEAK_MIN_GAMES,
+  minG = matchupMinGames(df.length),
   minWr = WEAK_MAX_WR,
 ): Table {
+  // 보수적으로 봐도(하한) 높은 순 — 10판 90% 보다 49판 79.6% 가 위다.
   const rows = groupByOpp(df)
     .filter((x) => x.games >= minG && wr(x.w, x.games) >= minWr)
-    .sort((a, b) => wr(b.w, b.games) - wr(a.w, a.games) || b.games - a.games);
+    .sort(
+      (a, b) =>
+        wilsonBound(b.w, b.games, 'lower') - wilsonBound(a.w, a.games, 'lower') ||
+        b.games - a.games,
+    );
   const t = new Table('opp_char', 'Games', 'W', 'L', 'WinRate(%)');
   for (const x of rows) t.add(x.opp, x.games, x.w, x.l, wr(x.w, x.games));
   return t;

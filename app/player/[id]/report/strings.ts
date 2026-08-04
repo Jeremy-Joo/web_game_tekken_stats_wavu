@@ -228,15 +228,18 @@ export const R = {
   // '강한 상대 / 까다로운 상대' 로 부르고 있었다 — 탭 쪽 이름으로 통일한다.
   strongOpp: { ko: '강점 매치업', en: 'Strong matchups', ja: '得意マッチアップ' } as S,
   weakOpp: { ko: '약점 매치업', en: 'Weak matchups', ja: '苦手マッチアップ' } as S,
+  // 예전에는 '5판 이상 상대해 본 캐릭터만' 이라고 고정 숫자를 밝혔다.
+  // 이제 기준이 전체 판수에 따라 움직이고(5~30판), 순위도 표본 크기를 반영하므로
+  // 고정 숫자를 말할 수 없다. '자동으로 맞춘다'는 사실 자체를 말한다.
   matchupsNote: {
-    ko: '5판 이상 상대해 본 캐릭터만 집계했습니다.',
-    en: 'Opponent characters you have faced at least 5 times.',
-    ja: '5戦以上対戦した相手キャラが対象です。',
+    ko: '전체 경기 수에 맞춰 표본 기준을 자동으로 조정했습니다. 적게 상대한 캐릭터는 순위에서 뒤로 밀립니다.',
+    en: 'The sample threshold scales with your total games; matchups you have played less rank lower.',
+    ja: '総試合数に応じてサンプル基準を自動調整しています。対戦数が少ない相手は順位が下がります。',
   } as S,
   matchupsEmpty: {
-    ko: '같은 캐릭터를 5판 이상 상대한 기록이 아직 없습니다. 매치업 유불리는 표본이 쌓여야 의미가 생깁니다.',
-    en: "You haven't faced any single character 5+ times yet. Matchup numbers only mean something once samples build up.",
-    ja: '同じキャラと5戦以上した記録がまだありません。相性はサンプルが貯まって初めて意味を持ちます。',
+    ko: '아직 같은 캐릭터를 충분히 상대한 기록이 없습니다. 매치업 유불리는 표본이 쌓여야 의미가 생깁니다.',
+    en: "You haven't faced any single character enough times yet. Matchup numbers only mean something once samples build up.",
+    ja: '同じキャラとの対戦がまだ足りません。相性はサンプルが貯まって初めて意味を持ちます。',
   } as S,
   waitingSample: { ko: '표본이 쌓이면 표시됩니다', en: 'Shown once samples build up', ja: 'サンプルが貯まれば表示されます' } as S,
 
