@@ -10,7 +10,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
-import { playerViews, dailyTotals, trafficSources, GaError } from '@/lib/ga';
+import {
+  playerViews,
+  dailyTotals,
+  trafficSources,
+  tabViews,
+  audience,
+  GaError,
+} from '@/lib/ga';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,12 +47,18 @@ export async function POST(req: NextRequest) {
   const days = [7, 28, 90, 365].includes(Number(body.days)) ? Number(body.days) : 28;
 
   try {
-    // 세 리포트는 서로 무관하니 같이 던진다
+    // 핵심 세 가지. 하나라도 실패하면 화면을 띄우지 않는다 — 조용히 0 으로 채우면
+    // '기록이 없었다'와 구별되지 않는다.
     const [players, daily, sources] = await Promise.all([
       playerViews(days),
       dailyTotals(days),
       trafficSources(days),
     ]);
+
+    // 곁다리 둘은 없어도 화면이 성립한다. allSettled 로 따로 받아서, 이쪽이
+    // 실패했다고 위의 핵심 데이터까지 못 보게 되는 일을 막는다.
+    // (GA4 측정기준 이름이 바뀌거나 권한이 모자랄 때 여기만 깨질 수 있다)
+    const [tabsR, audR] = await Promise.allSettled([tabViews(days), audience(days)]);
 
     return NextResponse.json({
       days,
@@ -54,6 +67,8 @@ export async function POST(req: NextRequest) {
       players,
       daily,
       sources,
+      tabs: tabsR.status === 'fulfilled' ? tabsR.value : null,
+      audience: audR.status === 'fulfilled' ? audR.value : null,
     });
   } catch (e) {
     // 설정 미비(환경변수·권한)와 일시적 오류를 구분해 화면이 원인을 알려줄 수 있게

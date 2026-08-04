@@ -301,3 +301,89 @@ export async function trafficSources(days: number): Promise<SourceRow[]> {
     users: Number(r.metricValues?.[0]?.value ?? 0),
   }));
 }
+
+// ── 사용 패턴 ────────────────────────────────────────────────────────────
+
+export interface TabRow {
+  /** 탭 키 ('flow', 'total', …). 화면에서 한국어 이름으로 바꾼다. */
+  key: string;
+  views: number;
+}
+
+/**
+ * 탭별 열람 수.
+ *
+ * pagePath 가 아니라 **pagePathPlusQueryString** 을 쓴다 — GA4 의 pagePath 는
+ * 쿼리를 뺀 값이라 ?tab= 이 사라진다. 탭은 쿼리에만 있으므로 이 측정기준이어야 한다.
+ *
+ * 여기서는 페이지뷰가 오히려 맞는 지표다: '조회'는 대상 한 명당 한 번이지만,
+ * 알고 싶은 건 "그 안에서 어느 탭을 열어봤나"라서 만진 횟수 자체가 답이다.
+ */
+export async function tabViews(days: number): Promise<TabRow[]> {
+  const rows = await runReport({
+    dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+    dimensions: [{ name: 'pagePathPlusQueryString' }],
+    metrics: [{ name: 'screenPageViews' }],
+    dimensionFilter: {
+      filter: {
+        fieldName: 'pagePathPlusQueryString',
+        stringFilter: { matchType: 'CONTAINS', value: 'tab=' },
+      },
+    },
+    limit: 20000,
+  });
+
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    const m = /[?&]tab=([A-Za-z0-9_]+)/.exec(r.dimensionValues?.[0]?.value ?? '');
+    if (!m) continue;
+    out.set(m[1], (out.get(m[1]) ?? 0) + Number(r.metricValues?.[0]?.value ?? 0));
+  }
+  return [...out.entries()]
+    .map(([key, views]) => ({ key, views }))
+    .sort((a, b) => b.views - a.views);
+}
+
+export interface BreakdownRow {
+  label: string;
+  users: number;
+}
+
+/** 한 측정기준을 사용자 수로 집계하는 공통 함수. */
+async function breakdown(days: number, dimension: string, limit = 12): Promise<BreakdownRow[]> {
+  const rows = await runReport({
+    dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+    dimensions: [{ name: dimension }],
+    metrics: [{ name: 'totalUsers' }],
+    orderBys: [{ metric: { metricName: 'totalUsers' }, desc: true }],
+    limit,
+  });
+  return rows.map((r) => ({
+    label: r.dimensionValues?.[0]?.value || '(알 수 없음)',
+    users: Number(r.metricValues?.[0]?.value ?? 0),
+  }));
+}
+
+export interface Audience {
+  devices: BreakdownRow[];
+  countries: BreakdownRow[];
+  languages: BreakdownRow[];
+}
+
+/**
+ * 방문자 구성.
+ *
+ * language 는 **브라우저 언어 설정**이지 이 사이트에서 고른 UI 언어가 아니다.
+ * UI 언어는 URL 에 없고 localStorage 에만 있어서 GA 가 알 방법이 없다 — 알고 싶으면
+ * 이벤트 파라미터를 새로 보내야 하고, 그건 GA4 에서 맞춤 측정기준을 등록해야
+ * Data API 로 읽힌다(lib/ga.ts 의 lookupCounts 주석과 같은 이유). 지금은 대략의
+ * 구성만 봐도 충분해서 표준 측정기준으로 둔다.
+ */
+export async function audience(days: number): Promise<Audience> {
+  const [devices, countries, languages] = await Promise.all([
+    breakdown(days, 'deviceCategory', 6),
+    breakdown(days, 'country', 10),
+    breakdown(days, 'language', 10),
+  ]);
+  return { devices, countries, languages };
+}
