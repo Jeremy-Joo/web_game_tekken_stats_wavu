@@ -60,6 +60,7 @@ interface Stats {
   tabs: TabRow[] | null;
   audience: Audience | null;
   features: FeatureRow[] | null;
+  reports: { views: number; users: number } | null;
   error?: string;
   setup?: boolean; // true = 환경변수/권한 등 설정이 덜 된 상태
 }
@@ -475,6 +476,18 @@ export default function AdminPage() {
               한 번도 안 쓰인 기능도 0 으로 남긴다 — 목록에서 사라지면 '안 쓰인다'는
               사실 자체가 안 보인다. */}
           <h2 className="admin-h2">어느 기능을 쓰나</h2>
+          {/* 리포트만 따로 먼저 보여준다 — 별도 페이지라서 페이지뷰로 이미 쌓여 있고,
+              그래서 이벤트를 붙이기 전 기간에도 값이 나온다. 아래 이벤트 목록은
+              이번 배포부터라 둘을 나란히 두면 '왜 하나만 0 인가'로 헷갈린다. */}
+          {data.reports && (
+            <p className="hint" style={{ marginTop: 0 }}>
+              <b>리포트 열람 {data.reports.views.toLocaleString()}회</b>
+              {data.reports.users > 0 && ` · 최소 ${data.reports.users.toLocaleString()}명`} —
+              별도 페이지라 페이지뷰로 세며 <b>과거 기간도 나옵니다</b>. 공유 링크로 바로
+              들어오거나 새로고침한 것까지 포함하므로, 아래 &lsquo;리포트 보기&rsquo;
+              (버튼을 누른 횟수)보다 큽니다. 둘의 차이가 링크를 타고 온 사람입니다.
+            </p>
+          )}
           {data.features === null ? (
             <p className="hint">이 리포트만 실패했습니다 (나머지 수치는 정상입니다).</p>
           ) : data.features.every((f) => f.count === 0) ? (

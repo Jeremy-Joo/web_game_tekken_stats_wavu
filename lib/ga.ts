@@ -219,6 +219,9 @@ export async function playerViews(days: number): Promise<PlayerView[]> {
         : rawDate;
     const views = Number(r.metricValues?.[0]?.value ?? 0);
     const users = Number(r.metricValues?.[1]?.value ?? 0);
+    // 리포트(/player/<id>/report)는 별도 페이지다. 여기에 섞으면 조회 화면을
+    // 얼마나 만졌나(=깊이)에 리포트 열람이 더해져 값이 부푼다. 따로 센다(reportViews).
+    if (path.includes('/report')) continue;
     const m = /^\/player\/([A-Za-z0-9-]+)/.exec(path);
     if (!m) continue;
     const id = m[1].replace(/-/g, '');
@@ -438,4 +441,47 @@ export async function featureUsage(days: number): Promise<FeatureRow[]> {
     count: got.get(name)?.count ?? 0,
     users: got.get(name)?.users ?? 0,
   })).sort((a, b) => b.count - a.count);
+}
+
+export interface ReportUse {
+  views: number;
+  users: number;
+}
+
+/**
+ * 리포트 페이지 열람.
+ *
+ * **이 값은 과거 기간에도 나온다.** 리포트는 /player/<식별코드>/report 라는 별도
+ * 페이지고 평범한 링크 이동이라, GA 를 붙인 날부터 페이지뷰로 쌓여 왔다.
+ * report_open 이벤트를 새로 만들기 전의 기간도 여기서는 보인다.
+ *
+ * 이벤트와 세는 대상이 다르다는 점에 주의:
+ *   report_open  조회 화면에서 '리포트 보기'를 **누른** 횟수
+ *   이 함수       리포트 페이지가 **열린** 횟수 — 공유 링크로 바로 들어오거나
+ *                즐겨찾기·새로고침·뒤로가기로 다시 연 것까지 포함한다
+ * 그래서 보통 이쪽이 더 크고, 둘의 차이가 곧 '링크를 타고 온 사람'이다.
+ */
+export async function reportViews(days: number): Promise<ReportUse> {
+  const rows = await runReport({
+    dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+    dimensions: [{ name: 'pagePath' }],
+    metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }],
+    dimensionFilter: {
+      filter: {
+        fieldName: 'pagePath',
+        stringFilter: { matchType: 'ENDS_WITH', value: '/report' },
+      },
+    },
+    limit: 20000,
+  });
+
+  // 행이 플레이어별로 갈라져 온다. 사용자 수는 합산이 성립하지 않으므로
+  // (같은 사람이 여러 플레이어의 리포트를 볼 수 있다) 최댓값을 하한으로 쓴다.
+  let views = 0;
+  let users = 0;
+  for (const r of rows) {
+    views += Number(r.metricValues?.[0]?.value ?? 0);
+    users = Math.max(users, Number(r.metricValues?.[1]?.value ?? 0));
+  }
+  return { views, users };
 }

@@ -219,9 +219,19 @@ function roundRow(sub: MatchRecord[], label: string) {
 }
 
 /** 라운드 통계 (캐릭터별 + ALL). 접전(1라운드차)·셧아웃 포함. */
-export function buildRound(df: MatchRecord[]): Table {
+/**
+ * 라운드 집계.
+ *
+ * `by` 는 무엇으로 묶을지다.
+ *  'my'  — 내 캐릭터별 (기본). 전체 조회에서 "내 캐릭 중 뭐가 라운드를 잘 따나".
+ *  'opp' — 상대 캐릭터별. **캐릭터별 상세(?char=)에서 쓴다** — 이미 내 캐릭이
+ *          하나로 걸러진 뒤라 'my' 로 묶으면 1행 + ALL 뿐이라 볼 게 없다.
+ *          같은 표가 "이 캐릭으로 누구를 만나면 셧아웃당하나"를 답하게 된다.
+ */
+export function buildRound(df: MatchRecord[], by: 'my' | 'opp' = 'my'): Table {
   const t = new Table(
-    'my_char', 'Games', 'RoundsWon', 'RoundsLost', 'RoundWR(%)',
+    by === 'opp' ? 'opp_char' : 'my_char',
+    'Games', 'RoundsWon', 'RoundsLost', 'RoundWR(%)',
     'AvgRoundsWon', 'AvgRoundsLost', 'CloseGames', 'Close(%)', 'CloseWins',
     'CloseWin(%)', 'CloseLosses', 'CloseLoss(%)', 'Shutouts_Dealt',
     'ShutoutWin(%)', 'Shutouts_Received', 'ShutoutLoss(%)',
@@ -229,10 +239,11 @@ export function buildRound(df: MatchRecord[]): Table {
 
   const byChar = new Map<string, MatchRecord[]>();
   for (const r of df) {
-    let g = byChar.get(r.myChar);
+    const key = by === 'opp' ? r.oppChar : r.myChar;
+    let g = byChar.get(key);
     if (!g) {
       g = [];
-      byChar.set(r.myChar, g);
+      byChar.set(key, g);
     }
     g.push(r);
   }

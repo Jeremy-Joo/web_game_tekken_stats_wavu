@@ -88,7 +88,13 @@ export function computeFromRecords(
    * tzShiftMinutes — KST 로부터의 차이(분). 0/미지정이면 지금까지와 완전히 같다.
    *              시간대 탭에만 쓴다 (buildTimePatterns 주석 참조).
    */
-  opts?: { matchesLimit?: number; wideTrend?: boolean; tzShiftMinutes?: number },
+  opts?: {
+    matchesLimit?: number;
+    wideTrend?: boolean;
+    tzShiftMinutes?: number;
+    /** 라운드 탭 집계 키. 캐릭터별 상세에서는 'opp' (aggregations.buildRound 주석 참조). */
+    roundBy?: 'my' | 'opp';
+  },
 ): PlayerResult {
   const ordered = [...records].sort((a, b) => a.dt.getTime() - b.dt.getTime());
   const first = ordered[0] ?? null;
@@ -110,7 +116,7 @@ export function computeFromRecords(
     tab('pivot', '상대 캐릭', buildPivot(records)),
     tab('strong', '강점 매치업', buildStrong(records)),
     tab('weak', '약점 매치업', buildWeak(records)),
-    tab('round', '라운드', buildRound(records)),
+    tab('round', '라운드', buildRound(records, opts?.roundBy ?? 'my')),
     tab('vs_rating', '레이팅대', buildVsRating(records)),
     tab('time', '시간대', buildTimePatterns(records)),
     tab('rank', '승단 이력', buildRankHistory(records)),
