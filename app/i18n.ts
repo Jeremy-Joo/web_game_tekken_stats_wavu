@@ -333,6 +333,9 @@ const D = {
     ja: (off: string) => `現地時間 (${off})`,
   },
   tzKst: { ko: '한국 시간 (UTC+9)', en: 'Korea time (UTC+9)', ja: '韓国時間 (UTC+9)' },
+  // 라운드 탭 보기 전환 — 내 캐릭터별(기본) ↔ 상대 캐릭터별로 펼치기
+  roundByMine: { ko: '내 캐릭터별', en: 'By my character', ja: '自キャラ別' },
+  roundByOpp: { ko: '상대 캐릭터별로 펼쳐보기', en: 'Expand by opponent', ja: '相手キャラ別に展開' },
   tzRegion: {
     ko: (region: string, off: string) => `이 플레이어는 ${region} 서버입니다 — 현지 시각은 ${off} 기준입니다.`,
     en: (region: string, off: string) => `This player is on the ${region} server — local time is ${off}.`,

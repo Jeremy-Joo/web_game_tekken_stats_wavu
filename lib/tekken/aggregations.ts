@@ -223,10 +223,18 @@ function roundRow(sub: MatchRecord[], label: string) {
  * 라운드 집계.
  *
  * `by` 는 무엇으로 묶을지다.
- *  'my'  — 내 캐릭터별 (기본). 전체 조회에서 "내 캐릭 중 뭐가 라운드를 잘 따나".
- *  'opp' — 상대 캐릭터별. **캐릭터별 상세(?char=)에서 쓴다** — 이미 내 캐릭이
- *          하나로 걸러진 뒤라 'my' 로 묶으면 1행 + ALL 뿐이라 볼 게 없다.
- *          같은 표가 "이 캐릭으로 누구를 만나면 셧아웃당하나"를 답하게 된다.
+ *  'my'  — 내 캐릭터별 (기본). "내 캐릭 중 뭐가 라운드를 잘 따나".
+ *  'opp' — 상대 캐릭터별. **화면의 '상대 캐릭터별로 펼쳐보기'가 쓴다.**
+ *          같은 표가 "누구를 만나면 셧아웃당하나"를 답하게 된다.
+ *          캐릭터별 상세(?char=)에서 특히 값이 크다 — 거기서는 'my' 가
+ *          1행 + ALL 뿐이라 볼 게 없다.
+ *
+ * **ALL 을 맨 위에 둔다.** 다른 표와 관례가 다른데, 여기만 행이 캐릭터 수만큼
+ * (실측 41행) 늘어나서 합계가 스크롤 밖으로 밀려나기 때문이다. 기준값이 안 보이면
+ * 개별 행의 40%·70%가 높은지 낮은지 판단할 수가 없다.
+ *
+ * 행 수는 **캐릭터 수로 묶여 있다(최대 42행)** — 경기 수에 비례하지 않는다.
+ * CLAUDE.md 의 "경기수 × 무언가로 커지는 표를 싣지 말 것"에 걸리지 않는 이유다.
  */
 export function buildRound(df: MatchRecord[], by: 'my' | 'opp' = 'my'): Table {
   const t = new Table(
@@ -250,8 +258,9 @@ export function buildRound(df: MatchRecord[], by: 'my' | 'opp' = 'my'): Table {
   const perChar = [...byChar.entries()]
     .map(([c, rows]) => ({ c, rows }))
     .sort((a, b) => b.rows.length - a.rows.length);
+  // 합계가 먼저다 — 아래 개별 행을 읽을 기준이 되어야 하므로 맨 위에 둔다.
+  if (df.length) t.rows.push(roundRow(df, 'ALL'));
   for (const x of perChar) t.rows.push(roundRow(x.rows, x.c));
-  t.rows.push(roundRow(df, 'ALL'));
   return t;
 }
 

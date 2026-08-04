@@ -164,6 +164,8 @@ interface PlayerResponse {
    * (한국 유저·지역 불명이면 항상 null 이라 화면이 지금까지와 똑같다)
    */
   localTime?: TabData | null;
+  /** 라운드 탭을 상대 캐릭터별로 묶은 것 (같은 탭 안의 보기 전환용). */
+  roundByOpp?: TabData | null;
   /** 서버 지역과 거기서 추정한 현지 시간대. lib/wavu/region.ts 참조. */
   timezone?: {
     region: { code: string; label: string } | null;
@@ -785,6 +787,8 @@ export default function Home() {
   // 그 사람에게 KST 축은 의미가 없고, 기본값이 오독을 만들면 안 되기 때문이다.
   // (한국·지역 불명이면 애초에 localTime 이 없어서 이 전환 자체가 안 나온다)
   const [tzView, setTzView] = useState<TzView>('local');
+  // 라운드 탭 보기. 기본은 '내 캐릭터별' — 지금까지의 동작을 그대로 둔다.
+  const [roundView, setRoundView] = useState<'my' | 'opp'>('my');
   // 상대전적에서 눌러 담은 비교 대상 (나는 제외 — 목록을 만들 때 앞에 붙인다)
   const [picked, setPicked] = useState<Favorite[]>([]);
   const [pickMsg, setPickMsg] = useState('');
@@ -1429,6 +1433,9 @@ export default function Home() {
   const localTimeTab = mode === 'single' ? (single?.localTime ?? null) : null;
   const tz = mode === 'single' ? single?.timezone : undefined;
 
+  // 상대 캐릭터별 라운드 표도 한 명 모드에서만 온다 (비교 모드에는 없다).
+  const roundOppTab = mode === 'single' ? (single?.roundByOpp ?? null) : null;
+
   const displayTab =
     current?.key === 'daily'
       ? rollupDaily(current, effGran, seasons)
@@ -1442,7 +1449,10 @@ export default function Home() {
               tzView === 'local' && localTimeTab ? localTimeTab : current,
               timeView,
             )
-          : current;
+          : // 라운드도 같은 방식 — 상대 캐릭터별 표로 갈아끼운다.
+            current?.key === 'round' && roundView === 'opp' && roundOppTab
+            ? roundOppTab
+            : current;
 
   // 비교 표(캐릭터·상대 캐릭·공통 상대)에서 표본이 얇은 행을 걸러낼 수 있는가.
   // 실측: 39행 중 3행이 5경기 미만이었고 그중 둘이 '3전 100%' 였다.
@@ -2562,6 +2572,25 @@ export default function Home() {
                         {TIME_VIEW_LABEL[v][lang]}
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {/* 라운드 보기 전환 — 기본은 내 캐릭터별(지금까지의 동작).
+                    캐릭터별 상세에서는 'my' 가 1행 + ALL 뿐이라 이 전환이 사실상 본체다. */}
+                {current.key === 'round' && roundOppTab && (
+                  <div className="mode-switch period">
+                    <button
+                      className={roundView === 'my' ? 'on' : ''}
+                      onClick={() => setRoundView('my')}
+                    >
+                      {t('roundByMine')}
+                    </button>
+                    <button
+                      className={roundView === 'opp' ? 'on' : ''}
+                      onClick={() => setRoundView('opp')}
+                    >
+                      {t('roundByOpp')}
+                    </button>
                   </div>
                 )}
 

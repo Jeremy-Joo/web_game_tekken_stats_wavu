@@ -96,9 +96,6 @@ export async function GET(
     const result = computeFromRecords(filtered, id, myName, {
       matchesLimit: 1000,
       tzShiftMinutes,
-      // 캐릭터별 상세에서는 내 캐릭이 이미 하나로 걸러져 있다 —
-      // 그대로 두면 라운드 탭이 1행 + ALL 뿐이라, 상대 캐릭터별로 묶는다.
-      roundBy: char ? 'opp' : 'my',
     });
 
     return NextResponse.json({

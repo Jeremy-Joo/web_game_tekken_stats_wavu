@@ -46,6 +46,14 @@ export interface PlayerResult {
    * 덕분에 전환이 즉시 되고 재조회가 필요 없다.
    */
   localTime: TabData | null;
+  /**
+   * 라운드 탭을 **상대 캐릭터별**로 다시 묶은 것 (화면의 '상대 캐릭터별로 펼쳐보기').
+   *
+   * localTime 과 같은 이유로 tabs 밖에 있다 — 탭 목록을 늘리지 않고 같은 탭 안에서
+   * 보기만 바꾸는 것이라서다. 행 수가 **캐릭터 수로 묶여 있어(최대 42행)** 경기 수와
+   * 무관하게 작으므로 두 벌을 다 실어도 응답이 안 커지고, 덕분에 전환이 즉시 된다.
+   */
+  roundByOpp: TabData;
 }
 
 const tab = (key: string, label: string, t: Table): TabData => ({
@@ -92,8 +100,6 @@ export function computeFromRecords(
     matchesLimit?: number;
     wideTrend?: boolean;
     tzShiftMinutes?: number;
-    /** 라운드 탭 집계 키. 캐릭터별 상세에서는 'opp' (aggregations.buildRound 주석 참조). */
-    roundBy?: 'my' | 'opp';
   },
 ): PlayerResult {
   const ordered = [...records].sort((a, b) => a.dt.getTime() - b.dt.getTime());
@@ -116,7 +122,7 @@ export function computeFromRecords(
     tab('pivot', '상대 캐릭', buildPivot(records)),
     tab('strong', '강점 매치업', buildStrong(records)),
     tab('weak', '약점 매치업', buildWeak(records)),
-    tab('round', '라운드', buildRound(records, opts?.roundBy ?? 'my')),
+    tab('round', '라운드', buildRound(records, 'my')),
     tab('vs_rating', '레이팅대', buildVsRating(records)),
     tab('time', '시간대', buildTimePatterns(records)),
     tab('rank', '승단 이력', buildRankHistory(records)),
@@ -140,5 +146,7 @@ export function computeFromRecords(
     localTime: shift
       ? tab('time_local', '시간대 (현지)', buildTimePatterns(records, shift))
       : null,
+    // 라벨을 '라운드'와 다르게 둔다 — 엑셀 시트명이 라벨이라 겹치면 만들 수 없다.
+    roundByOpp: tab('round_opp', '라운드 (상대 캐릭)', buildRound(records, 'opp')),
   };
 }
