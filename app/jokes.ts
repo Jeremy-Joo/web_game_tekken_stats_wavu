@@ -12,6 +12,17 @@
 // 톤 규칙:
 //  - 승률을 인생(로또·주식·연애·직장)에 빗대는 자조 개그. 놀리되 비하하지 않는다.
 //  - 실제로 힘든 주제(건강 악화·정신건강·돈 문제의 실질적 고통)는 소재로 삼지 않는다.
+//  - **조언은 실력 수준을 전제하지 않는 것만 쓴다.**
+//    이 파일은 mood(최근 폼)로 문구를 고른다 — **조회자의 단·레이팅을 보지 않는다.**
+//    그래서 파괴신이 연패 중일 때와 초단이 연패 중일 때 같은 줄이 나간다.
+//    "안 해봤을 리 없는 것"을 권하면 그 순간 상대를 초심자로 단정하는 게 된다.
+//    사고 이력: COACH steady 의 "상대 캐릭 프레임을 한 번도 안 찾아보셨다면 지금이
+//    그때입니다" — 프레임 조회는 입문 단계에서 끝나는 일이라, 어느 정도 올라간
+//    사람에게는 모욕에 가깝게 읽힌다. fact-jokes 의 "프레임을 한 번 찾아보세요"도 같다.
+//    **써도 되는 것**: 리플레이 복기·확정딜캐 연습·매치업 파기·콤보 영상 —
+//    프로도 매일 하는 일이라 수준을 가정하지 않는다.
+//    **쓰면 안 되는 것**: 프레임 조회처럼 '기초를 안 뗐다'를 전제하는 권유.
+//    소재로 등장하는 것 자체는 괜찮다("밖에는 프레임이 없습니다") — 금지 대상은 **권유**다.
 //  - 프로 선수 소재는 **가정을 문장 안에 담고, 가정하는 대상은 항상 '프로 신분'이다.**
 //    조회하는 사람에겐 계약도 감독도 스폰서도 없다. 단정형으로 쓰면("감독이 슬슬 다른
 //    선수를 보고 있습니다") 문장이 붕 뜨거나, 더 나쁘게는 **진짜 직장 얘기로 읽힌다.**
@@ -2656,7 +2667,7 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       '유튜브에서 자기 캐릭 최신 콤보 영상 하나만 보고 오세요.',
       '같은 실수를 반복하고 있는지 리플레이가 알려줍니다.',
       '승률이 안 움직이면 실력이 아니라 습관을 바꿔야 합니다.',
-      '상대 캐릭 프레임을 한 번도 안 찾아보셨다면 지금이 그때입니다.',
+      '제일 자주 만나는 상대 캐릭 하나만 골라 파 보세요. 넓게 도는 것보다 남습니다.',
       '연습 모드에서 확정딜캐 세 개만 확실히 만들어두세요.',
       '정체 구간에서는 새 콤보보다 확정딜캐가 승률을 올립니다.',
       `레시피를 한 번 다시 보고 오세요. 늘 같은 맛이면 재료를 바꿀 때입니다.`,
@@ -2848,9 +2859,154 @@ export function pickJoke(
 }
 
 /** 연습 권유 한 줄 (농담 다음 줄). 씨앗을 농담과 어긋나게 줘야 짝이 다양해진다. */
-export function pickCoach(mood: Mood, lang: Lang, seed: number): string {
-  const pool = COACH[mood][lang];
-  return pool.length ? pick(pool, seed) : '';
+/**
+ * 중상위 이상에게 나가는 조언 묶음.
+ *
+ * **왜 나눴나** — 이 파일은 mood(최근 폼)로만 문구를 고른다. 그래서 위쪽 레이팅대
+ * 사람이 연패 중일 때도 "리플레이 한 판 돌려보세요" 같은 입문용 조언이 나갔다.
+ * 그 사람들이 안 해봤을 리가 없다. 프레임 조회 권유는 아예 걷어냈고(머리말 톤 규칙),
+ * 남은 기초 조언은 여기서 **다른 소재로 갈아 끼운다.**
+ *
+ * 소재는 이 사이트가 실제로 재는 것에 붙인다 — 세션 후반 하락(권장 판수),
+ * 레이팅대별 성적, 매치업 편식, 끊는 시점. 일반론이 아니라 화면에 근거가 있는 얘기다.
+ */
+const COACH_HIGH: Record<Mood, Record<Lang, string[]>> = {
+  blazing: {
+    ko: [
+      '이 폼은 오래 안 갑니다. 위 레이팅대 상대를 지금 만나 두세요.',
+      '오늘 벌어둔 만큼이 이번 주 방어선입니다. 어디서 끊을지만 정하세요.',
+      '지금 이긴 판은 나중에 안 나옵니다. 자기 기준선으로 남겨두세요.',
+    ],
+    en: [
+      'This form will not hold. Take your shots at the bracket above you now.',
+      'What you banked today is the cushion for this week. Just pick where to stop.',
+      'Wins like these are your ceiling reference. Keep them.',
+    ],
+    ja: [
+      'この調子は続きません。上のレート帯に今のうちに挑んでおきましょう。',
+      '今日稼いだ分が今週の余裕です。あとはどこで止めるかだけ。',
+      '今日の勝ちは自分の基準線になります。残しておきましょう。',
+    ],
+  },
+  hot: {
+    ko: [
+      '올라간 레이팅대는 다른 게임입니다. 상대 성향부터 다시 읽으세요.',
+      '이길 때 붙은 습관이 질 때 그대로 나옵니다. 지금 뭘 하고 있는지 보세요.',
+      '자신 있을 때가 안 쓰던 선택지를 실전에 걸어볼 유일한 때입니다.',
+      '연승 중에 끊는 게 제일 어렵습니다. 오늘 상한은 정해두셨나요.',
+    ],
+    en: [
+      'The bracket above plays a different game. Read their habits first.',
+      'Habits you pick up winning show up again when you lose. Notice them now.',
+      'Confidence is the only window where untested options are worth the risk.',
+      'Stopping mid-streak is the hard part. Did you set a limit today?',
+    ],
+    ja: [
+      '上のレート帯は別のゲームです。まず相手の傾向を読み直しましょう。',
+      '勝っている時の癖は負ける時にそのまま出ます。今のうちに気づきましょう。',
+      '自信がある時だけが、使っていない選択肢を実戦で試せる時です。',
+      '連勝中にやめるのが一番難しい。今日の上限は決めましたか。',
+    ],
+  },
+  steady: {
+    ko: [
+      '같은 레이팅대에 오래 머무르면 상대도 당신을 압니다. 첫 판 셋업을 바꿔 보세요.',
+      '이 구간에서는 새 기술보다 안 쓰던 선택지 하나가 승률을 올립니다.',
+      '승률이 안 움직이는 건 실력이 아니라 선택이 굳었다는 뜻입니다.',
+      '제일 자주 만나는 상대 캐릭 하나만 파 보세요. 넓게 도는 것보다 남습니다.',
+    ],
+    en: [
+      'Stay in one bracket long enough and they read you too. Change your opener.',
+      'At this level one unused option moves the needle more than a new combo.',
+      'A flat win rate is not a skill ceiling. It is a choice that has set.',
+      'Pick the one character you face most and go deep. Breadth pays less here.',
+    ],
+    ja: [
+      '同じレート帯に長くいると相手もあなたを覚えます。初戦の入りを変えてみましょう。',
+      'この帯では新技より、使っていない選択肢ひとつのほうが勝率に効きます。',
+      '勝率が動かないのは実力ではなく、選択が固まったということです。',
+      '一番よく当たる相手キャラを一つだけ掘りましょう。広く回るより残ります。',
+    ],
+  },
+  cooling: {
+    ko: [
+      '떨어지는 구간에서 판수를 늘리면 대개 더 떨어집니다. 오늘 상한을 정하세요.',
+      '위 레이팅대에만 지는지, 아래에도 지는지부터 갈라 보세요. 답이 다릅니다.',
+      '연패는 실력이 아니라 상태입니다. 상태는 판수로 안 고쳐집니다.',
+    ],
+    en: [
+      'Playing more through a dip usually deepens it. Set a cap for today.',
+      'Check whether you are only losing upward, or downward too. Different fixes.',
+      'A streak like this is a state, not a skill level. More games will not reset it.',
+    ],
+    ja: [
+      '下がっている時に試合数を増やすと、たいてい もっと下がります。今日の上限を決めましょう。',
+      '上のレート帯にだけ負けているのか、下にも負けているのか。答えが変わります。',
+      '連敗は実力ではなく状態です。状態は試合数では戻りません。',
+    ],
+  },
+  cold: {
+    ko: [
+      '지금 캐릭터를 바꾸면 둘 다 잃습니다. 오늘은 그대로 두세요.',
+      '오늘 성적은 실력의 표본이 아닙니다. 내일 다시 재는 게 맞습니다.',
+      '손이 아니라 판단이 늦는 날입니다. 쉬는 것도 연습입니다.',
+    ],
+    en: [
+      'Switching characters now costs you both. Leave it for today.',
+      'Today is not a sample of your level. Measure again tomorrow.',
+      'It is your reads that are late, not your hands. Resting counts as practice.',
+    ],
+    ja: [
+      '今キャラを変えると両方を失います。今日はそのままで。',
+      '今日の成績は実力のサンプルではありません。明日また測りましょう。',
+      '手ではなく判断が遅い日です。休むのも練習のうちです。',
+    ],
+  },
+  frozen: {
+    ko: [
+      '오늘은 끄는 게 최선의 수입니다.',
+      '이 상태로는 뭘 해도 안 남습니다. 내일 하세요.',
+    ],
+    en: [
+      'Closing the game is the strongest move available today.',
+      'Nothing sticks in this state. Tomorrow.',
+    ],
+    ja: [
+      '今日はゲームを閉じるのが最善手です。',
+      'この状態では何も残りません。明日にしましょう。',
+    ],
+  },
+};
+
+/**
+ * 여기부터 COACH_HIGH 를 쓴다. **상위 7.5%** 지점이다
+ * (lib/tekken/rating-baseline.ts · 활동 중인 플레이어 37,496명 기준).
+ *
+ * 숫자를 감으로 잡지 않고 우리 기준값에서 뽑았다 — 1950 이 상위 7.5% 다.
+ * 참고로 1900 은 상위 10.0%, 1960 은 7.0%, 2000 은 5.5% 다.
+ *
+ * **시즌이 바뀌면 같이 봐야 한다.** 레이팅 분포가 통째로 움직이므로
+ * rating-baseline 을 다시 굽고 이 값을 그때의 상위 10% 지점으로 맞춘다.
+ * 여기 숫자만 고치면 기준이 조용히 달라진다.
+ */
+export const COACH_HIGH_MIN_RATING = 1950;
+
+/**
+ * 조언 한 줄.
+ *
+ * `rating` 을 주면 중상위 이상에게 다른 묶음이 나간다. 안 주면 예전과 같다 —
+ * 레이팅을 모르는 자리에서 함부로 수위를 올리지 않기 위해서다.
+ */
+export function pickCoach(
+  mood: Mood,
+  lang: Lang,
+  seed: number,
+  rating?: number | null,
+): string {
+  const high = rating != null && rating >= COACH_HIGH_MIN_RATING;
+  const pool = high ? COACH_HIGH[mood][lang] : COACH[mood][lang];
+  const use = pool.length ? pool : COACH[mood][lang];
+  return use.length ? pick(use, seed) : '';
 }
 
 /** 요약 카드 아래 컨디션 한 줄. */

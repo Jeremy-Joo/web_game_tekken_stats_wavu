@@ -34,6 +34,8 @@ export interface PlayerResult {
   polarisId: string;
   myName: string;
   recordCount: number;
+  /** 가장 최근 경기의 레이팅. 조언 수위를 가르는 데 쓴다(jokes.pickCoach). */
+  currentRating: number | null;
   firstDt: string | null;
   lastDt: string | null;
   chars: string[];
@@ -157,6 +159,7 @@ export function computeFromRecords(
     polarisId,
     myName,
     recordCount: records.length,
+    currentRating: last?.myRating ?? null,
     firstDt: first ? formatDt(first.dt) : null,
     lastDt: last ? formatDt(last.dt) : null,
     chars,
