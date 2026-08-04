@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { normalizePolarisId, WavuError } from '@/lib/wavu/client';
 import { getRecords } from '@/lib/wavu/cache';
 import { filterByDate } from '@/lib/wavu/normalize';
-import { computeFromRecords } from '@/lib/tekken/compute';
+import { computeFromRecords, SHEET_ORDER } from '@/lib/tekken/compute';
 import { computeCompare, type ComparePlayer } from '@/lib/tekken/compare';
 import { tabsToXlsx } from '@/lib/tekken/xlsx';
 import type { MatchRecord } from '@/lib/tekken/models';
@@ -137,11 +137,19 @@ export async function GET(
     // (라벨을 '라운드'와 다르게 둔 것이 이것 때문이다 — 시트명이 라벨이라 겹치면
     //  파일을 못 만든다. compute.ts 의 roundByOpp 주석 참조)
     // 행 수가 캐릭터 수로 묶여 있어(최대 42행) 시트를 더해도 파일이 커지지 않는다.
+    // 시트 순서는 SHEET_ORDER 한 곳에서 정한다 — 화면 탭에 없는 둘(상대 캐릭터별
+    // 라운드, 현지 시각)도 제 묶음 안에 들어가야 해서 이어붙이기로는 안 된다.
+    // 목록에 없는 키는 맨 뒤로. indexOf 를 그대로 쓰면 -1 이라 오히려 맨 앞으로 온다
+    // — 새 표를 만들고 SHEET_ORDER 에 넣는 걸 잊었을 때 제일 앞에 튀어나온다.
+    const sheetRank = (k: string) => {
+      const i = SHEET_ORDER.indexOf(k);
+      return i < 0 ? SHEET_ORDER.length : i;
+    };
     const sheets = [
       ...result.tabs,
       ...(result.localTime ? [result.localTime] : []),
       result.roundByOpp,
-    ];
+    ].sort((a, b) => sheetRank(a.key) - sheetRank(b.key));
     const buf = await tabsToXlsx(sheets, {
       title: `${myName || id} (${id})${char ? ` — ${char}` : ''}`,
       subtitle: period,

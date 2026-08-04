@@ -112,24 +112,37 @@ export function computeFromRecords(
   const { table: trend, chars: trendChars } = buildRatingTrend(records);
 
   // 순서 = 탭 줄에 보이는 순서이자 **기본으로 열리는 탭**이다 (화면이 tabs[0] 을 연다).
-  // '흐름'을 맨 앞에 둔 이유: 조회하자마자 궁금한 건 캐릭터별 누적이 아니라
+  // 엑셀 시트 순서도 이걸 따른다 — 한 번 익히면 두 곳이 같다.
+  //
+  // 묶는 기준은 "이 표가 어떤 물음에 답하나"다 (TAB_GROUP 참조). 예전 순서는 만든
+  // 차례에 가까웠고, 시트가 16개가 되면서 특히 안 읽혔다 — '전적 목록'(원자료
+  // 1,000행)이 셋째라 분석 표를 오른쪽으로 밀어냈고, 같은 라운드 표 둘이 정반대
+  // 끝에 떨어져 있었다.
+  //
+  // '흐름'이 맨 앞인 것은 그대로다: 조회하자마자 궁금한 건 캐릭터별 누적이 아니라
   // "지금 상태가 어떤가 / 더 해도 되나"다. 누적 통계는 그다음에 찾아본다.
   const tabs: TabData[] = [
+    // 요약
     tab('flow', '흐름', buildFlow(records)),
+    // 내 캐릭터로 무엇을 하나
     tab('total', '캐릭터', buildTotal(records)),
-    tab('matches', '전적 목록', buildMatches(records, opts?.matchesLimit)),
-    tab('season', '시즌', summaryBy(records, (r) => r.season, 'Season')),
+    tab('round', '라운드', buildRound(records, 'my')),
+    // 누구를 만나면 어떤가 (roundByOpp 가 이 뒤에 붙는다 — SHEET_ORDER 참조)
     tab('pivot', '상대 캐릭', buildPivot(records)),
     tab('strong', '강점 매치업', buildStrong(records)),
     tab('weak', '약점 매치업', buildWeak(records)),
-    tab('round', '라운드', buildRound(records, 'my')),
     tab('vs_rating', '레이팅대', buildVsRating(records)),
-    tab('time', '시간대', buildTimePatterns(records)),
-    tab('rank', '승단 이력', buildRankHistory(records)),
     tab('h2h', '상대전적', buildH2h(records)),
-    tab('daily', '일별', buildDaily(records)),
+    // 언제 하나 (localTime 이 time 뒤에 붙는다)
+    tab('time', '시간대', buildTimePatterns(records)),
     tab('sessions', '세션', buildSessions(records)),
+    tab('daily', '일별', buildDaily(records)),
+    // 시간에 따라 어떻게 변했나
+    tab('season', '시즌', summaryBy(records, (r) => r.season, 'Season')),
+    tab('rank', '승단 이력', buildRankHistory(records)),
     tab('trend', '레이팅 추이', opts?.wideTrend ? widenTrend(trend, trendChars) : trend),
+    // 원자료 — 나머지 전부의 출처다. 분석이 아니라 확인용이라 맨 뒤에 둔다.
+    tab('matches', '전적 목록', buildMatches(records, opts?.matchesLimit)),
   ];
 
   const shift = opts?.tzShiftMinutes ?? 0;
@@ -150,3 +163,59 @@ export function computeFromRecords(
     roundByOpp: tab('round_opp', '라운드 (상대 캐릭)', buildRound(records, 'opp')),
   };
 }
+
+// ── 표 묶음 ────────────────────────────────────────────────────────────────
+//
+// 위 tabs 배열의 순서가 곧 이 묶음의 순서다. 여기 정의는 **엑셀 시트 탭 색**과
+// 순서 검사에 쓴다 — 화면은 순서만으로 충분해서 색을 쓰지 않는다(탭 줄은 한눈에
+// 다 들어오고, 색을 더하면 '지금 열린 탭' 표시와 싸운다).
+
+export type TabGroup = 'summary' | 'mine' | 'versus' | 'when' | 'change' | 'raw';
+
+/** 각 표가 어떤 물음에 답하는가. */
+export const TAB_GROUP: Record<string, TabGroup> = {
+  flow: 'summary',
+  total: 'mine',
+  round: 'mine',
+  pivot: 'versus',
+  strong: 'versus',
+  weak: 'versus',
+  round_opp: 'versus',
+  vs_rating: 'versus',
+  h2h: 'versus',
+  time: 'when',
+  time_local: 'when',
+  sessions: 'when',
+  daily: 'when',
+  season: 'change',
+  rank: 'change',
+  trend: 'change',
+  matches: 'raw',
+};
+
+/**
+ * 엑셀 시트 순서.
+ *
+ * tabs 배열과 같되, 거기 없는 둘(roundByOpp·localTime)을 제 묶음 안에 끼워 넣는다.
+ * 이 둘은 화면에서 '같은 탭 안의 보기 전환'이라 tabs 에 없지만, 엑셀에는 시트로
+ * 들어가므로 자리를 정해줘야 한다 — 안 그러면 맨 뒤에 붙어 묶음이 깨진다.
+ */
+export const SHEET_ORDER: string[] = [
+  'flow',
+  'total',
+  'round',
+  'pivot',
+  'strong',
+  'weak',
+  'round_opp',
+  'vs_rating',
+  'h2h',
+  'time',
+  'time_local',
+  'sessions',
+  'daily',
+  'season',
+  'rank',
+  'trend',
+  'matches',
+];
