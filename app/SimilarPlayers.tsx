@@ -6,14 +6,22 @@ import { makeT, type Lang } from './i18n';
 // 승률 비슷한/정반대인 사람, 장기전 패턴 찾기. 기본은 접힌 상태 — 사용자가
 // 열 때만 요청한다. 육각형 거리 대신 승률(캐릭터별) + 장기전 패턴(계정 전체)을
 // 직접 쓴다 — 이유는 lib/tekken/similarity.ts 머리말 참조.
+//
+// 판수·레이팅 대역: 승률만 보면 실력대가 완전히 다른 사람도 "비슷하다"고 나올
+// 수 있다(초심자 55% 와 파괴신 55% 는 같은 숫자지만 같은 실력이 아니다).
+// 레이팅은 방향을 안 가리고 대역으로 막는다 — 낮은 쪽만 배제하면 어디까지
+// 낮아야 거를지 기준이 애매해진다.
 
 const BRAND = '#ff0060';
 
 type MinCharGames = 20 | 50 | 100 | 200;
+type GamesBand = 10 | 20 | 30 | 0;
+type RatingBand = 100 | 200 | 300 | 0;
 
 interface Result {
   id: string;
   name: string;
+  games: number;
   charGames: number;
   charWinRate: number;
   wrDiff: number;
@@ -30,13 +38,24 @@ interface Resp {
   indexSize: number;
   indexUpdatedAt: number;
   wouldMatchWithLooserMinGames: number;
+  wouldMatchWithLooserGamesBand: number;
+  wouldMatchWithLooserRatingBand: number;
   charaId: string;
   charaName: string;
   myCharGames: number;
   myWinRate: number;
+  myGames: number;
+  myRating: number;
   results: Result[];
   error?: string;
 }
+
+const EMPTY_RESP = (error: string): Resp => ({
+  error,
+  count: 0, indexSize: 0, indexUpdatedAt: 0,
+  wouldMatchWithLooserMinGames: 0, wouldMatchWithLooserGamesBand: 0, wouldMatchWithLooserRatingBand: 0,
+  charaId: '', charaName: '', myCharGames: 0, myWinRate: 0, myGames: 0, myRating: 0, results: [],
+});
 
 const CSS = `
 .sp-wrap { margin: 8px 0 14px; }
@@ -92,6 +111,8 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
   const [open, setOpen] = useState(false);
   const [direction, setDirection] = useState<'similar' | 'opposite'>('similar');
   const [minGames, setMinGames] = useState<MinCharGames>(20);
+  const [gamesBand, setGamesBand] = useState<GamesBand>(20);
+  const [ratingBand, setRatingBand] = useState<RatingBand>(200);
   const [trend, setTrend] = useState<'any' | 'declining' | 'rising'>('any');
   const [recency, setRecency] = useState<'month' | 'patch' | 'all'>('month');
   const [busy, setBusy] = useState(false);
@@ -101,28 +122,29 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
   async function search() {
     setBusy(true);
     try {
-      const q = new URLSearchParams({ direction, minGames: String(minGames), trend, recency });
+      const q = new URLSearchParams({
+        direction, minGames: String(minGames), gamesBand: String(gamesBand),
+        ratingBand: String(ratingBand), trend, recency,
+      });
       const res = await fetch(`/api/similar/${encodeURIComponent(polarisId)}?${q}`);
       const json = await res.json();
-      setResp(
-        res.ok
-          ? json
-          : {
-              error: json.error,
-              count: 0, indexSize: 0, indexUpdatedAt: 0, wouldMatchWithLooserMinGames: 0,
-              charaId: '', charaName: '', myCharGames: 0, myWinRate: 0, results: [],
-            },
-      );
+      setResp(res.ok ? json : EMPTY_RESP(json.error));
     } catch (e) {
-      setResp({
-        error: e instanceof Error ? e.message : String(e),
-        count: 0, indexSize: 0, indexUpdatedAt: 0, wouldMatchWithLooserMinGames: 0,
-        charaId: '', charaName: '', myCharGames: 0, myWinRate: 0, results: [],
-      });
+      setResp(EMPTY_RESP(e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
     }
   }
+
+  // 완화 힌트 중 가장 값이 큰 것 하나만 보여준다 — 셋 다 나열하면 오히려 뭘
+  // 눌러야 할지 더 헷갈린다.
+  const looserHints = resp
+    ? [
+        { n: resp.wouldMatchWithLooserMinGames, key: 'minGames' as const },
+        { n: resp.wouldMatchWithLooserGamesBand, key: 'gamesBand' as const },
+        { n: resp.wouldMatchWithLooserRatingBand, key: 'ratingBand' as const },
+      ].sort((a, b) => b.n - a.n)[0]
+    : null;
 
   return (
     <div className="sp-wrap">
@@ -158,6 +180,21 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
           </div>
 
           <div className="sp-controls">
+            <select className="sp-select" value={gamesBand} onChange={(e) => setGamesBand(Number(e.target.value) as GamesBand)}>
+              <option value={10}>{t('spGamesBandLabel')}: ±10%</option>
+              <option value={20}>{t('spGamesBandLabel')}: ±20%</option>
+              <option value={30}>{t('spGamesBandLabel')}: ±30%</option>
+              <option value={0}>{t('spGamesBandLabel')}: {t('spBandUnlimited')}</option>
+            </select>
+            <select className="sp-select" value={ratingBand} onChange={(e) => setRatingBand(Number(e.target.value) as RatingBand)}>
+              <option value={100}>{t('spRatingBandLabel')}: ±100</option>
+              <option value={200}>{t('spRatingBandLabel')}: ±200</option>
+              <option value={300}>{t('spRatingBandLabel')}: ±300</option>
+              <option value={0}>{t('spRatingBandLabel')}: {t('spBandUnlimited')}</option>
+            </select>
+          </div>
+
+          <div className="sp-controls">
             <select className="sp-select" value={trend} onChange={(e) => setTrend(e.target.value as 'any' | 'declining' | 'rising')} style={{ flex: '1 1 100%' }}>
               <option value="any">{t('spTrendLabel')}: {t('spTrendAny')}</option>
               <option value="declining">{t('spTrendDeclining')}</option>
@@ -177,13 +214,22 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
             <>
               <div className="sp-char">
                 {t('spCharLabel')(resp.charaName)} · {t('spMyWinRate')(resp.myWinRate, resp.myCharGames)}
+                {' · '}
+                {t('spMyGamesRating')(resp.myGames, resp.myRating)}
               </div>
               <div className="sp-note">{t('spIndexNote')(resp.indexSize, Math.round((Date.now() / 1000 - resp.indexUpdatedAt) / 86400))}</div>
 
               {resp.results.length === 0 ? (
                 <div className="sp-empty">
                   {t('spEmpty')(resp.indexSize)}
-                  {resp.wouldMatchWithLooserMinGames > 0 && <> {t('spLooserHint')(resp.wouldMatchWithLooserMinGames)}</>}
+                  {looserHints && looserHints.n > 0 && (
+                    <>
+                      {' '}
+                      {looserHints.key === 'minGames' && t('spLooserHintMinGames')(looserHints.n)}
+                      {looserHints.key === 'gamesBand' && t('spLooserHintGamesBand')(looserHints.n)}
+                      {looserHints.key === 'ratingBand' && t('spLooserHintRatingBand')(looserHints.n)}
+                    </>
+                  )}
                 </div>
               ) : (
                 resp.results.map((r) => (
@@ -198,10 +244,7 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
                           <span className="sp-badge up">{t('spRisingBadge')(r.riseAfter, r.risePp)}</span>
                         )}
                       </div>
-                      <div className="sp-sub">
-                        {r.charGames.toLocaleString()}
-                        {t('spGamesShort')} · 레이팅 {r.rating.toLocaleString()}
-                      </div>
+                      <div className="sp-sub">{t('spResultSub')(r.charGames, r.games, r.rating)}</div>
                     </div>
                     <div>
                       <div className="sp-wr">{r.charWinRate}%</div>

@@ -2338,7 +2338,6 @@ export default function Home() {
           </p>
           {/* 캐릭터별 현재 단 — wavu 값 그대로, 추정 없음 */}
           <RankBadges polarisId={single.polarisId} lang={lang} />
-          <SimilarPlayers polarisId={single.polarisId} lang={lang} />
           {summary && (
             <div className="sum-card">
               <div className="sum-block">
@@ -2894,6 +2893,12 @@ export default function Home() {
                       : t('tzUnknown')}
                     {tz.source === 'curve' && ' ' + t('tzByCurve')}
                   </p>
+                )}
+
+                {/* 흐름 탭: 장기전 조언(위) 과 항목별 표(아래) 사이 — 그 흐름을
+                    보러 온 사람이 그 자리에서 바로 비슷한 실력대 상대도 찾아본다. */}
+                {current.key === 'flow' && mode === 'single' && single && (
+                  <SimilarPlayers polarisId={single.polarisId} lang={lang} />
                 )}
 
                 {/* 비교 표: 표본이 얇은 행 숨기기 */}
