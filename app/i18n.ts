@@ -398,38 +398,66 @@ const D = {
     ja: (n: number) => `他${n}体を表示`,
   },
 
-  // ── 비슷한/반대 유형 찾기 (player-index 기반) ──
-  spToggle: { ko: '비슷한 · 반대 유형 찾기', en: 'Find similar / opposite players', ja: '似ている・正反対のタイプを探す' },
-  spDirSimilar: { ko: '비슷한 유형', en: 'Similar', ja: '似ている' },
-  spDirOpposite: { ko: '반대 유형', en: 'Opposite', ja: '正反対' },
-  spBandLabel: { ko: '판수 오차폭', en: 'Games range', ja: '試合数の許容差' },
-  spBandUnlimited: { ko: '제한 없음', en: 'Unlimited', ja: '制限なし' },
+  // ── 승률 비슷한/정반대인 사람, 장기전 패턴 찾기 (player-index 기반) ──
+  spToggle: { ko: '승률 비교 · 장기전 패턴 찾기', en: 'Find by win rate / long-session pattern', ja: '勝率比較・長時間戦のパターンを探す' },
+  spDirSimilar: { ko: '승률 비슷한 사람', en: 'Similar win rate', ja: '勝率が近い' },
+  spDirOpposite: { ko: '승률 정반대인 사람', en: 'Opposite win rate', ja: '勝率が正反対' },
+  spCharLabel: {
+    ko: (c: string) => `기준 캐릭터: ${c} (최근 사용)`,
+    en: (c: string) => `Comparing on: ${c} (recently used)`,
+    ja: (c: string) => `基準キャラ: ${c}(最近使用)`,
+  },
+  spMinGamesLabel: { ko: '그 캐릭터 최소 판수', en: 'Min games on that character', ja: 'そのキャラの最低試合数' },
+  spTrendLabel: { ko: '장기전 패턴', en: 'Long-session pattern', ja: '長時間戦のパターン' },
+  spTrendAny: { ko: '무관', en: 'Any', ja: '指定なし' },
+  spTrendDeclining: { ko: '판수 늘수록 하락하는 사람', en: 'Declines over a session', ja: '試合が増えると下がる人' },
+  spTrendRising: { ko: '판수 늘수록 상승하는 사람', en: 'Rises over a session', ja: '試合が増えると上がる人' },
+  spTrendRisingCaveat: {
+    ko: '주의: 이기는 날은 계속 치고 지는 날은 그만두는 경향 때문에 후반 승률이 높게 나오는 건 흔합니다. 실력이 오른다는 뜻이 아닐 수 있습니다.',
+    en: 'Caution: later-session win rates often look high simply because people keep playing on good days and stop on bad ones. This is not necessarily a real improvement.',
+    ja: '注意: 勝っている日は続け、負けている日はやめる傾向があるため、後半の勝率が高く出るのはよくあることです。実力向上とは限りません。',
+  },
   spRecencyLabel: { ko: '최근 활동', en: 'Recent activity', ja: '最近の活動' },
   spRecencyMonth: { ko: '한 달 내', en: 'Last month', ja: '直近1ヶ月' },
   spRecencyPatch: { ko: '이번 패치', en: 'Current patch', ja: '今パッチ' },
   spRecencyAll: { ko: '전체', en: 'All time', ja: '全期間' },
   spSearch: { ko: '찾기', en: 'Search', ja: '検索' },
   spSearching: { ko: '찾는 중…', en: 'Searching…', ja: '検索中…' },
+  spMyWinRate: {
+    ko: (wr: number, n: number) => `내 승률 ${wr}% (최근 ${n}판 기준)`,
+    en: (wr: number, n: number) => `Your win rate: ${wr}% (last ${n} games)`,
+    ja: (wr: number, n: number) => `自分の勝率 ${wr}%(直近${n}戦)`,
+  },
   spIndexNote: {
     ko: (n: number, d: number) => `표본 ${n}명 · ${d}일 전 스냅샷 기준`,
     en: (n: number, d: number) => `Sample of ${n}, snapshot from ${d} days ago`,
     ja: (n: number, d: number) => `サンプル${n}人・${d}日前のスナップショット`,
   },
   spEmpty: {
-    ko: (n: number) => `표본 ${n}명 중 이 조건에 맞는 사람이 없습니다. 오차폭을 넓혀보세요.`,
-    en: (n: number) => `None of the ${n} sampled players match. Try widening the games range.`,
-    ja: (n: number) => `サンプル${n}人の中に条件に合う人がいません。許容差を広げてみてください。`,
+    ko: (n: number) => `표본 ${n}명 중 이 조건에 맞는 사람이 없습니다. 최소 판수를 낮춰보세요.`,
+    en: (n: number) => `None of the ${n} sampled players match. Try lowering the minimum games.`,
+    ja: (n: number) => `サンプル${n}人の中に条件に合う人がいません。最低試合数を下げてみてください。`,
   },
-  spWiderHint: {
-    ko: (n: number) => `오차폭을 한 단계 넓히면 ${n}명 더 나옵니다.`,
-    en: (n: number) => `Widening by one step adds ${n} more.`,
-    ja: (n: number) => `許容差を一段広げると${n}人増えます。`,
+  spLooserHint: {
+    ko: (n: number) => `최소 판수를 한 단계 낮추면 ${n}명 더 나옵니다.`,
+    en: (n: number) => `Lowering the minimum by one step adds ${n} more.`,
+    ja: (n: number) => `最低試合数を一段下げると${n}人増えます。`,
   },
   spGamesShort: { ko: '판', en: ' games', ja: '戦' },
   spTooFewGames: {
-    ko: '전적이 너무 적어(100판 미만) 성향을 잴 수 없습니다.',
-    en: 'Too few matches (under 100) to measure playstyle.',
-    ja: '試合数が少なすぎて(100戦未満)傾向を測れません。',
+    ko: '전적이 너무 적어(20판 미만) 승률을 잴 수 없습니다.',
+    en: 'Too few matches (under 20) to measure win rate.',
+    ja: '試合数が少なすぎて(20戦未満)勝率を測れません。',
+  },
+  spDecliningBadge: {
+    ko: (n: number, pp: number) => `${n}판째부터 -${pp}%p`,
+    en: (n: number, pp: number) => `-${pp}%p after game ${n}`,
+    ja: (n: number, pp: number) => `${n}戦目から-${pp}%p`,
+  },
+  spRisingBadge: {
+    ko: (n: number, pp: number) => `${n}판째부터 +${pp}%p`,
+    en: (n: number, pp: number) => `+${pp}%p after game ${n}`,
+    ja: (n: number, pp: number) => `${n}戦目から+${pp}%p`,
   },
 } satisfies Record<string, Entry | Record<Lang, (...a: never[]) => string>>;
 
