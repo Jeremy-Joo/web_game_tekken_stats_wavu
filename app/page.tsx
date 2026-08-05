@@ -203,7 +203,9 @@ interface CompareResponse {
 }
 
 type Mode = 'single' | 'compare';
-type PeriodMode = 'all' | 'month' | 'year' | 'custom' | 'season';
+type PeriodMode = 'all' | 'month' | 'year' | 'recent' | 'custom' | 'season';
+/** '최근 N년' 프리셋 — 오늘 기준으로 N년 전부터. */
+type RecentYears = 2 | 3 | 4;
 
 /** 서버가 데이터에서 뽑아준 시즌 구간 (lib/tekken/seasons.ts). */
 interface SeasonInfo {
@@ -260,6 +262,15 @@ function monthRange(ym: string): [string, string] {
   const [y, m] = ym.split('-').map(Number);
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
   return [`${ym}-01`, `${ym}-${String(last).padStart(2, '0')}`];
+}
+
+/** '최근 N년' → [오늘(KST)로부터 N년 전, 오늘]. currentMonth 와 같은 KST 보정. */
+function recentYearsRange(n: number): [string, string] {
+  const now = new Date(Date.now() + 9 * 3600 * 1000);
+  const end = now.toISOString().slice(0, 10);
+  const s = new Date(now);
+  s.setUTCFullYear(s.getUTCFullYear() - n);
+  return [s.toISOString().slice(0, 10), end];
 }
 
 /** CSV 문자열 생성 (BOM 포함 → 엑셀에서 한글 정상). */
@@ -826,6 +837,7 @@ export default function Home() {
   const [hideThin, setHideThin] = useState(true);
   const [month, setMonth] = useState(currentMonth());
   const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [recentYears, setRecentYears] = useState<RecentYears>(2);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [loading, setLoading] = useState(false);
@@ -1027,13 +1039,14 @@ export default function Home() {
     sp.set('pm', periodMode);
     if (periodMode === 'month') sp.set('mo', month);
     if (periodMode === 'year') sp.set('yr', year);
+    if (periodMode === 'recent') sp.set('ry', String(recentYears));
     if (periodMode === 'season') sp.set('sn', seasonSel);
     if (periodMode === 'custom') {
       if (start) sp.set('st', start);
       if (end) sp.set('en', end);
     }
     return sp;
-  }, [periodMode, month, year, seasonSel, start, end]);
+  }, [periodMode, month, year, recentYears, seasonSel, start, end]);
 
   /** 기간 모드 → 실제 start/end 쿼리. */
   const periodQuery = useCallback((): URLSearchParams => {
@@ -1045,6 +1058,10 @@ export default function Home() {
     } else if (periodMode === 'year' && year) {
       q.set('start', `${year}-01-01`);
       q.set('end', `${year}-12-31`);
+    } else if (periodMode === 'recent') {
+      const [s, e] = recentYearsRange(recentYears);
+      q.set('start', s);
+      q.set('end', e);
     } else if (periodMode === 'custom') {
       if (start) q.set('start', start);
       if (end) q.set('end', end);
@@ -1053,7 +1070,7 @@ export default function Home() {
       q.set('season', seasonSel);
     }
     return q;
-  }, [periodMode, month, year, start, end, seasonSel]);
+  }, [periodMode, month, year, recentYears, start, end, seasonSel]);
 
   /**
    * 조회. 입력칸의 각 항목(식별코드 또는 닉네임)을 resolveToken 으로 해석한 뒤 실행.
@@ -1189,7 +1206,7 @@ export default function Home() {
    */
   const loadingRef = useRef(false);
   loadingRef.current = loading;
-  const periodSig = `${periodMode}|${month}|${year}|${seasonSel}|${start}|${end}`;
+  const periodSig = `${periodMode}|${month}|${year}|${recentYears}|${seasonSel}|${start}|${end}`;
   const periodFirstRef = useRef(true);
   useEffect(() => {
     if (periodFirstRef.current) {
@@ -1281,10 +1298,12 @@ export default function Home() {
       setSeasonSel(pmRaw.toUpperCase());
     } else {
       const pm = pmRaw as PeriodMode | null;
-      if (pm && ['all', 'month', 'year', 'custom', 'season'].includes(pm)) {
+      if (pm && ['all', 'month', 'year', 'recent', 'custom', 'season'].includes(pm)) {
         setPeriodMode(pm);
         if (pm === 'month' && sp.get('mo')) setMonth(sp.get('mo')!);
         if (pm === 'year' && sp.get('yr')) setYear(sp.get('yr')!);
+        if (pm === 'recent' && sp.get('ry') && [2, 3, 4].includes(Number(sp.get('ry'))))
+          setRecentYears(Number(sp.get('ry')) as RecentYears);
         if (pm === 'season' && sp.get('sn')) setSeasonSel(sp.get('sn')!);
         if (pm === 'custom') {
           if (sp.get('st')) setStart(sp.get('st')!);
@@ -1324,6 +1343,7 @@ export default function Home() {
       sp.set('pm', periodMode);
       if (periodMode === 'month') sp.set('mo', month);
       if (periodMode === 'year') sp.set('yr', year);
+      if (periodMode === 'recent') sp.set('ry', String(recentYears));
       if (periodMode === 'season') sp.set('sn', seasonSel);
       if (periodMode === 'custom') {
         if (start) sp.set('st', start);
