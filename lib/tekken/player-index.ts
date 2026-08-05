@@ -38,6 +38,13 @@ const RAW_URL =
 /** GitHub raw 도 자체 CDN 캐시가 있어(수 분) 이보다 짧게 잡아도 실익이 없다. */
 const REVALIDATE_SECONDS = 3600;
 
+/**
+ * 이 태그로 캐시를 즉시 무효화할 수 있다(app/api/admin/revalidate-index).
+ * 안 그러면 인덱스를 갱신해도 최대 1시간을 기다려야 반영된다 — 매일 자동
+ * 갱신(GA)이 끝난 직후 그 요청을 걸어 기다림을 없앤다.
+ */
+export const PLAYER_INDEX_TAG = 'player-index';
+
 export interface PlayerIndexRow {
   id: string;
   name: string;
@@ -84,7 +91,9 @@ const EMPTY: PlayerIndex = { updatedAt: 0, minGames: 500, rows: [], skipped: {} 
  * 실패 처리는 그 호출부의 몫으로 남긴다.
  */
 export async function fetchPlayerIndex(): Promise<PlayerIndex> {
-  const res = await fetch(RAW_URL, { next: { revalidate: REVALIDATE_SECONDS } });
+  const res = await fetch(RAW_URL, {
+    next: { revalidate: REVALIDATE_SECONDS, tags: [PLAYER_INDEX_TAG] },
+  });
   if (!res.ok) throw new Error(`플레이어 인덱스를 못 받았습니다 (HTTP ${res.status})`);
   const data = (await res.json()) as unknown;
   if (!data || typeof data !== 'object' || !Array.isArray((data as PlayerIndex).rows)) {

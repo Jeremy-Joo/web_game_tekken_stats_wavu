@@ -43,7 +43,9 @@ jobs:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: npx tsx scripts/build-player-index.ts ga 100
 
-      - name: 변경 있으면 커밋·푸시
+      - name: 변경 있으면 커밋·푸시하고 사이트 캐시를 즉시 무효화
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           if git diff --quiet -- lib/tekken/player-index-data.json; then
             echo "신규 없음 — 커밋 생략"
@@ -54,3 +56,11 @@ jobs:
           git add lib/tekken/player-index-data.json
           git commit -m "플레이어 인덱스 일일 갱신 (GA 신규분)"
           git push
+
+          # 여기서 캐시를 안 건드리면 최대 1시간은 예전 사본이 나간다
+          # (player-index.ts 의 REVALIDATE_SECONDS). 갱신 직후 반영시킨다.
+          curl -sf -X POST "https://tekkenstats.com/api/admin/revalidate-index" \
+            -H "Content-Type: application/json" \
+            -d "{\"password\":\"${ADMIN_PASSWORD}\"}" \
+            && echo "캐시 무효화 완료" \
+            || echo "::warning::캐시 무효화 실패 — 데이터는 이미 반영됐고, 최대 1시간 뒤 자연 반영된다"
