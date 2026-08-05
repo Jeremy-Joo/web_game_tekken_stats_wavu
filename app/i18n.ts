@@ -55,7 +55,12 @@ const D = {
   periodAll: { ko: '전체', en: 'All', ja: '全体' },
   periodMonth: { ko: '월별', en: 'Month', ja: '月別' },
   periodYear: { ko: '연별', en: 'Year', ja: '年別' },
-  periodCustom: { ko: '직접입력', en: 'Custom', ja: '指定' },
+  periodCustom: { ko: '기간설정', en: 'Custom range', ja: '期間指定' },
+  periodRecentYears: {
+    ko: (n: number) => `최근 ${n}년`,
+    en: (n: number) => `Last ${n}y`,
+    ja: (n: number) => `直近${n}年`,
+  },
   startDate: { ko: '시작일', en: 'From', ja: '開始日' },
   endDate: { ko: '종료일', en: 'To', ja: '終了日' },
   // 비교는 wavu 지침에 맞춰 순차 수집이라 인원수만큼 시간이 는다.
@@ -90,7 +95,7 @@ const D = {
   charLabel: { ko: '캐릭터별 상세 (경기 수 순)', en: 'Per-character detail (by games)', ja: 'キャラ別詳細 (試合数順)' },
   hlToggle: { ko: '우위 항목 하이라이트', en: 'Highlight advantages', ja: '優位項目をハイライト' },
   // 상대전적 → 비교 목록에 담기 (화면을 벗어나지 않는다)
-  addToCompare: { ko: '비교 목록에 추가', en: 'Add to compare list', ja: '比較リストに追加' },
+  addToCompare: { ko: '나와 비교 (새 창으로 즉시)', en: 'Compare with me (opens instantly)', ja: '自分と比較(すぐ新しいタブで)' },
   // 비교 결과 위 한 줄 — 서로 붙은 기록이 있을 때만. 누르면 '맞대결 상세' 탭으로 간다.
   // 승패는 **앞사람 기준**이라 이름을 다시 붙인다 — 누구의 2승인지 안 밝히면 못 읽는다.
   h2hHint: {
@@ -370,6 +375,7 @@ const D = {
   // 시즌 탭 보기 전환 — 시즌별(기본) ↔ game_version 별(같은 시즌 안의 밸런스 패치까지)
   seasonBySeason: { ko: '시즌별', en: 'By season', ja: 'シーズン別' },
   seasonByVersion: { ko: '버전별로 나눠보기', en: 'Split by version', ja: 'バージョン別に分割' },
+  splitAll: { ko: '전체', en: 'All', ja: '全体' },
   tzRegion: {
     ko: (region: string, off: string) => `이 플레이어는 ${region} 서버입니다 — 현지 시각은 ${off} 기준입니다.`,
     en: (region: string, off: string) => `This player is on the ${region} server — local time is ${off}.`,
