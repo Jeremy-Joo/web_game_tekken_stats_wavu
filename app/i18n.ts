@@ -407,7 +407,7 @@ const D = {
     en: (c: string) => `Comparing on: ${c} (recently used)`,
     ja: (c: string) => `基準キャラ: ${c}(最近使用)`,
   },
-  spMinGamesLabel: { ko: '최소 판수', en: 'Min games', ja: '最低試合数' },
+  spCharGamesBandLabel: { ko: '그 캐릭터 판수 유사도', en: 'Character games similarity', ja: 'そのキャラの試合数の近さ' },
   spGamesBandLabel: { ko: '통산 판수 유사도', en: 'Total games similarity', ja: '通算試合数の近さ' },
   spRatingBandLabel: { ko: '레이팅 유사도', en: 'Rating similarity', ja: 'レートの近さ' },
   spBandUnlimited: { ko: '무관', en: 'Any', ja: '指定なし' },
@@ -450,14 +450,14 @@ const D = {
     ja: (n: number, d: number) => `サンプル${n}人・${d}日前のスナップショット`,
   },
   spEmpty: {
-    ko: (n: number) => `표본 ${n}명 중 이 조건에 맞는 사람이 없습니다. 최소 판수를 낮춰보세요.`,
-    en: (n: number) => `None of the ${n} sampled players match. Try lowering the minimum games.`,
-    ja: (n: number) => `サンプル${n}人の中に条件に合う人がいません。最低試合数を下げてみてください。`,
+    ko: (n: number) => `표본 ${n}명 중 이 조건에 맞는 사람이 없습니다. 유사도 대역을 넓혀보세요.`,
+    en: (n: number) => `None of the ${n} sampled players match. Try widening a similarity band.`,
+    ja: (n: number) => `サンプル${n}人の中に条件に合う人がいません。近さの範囲を広げてみてください。`,
   },
-  spLooserHintMinGames: {
-    ko: (n: number) => `최소 판수를 한 단계 낮추면 ${n}명 더 나옵니다.`,
-    en: (n: number) => `Lowering the minimum games by one step adds ${n} more.`,
-    ja: (n: number) => `最低試合数を一段下げると${n}人増えます。`,
+  spLooserHintCharGamesBand: {
+    ko: (n: number) => `그 캐릭터 판수 유사도를 한 단계 넓히면 ${n}명 더 나옵니다.`,
+    en: (n: number) => `Widening the character-games similarity by one step adds ${n} more.`,
+    ja: (n: number) => `そのキャラの試合数の近さを一段広げると${n}人増えます。`,
   },
   spLooserHintGamesBand: {
     ko: (n: number) => `통산 판수 유사도를 한 단계 넓히면 ${n}명 더 나옵니다.`,

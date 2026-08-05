@@ -14,7 +14,7 @@ import { makeT, type Lang } from './i18n';
 
 const BRAND = '#ff0060';
 
-type MinCharGames = 20 | 50 | 100 | 200;
+type CharGamesBand = 10 | 20 | 30 | 0;
 type GamesBand = 10 | 20 | 30 | 0;
 type RatingBand = 100 | 200 | 300 | 0;
 
@@ -37,7 +37,7 @@ interface Resp {
   count: number;
   indexSize: number;
   indexUpdatedAt: number;
-  wouldMatchWithLooserMinGames: number;
+  wouldMatchWithLooserCharGamesBand: number;
   wouldMatchWithLooserGamesBand: number;
   wouldMatchWithLooserRatingBand: number;
   charaId: string;
@@ -53,7 +53,7 @@ interface Resp {
 const EMPTY_RESP = (error: string): Resp => ({
   error,
   count: 0, indexSize: 0, indexUpdatedAt: 0,
-  wouldMatchWithLooserMinGames: 0, wouldMatchWithLooserGamesBand: 0, wouldMatchWithLooserRatingBand: 0,
+  wouldMatchWithLooserCharGamesBand: 0, wouldMatchWithLooserGamesBand: 0, wouldMatchWithLooserRatingBand: 0,
   charaId: '', charaName: '', myCharGames: 0, myWinRate: 0, myGames: 0, myRating: 0, results: [],
 });
 
@@ -110,7 +110,7 @@ const CSS = `
 export default function SimilarPlayers({ polarisId, lang }: { polarisId: string; lang: Lang }) {
   const [open, setOpen] = useState(false);
   const [direction, setDirection] = useState<'similar' | 'opposite'>('similar');
-  const [minGames, setMinGames] = useState<MinCharGames>(20);
+  const [charGamesBand, setCharGamesBand] = useState<CharGamesBand>(20);
   const [gamesBand, setGamesBand] = useState<GamesBand>(20);
   const [ratingBand, setRatingBand] = useState<RatingBand>(200);
   const [trend, setTrend] = useState<'any' | 'declining' | 'rising'>('any');
@@ -123,7 +123,7 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
     setBusy(true);
     try {
       const q = new URLSearchParams({
-        direction, minGames: String(minGames), gamesBand: String(gamesBand),
+        direction, charGamesBand: String(charGamesBand), gamesBand: String(gamesBand),
         ratingBand: String(ratingBand), trend, recency,
       });
       const res = await fetch(`/api/similar/${encodeURIComponent(polarisId)}?${q}`);
@@ -140,7 +140,7 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
   // 눌러야 할지 더 헷갈린다.
   const looserHints = resp
     ? [
-        { n: resp.wouldMatchWithLooserMinGames, key: 'minGames' as const },
+        { n: resp.wouldMatchWithLooserCharGamesBand, key: 'charGamesBand' as const },
         { n: resp.wouldMatchWithLooserGamesBand, key: 'gamesBand' as const },
         { n: resp.wouldMatchWithLooserRatingBand, key: 'ratingBand' as const },
       ].sort((a, b) => b.n - a.n)[0]
@@ -166,11 +166,11 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
           </div>
 
           <div className="sp-controls">
-            <select className="sp-select" value={minGames} onChange={(e) => setMinGames(Number(e.target.value) as MinCharGames)}>
-              <option value={20}>{t('spMinGamesLabel')}: 20+</option>
-              <option value={50}>{t('spMinGamesLabel')}: 50+</option>
-              <option value={100}>{t('spMinGamesLabel')}: 100+</option>
-              <option value={200}>{t('spMinGamesLabel')}: 200+</option>
+            <select className="sp-select" value={charGamesBand} onChange={(e) => setCharGamesBand(Number(e.target.value) as CharGamesBand)}>
+              <option value={10}>{t('spCharGamesBandLabel')}: ±10%</option>
+              <option value={20}>{t('spCharGamesBandLabel')}: ±20%</option>
+              <option value={30}>{t('spCharGamesBandLabel')}: ±30%</option>
+              <option value={0}>{t('spCharGamesBandLabel')}: {t('spBandUnlimited')}</option>
             </select>
             <select className="sp-select" value={recency} onChange={(e) => setRecency(e.target.value as 'month' | 'patch' | 'all')}>
               <option value="month">{t('spRecencyLabel')}: {t('spRecencyMonth')}</option>
@@ -225,7 +225,7 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
                   {looserHints && looserHints.n > 0 && (
                     <>
                       {' '}
-                      {looserHints.key === 'minGames' && t('spLooserHintMinGames')(looserHints.n)}
+                      {looserHints.key === 'charGamesBand' && t('spLooserHintCharGamesBand')(looserHints.n)}
                       {looserHints.key === 'gamesBand' && t('spLooserHintGamesBand')(looserHints.n)}
                       {looserHints.key === 'ratingBand' && t('spLooserHintRatingBand')(looserHints.n)}
                     </>

@@ -26,12 +26,24 @@
 // "나보다 낮으면 이상하다"고 예외 처리하면 어디까지 낮아야 걸러지는지
 // 기준이 애매해진다. 대역을 좁게 잡으면 낮은 쪽이든 높은 쪽이든 크게
 // 어긋난 사람은 애초에 후보에 안 들어온다 — 더 단순하고 결과도 같다.
-// 판수(gamesBand)는 계정 전체 판수다 — minCharGames(그 캐릭터 판수, 승률
-// 신뢰도용)와는 다른 목적이다: 이건 '경험치'가 비슷한 사람을 찾는 것이다.
+// 판수(gamesBand)는 계정 전체 판수다 — charGamesBand(그 캐릭터 판수)와는
+// 다른 목적이다: 이건 '경험치'가 비슷한 사람을 찾는 것이다.
+//
+// ── 캐릭터 판수를 문턱값 대신 대역으로 바꾼 이유 (2026-08-06) ───────────
+// 처음엔 "그 캐릭터로 20판 이상이면 통과"였다. 그런데 20판짜리 승률과
+// 10,000판짜리 승률은 숫자가 같아도 신뢰도가 다르다 — 20판이면 진짜 실력은
+// 표본 오차로 넓게 흔들리고, 10,000판이면 거의 확정된 값이다. 문턱값은
+// 그 차이를 무시하고 둘을 같은 무게로 비교해버린다. 신뢰구간을 계산해
+// 보정하는 방법도 있지만, 그건 결국 '진짜 승률을 추정'하는 것이고 이
+// 사이트는 추정값을 쓰지 않는다(랭크 포인트 추정 기능을 정확하지 않다는
+// 이유로 철회한 전례가 있다). 대신 판수·레이팅과 같은 방식을 쓴다 — 내
+// 판수 근처 사람만 후보로 본다. 20판인 내게는 20판 근처 사람만, 10,000판인
+// 내게는 10,000판 근처 사람만 비교 대상이 된다 — 표본 크기가 다르면 애초에
+// 비교 대상에 들어오지 않는다.
 
 import type { PlayerIndexRow } from './player-index';
 
-export type MinCharGames = 20 | 50 | 100 | 200;
+export type CharGamesBand = 10 | 20 | 30 | 0; // 0 = 무관
 export type GamesBand = 10 | 20 | 30 | 0; // 0 = 무관
 export type RatingBand = 100 | 200 | 300 | 0; // 0 = 무관
 export type SessionTrend = 'any' | 'declining' | 'rising';
@@ -43,13 +55,16 @@ export interface SimilarityQuery {
   charaId: string;
   /** 그 캐릭터에서 조회자의 승률(0~100). */
   myWinRate: number;
+  /** 조회자가 그 캐릭터로 친 판수. charGamesBand 의 기준. */
+  myCharGames: number;
   /** 조회자의 통산 판수(계정 전체). gamesBand 의 기준. */
   myGames: number;
   /** 조회자의 현재 레이팅. ratingBand 의 기준. */
   myRating: number;
   direction: Direction;
-  /** 후보가 그 캐릭터로 이 판수 이상이어야 한다 — 그 아래는 승률이 노이즈다. */
-  minCharGames: MinCharGames;
+  /** 그 캐릭터 판수가 내 판수의 ±N% 안이어야 한다 — 승률의 표본 크기(신뢰도)를
+   *  맞춘다. 0 이면 무관. */
+  charGamesBand: CharGamesBand;
   /** 통산 판수가 내 판수의 ±N% 안이어야 한다. 0 이면 무관. */
   gamesBand: GamesBand;
   /** 레이팅이 내 레이팅의 ±N 안이어야 한다. 0 이면 무관. */
@@ -76,8 +91,8 @@ export interface SimilarityResult {
 
 const NOW_S = () => Math.floor(Date.now() / 1000);
 const MONTH_S = 30 * 86400;
-/** minCharGames 를 완화할 때 다음으로 내려갈 단계. */
-const LOOSER_MIN_CHAR: Record<MinCharGames, MinCharGames | null> = { 200: 100, 100: 50, 50: 20, 20: null };
+/** charGamesBand 를 완화할 때 다음으로 넓어질 단계. */
+const LOOSER_CHAR_GAMES: Record<CharGamesBand, CharGamesBand | null> = { 10: 20, 20: 30, 30: 0, 0: null };
 /** gamesBand 를 완화할 때 다음으로 넓어질 단계. */
 const LOOSER_GAMES: Record<GamesBand, GamesBand | null> = { 10: 20, 20: 30, 30: 0, 0: null };
 /** ratingBand 를 완화할 때 다음으로 넓어질 단계. */
@@ -95,11 +110,11 @@ function withinSessionTrend(row: PlayerIndexRow, trend: SessionTrend): boolean {
   return row.risePp != null && row.risePp > 0; // 'rising'
 }
 
-function withinGamesBand(rowGames: number, myGames: number, band: GamesBand): boolean {
+function withinPercentBand(value: number, center: number, band: 10 | 20 | 30 | 0): boolean {
   if (band === 0) return true;
-  const lo = myGames * (1 - band / 100);
-  const hi = myGames * (1 + band / 100);
-  return rowGames >= lo && rowGames <= hi;
+  const lo = center * (1 - band / 100);
+  const hi = center * (1 + band / 100);
+  return value >= lo && value <= hi;
 }
 
 function withinRatingBand(rowRating: number, myRating: number, band: RatingBand): boolean {
@@ -119,7 +134,7 @@ export function findSimilar(
   q: SimilarityQuery,
 ): {
   results: SimilarityResult[];
-  wouldMatchWithLooserMinGames: number;
+  wouldMatchWithLooserCharGamesBand: number;
   wouldMatchWithLooserGamesBand: number;
   wouldMatchWithLooserRatingBand: number;
 } {
@@ -130,12 +145,13 @@ export function findSimilar(
       withinSessionTrend(r, q.sessionTrend),
   );
 
-  const scoreAt = (minCharGames: number, gamesBand: number, ratingBand: number): SimilarityResult[] => {
+  const scoreAt = (charGamesBand: number, gamesBand: number, ratingBand: number): SimilarityResult[] => {
     const out: SimilarityResult[] = [];
     for (const row of basePool) {
       const c = row.chars[q.charaId];
-      if (!c || c.games < minCharGames) continue;
-      if (!withinGamesBand(row.games, q.myGames, gamesBand as GamesBand)) continue;
+      if (!c) continue;
+      if (!withinPercentBand(c.games, q.myCharGames, charGamesBand as CharGamesBand)) continue;
+      if (!withinPercentBand(row.games, q.myGames, gamesBand as GamesBand)) continue;
       if (!withinRatingBand(row.rating, q.myRating, ratingBand as RatingBand)) continue;
       const wrDiff = Math.round(Math.abs(c.wrRecent - q.myWinRate) * 10) / 10;
       out.push({ row, charGames: c.games, charWinRate: c.wrRecent, wrDiff });
@@ -143,26 +159,26 @@ export function findSimilar(
     return out;
   };
 
-  const scored = scoreAt(q.minCharGames, q.gamesBand, q.ratingBand);
+  const scored = scoreAt(q.charGamesBand, q.gamesBand, q.ratingBand);
   scored.sort((a, b) => (q.direction === 'similar' ? a.wrDiff - b.wrDiff : b.wrDiff - a.wrDiff));
 
   // 세 대역을 각각 하나씩만 완화해본다(동시에 다 풀지 않는다) — "어느 걸
   // 완화해야 결과가 느는지"를 따로 알 수 있어야 사용자가 정확히 조절할 수 있다.
-  const looserMinChar = LOOSER_MIN_CHAR[q.minCharGames];
-  const wouldMatchWithLooserMinGames =
-    looserMinChar == null ? 0 : scoreAt(looserMinChar, q.gamesBand, q.ratingBand).length - scored.length;
+  const looserCharGames = LOOSER_CHAR_GAMES[q.charGamesBand];
+  const wouldMatchWithLooserCharGamesBand =
+    looserCharGames == null ? 0 : scoreAt(looserCharGames, q.gamesBand, q.ratingBand).length - scored.length;
 
   const looserGames = LOOSER_GAMES[q.gamesBand];
   const wouldMatchWithLooserGamesBand =
-    looserGames == null ? 0 : scoreAt(q.minCharGames, looserGames, q.ratingBand).length - scored.length;
+    looserGames == null ? 0 : scoreAt(q.charGamesBand, looserGames, q.ratingBand).length - scored.length;
 
   const looserRating = LOOSER_RATING[q.ratingBand];
   const wouldMatchWithLooserRatingBand =
-    looserRating == null ? 0 : scoreAt(q.minCharGames, q.gamesBand, looserRating).length - scored.length;
+    looserRating == null ? 0 : scoreAt(q.charGamesBand, q.gamesBand, looserRating).length - scored.length;
 
   return {
     results: scored,
-    wouldMatchWithLooserMinGames,
+    wouldMatchWithLooserCharGamesBand,
     wouldMatchWithLooserGamesBand,
     wouldMatchWithLooserRatingBand,
   };

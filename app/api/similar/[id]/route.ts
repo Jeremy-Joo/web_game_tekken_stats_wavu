@@ -3,9 +3,9 @@ import { getRecords } from '@/lib/wavu/cache';
 import { fetchPlayerIndex, currentVersionOf } from '@/lib/tekken/player-index';
 import {
   findSimilar,
+  type CharGamesBand,
   type Direction,
   type GamesBand,
-  type MinCharGames,
   type RatingBand,
   type Recency,
   type SessionTrend,
@@ -19,7 +19,7 @@ import {
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
-const MIN_CHAR_GAMES_VALUES = [20, 50, 100, 200];
+const CHAR_GAMES_BAND_VALUES = [10, 20, 30, 0];
 const GAMES_BAND_VALUES = [10, 20, 30, 0];
 const RATING_BAND_VALUES = [100, 200, 300, 0];
 
@@ -27,9 +27,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const { id } = await ctx.params;
   const sp = req.nextUrl.searchParams;
   const direction = (sp.get('direction') === 'opposite' ? 'opposite' : 'similar') as Direction;
-  const minCharGames = (MIN_CHAR_GAMES_VALUES.includes(Number(sp.get('minGames')))
-    ? Number(sp.get('minGames'))
-    : 20) as MinCharGames;
+  const charGamesBand = (CHAR_GAMES_BAND_VALUES.includes(Number(sp.get('charGamesBand')))
+    ? Number(sp.get('charGamesBand'))
+    : 20) as CharGamesBand;
   const recency = (['month', 'patch', 'all'].includes(sp.get('recency') ?? '')
     ? sp.get('recency')
     : 'month') as Recency;
@@ -93,18 +93,21 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const myGames = ord.length;
     const myRating = ord[ord.length - 1].myRating;
 
+    const myCharGames = myCharRecords.length;
+
     const {
       results,
-      wouldMatchWithLooserMinGames,
+      wouldMatchWithLooserCharGamesBand,
       wouldMatchWithLooserGamesBand,
       wouldMatchWithLooserRatingBand,
     } = findSimilar(ix.rows, {
       charaId,
       myWinRate,
+      myCharGames,
       myGames,
       myRating,
       direction,
-      minCharGames,
+      charGamesBand,
       gamesBand,
       ratingBand,
       sessionTrend,
@@ -115,21 +118,21 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     return NextResponse.json({
       direction,
-      minCharGames,
+      charGamesBand,
       gamesBand,
       ratingBand,
       recency,
       sessionTrend,
       charaId,
       charaName: charaId,
-      myCharGames: myCharRecords.length,
+      myCharGames,
       myWinRate,
       myGames,
       myRating,
       indexSize: ix.rows.length,
       indexUpdatedAt: ix.updatedAt,
       count: results.length,
-      wouldMatchWithLooserMinGames,
+      wouldMatchWithLooserCharGamesBand,
       wouldMatchWithLooserGamesBand,
       wouldMatchWithLooserRatingBand,
       results: results.slice(0, 12).map((r) => ({
