@@ -385,74 +385,7 @@ const D = {
     en: '(exact offset within the region is estimated from the play-time distribution)',
     ja: '(地域内の正確な時間帯はプレイ時間の分布から推定した値です)',
   },
-
-  // ── 랭크 포인트 카드 ──────────────────────────────────────────────
-  rpLoading: { ko: '랭크 포인트 계산 중…', en: 'Calculating rank points…', ja: 'ランクポイント計算中…' },
-  rpTagMain: { ko: '메인', en: 'Main', ja: 'メイン' },
-  rpTagRecent: { ko: '최근', en: 'Recent', ja: '最近' },
-  rpTagBoth: { ko: '메인 · 최근', en: 'Main · Recent', ja: 'メイン・最近' },
-  rpScore: { ko: '랭크 포인트 (추정)', en: 'Rank points (est.)', ja: 'ランクポイント (推定)' },
-  rpDisclaimer: {
-    ko: '전적으로 계산한 추정값입니다. 실제 값과 다를 수 있습니다.',
-    en: 'Estimated from match history — may differ from the in-game value.',
-    ja: '戦績から算出した推定値です。実際の値と異なる場合があります。',
-  },
-  rpToNext: { ko: '다음 단까지', en: 'To next rank', ja: '次の段まで' },
-  rpProgress: { ko: '구간 진행', en: 'Progress', ja: '区間進行' },
-  rpTopRank: { ko: '최고 단', en: 'Top rank', ja: '最高段' },
-  rpFold: { ko: '접기', en: 'Collapse', ja: '閉じる' },
-  rpMore: {
-    ko: (n: number) => `다른 캐릭터 ${n}개 더 보기`,
-    en: (n: number) => `Show ${n} more character${n === 1 ? '' : 's'}`,
-    ja: (n: number) => `他${n}体を表示`,
-  },
-  rpGamesSuffix: { ko: '경기', en: ' matches', ja: '戦' },
-  rpBandOnly: {
-    ko: (a: string, b: string) => `${a} ─ ${b} 구간`,
-    en: (a: string, b: string) => `${a} ─ ${b} range`,
-    ja: (a: string, b: string) => `${a} ─ ${b} 区間`,
-  },
-  rpSince: {
-    ko: (m: number, w: number, l: number) => `단 변동 후 ${m}경기 (${w}승 ${l}패)`,
-    en: (m: number, w: number, l: number) => `${m} matches since rank change (${w}W ${l}L)`,
-    ja: (m: number, w: number, l: number) => `段変動後 ${m}戦 (${w}勝${l}敗)`,
-  },
-  rpMargin: {
-    ko: (x: string) => `추정 오차 ±${x} P`,
-    en: (x: string) => `±${x} P margin`,
-    ja: (x: string) => `推定誤差 ±${x} P`,
-  },
-  // 추정 불가 사유 — lib/tekken/rankpoint.ts 의 ReasonCode 와 1:1
-  rpWhy: {
-    ko: {
-      'no-matches': '경기 없음',
-      'no-transition': '이 캐릭터로 단이 바뀐 적이 없어 기준점을 못 잡습니다',
-      'rank-jump': '중간 경기 기록이 빠져 있어 오차가 더 큽니다',
-      'no-model': '이 단은 아직 계산 기준이 없습니다',
-      'out-of-band': '구간 경계에 걸려 있어 오차가 더 큽니다',
-      'too-far': '기준점에서 멀어 오차가 큽니다',
-    },
-    en: {
-      'no-matches': 'No matches',
-      'no-transition': 'No rank change on this character, so there is no anchor',
-      'rank-jump': 'Some matches are missing — wider margin',
-      'no-model': 'No model for this rank yet',
-      'out-of-band': 'Pinned to the band edge — wider margin',
-      'too-far': 'Far from the anchor; margin is large',
-    },
-    ja: {
-      'no-matches': '試合なし',
-      'no-transition': 'このキャラで段の変動がなく基準点がありません',
-      'rank-jump': '途中の記録が欠けており誤差が大きいです',
-      'no-model': 'この段の計算基準がまだありません',
-      'out-of-band': '区間の端に寄っており誤差が大きいです',
-      'too-far': '基準点から遠く誤差が大きいです',
-    },
-  },
-} satisfies Record<
-  string,
-  Entry | Record<Lang, (...a: never[]) => string> | Record<Lang, Record<string, string>>
->;
+} satisfies Record<string, Entry | Record<Lang, (...a: never[]) => string>>;
 
 export type Dict = typeof D;
 
