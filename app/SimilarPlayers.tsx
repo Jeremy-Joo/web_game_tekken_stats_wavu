@@ -160,8 +160,8 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
           <div className="sp-controls">
             <select className="sp-select" value={trend} onChange={(e) => setTrend(e.target.value as 'any' | 'declining' | 'rising')} style={{ flex: '1 1 100%' }}>
               <option value="any">{t('spTrendLabel')}: {t('spTrendAny')}</option>
-              <option value="declining">{t('spTrendLabel')}: {t('spTrendDeclining')}</option>
-              <option value="rising">{t('spTrendLabel')}: {t('spTrendRising')}</option>
+              <option value="declining">{t('spTrendDeclining')}</option>
+              <option value="rising">{t('spTrendRising')}</option>
             </select>
           </div>
 
