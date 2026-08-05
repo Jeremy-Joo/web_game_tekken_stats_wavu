@@ -13,15 +13,21 @@
 // ── 반드시 캐릭터별로 ────────────────────────────────────────────────
 // 단은 캐릭터마다 따로다. 섞으면 34단 -> 36단 같은 도약이 생겨 앵커가 망가진다.
 //
-// ── 정확도 (2026-08-05 실측) ─────────────────────────────────────────
-// 15명 pooled, 세그먼트 18,644개로 적합. 중앙오차는 그 단 구간폭 대비:
-//   30단 4.2% · 31단 4.9% · 32단 5.1% · 33단 9.2% · 34단 6.6% · 35단 5.2%
+// ── 왜 승점 = 패점인가 ───────────────────────────────────────────────
+// 처음에는 승/패 점수를 따로 적합했는데(2파라미터) 값이 들쭉날쭉했고, 패점이
+// 승점보다 큰 단이 여럿 나왔다. 그러면 5할 승률인 사람이 계속 떨어진다는 뜻이라
+// 매칭 평형과 모순이다. 실제로 적합된 승/패 비는 대부분 1.00 근처(0.82~1.07)였다.
 //
-// 36단 이상은 **적합이 불가능하다.** 세그먼트가 77개 있어도 대부분 들어온
-// 경계로 되돌아 나가서 순증이 0이라 방정식에 정보가 없다(37단 = 최상위라
-// 구간을 관통하는 사람이 거의 없다). 그래서 35단 계수를 빌려 쓴다.
-// 검증 1건: BASEBALL LOVE 36단, 승단 후 40승 5패 → 추정 408,340 / 실제 407,700,
-// 오차 640점(구간의 2.1%). **표본 1개짜리 검증이라 confidence 를 낮게 준다.**
+// 그래서 **승점 = 패점** 으로 묶어 한 파라미터만 적합한다. 오차가 크게 줄었다:
+//   30단 -46% · 31단 -50% · 35단 -84% · 28단 -19% · 27단 -13%
+// 화면에 숫자가 나오는 비율도 46% -> 71% 로 올랐다(15명, 캐릭터 235개 기준).
+//
+// ── 정확도 (2026-08-05 실측) ─────────────────────────────────────────
+// 15명 pooled, 세그먼트 18,644개. medianErr 는 그 단 세그먼트 적합의 중앙오차(점).
+//
+// 36·37단은 대부분 들어온 경계로 되돌아 나가 순증이 0이라 적합이 안 된다.
+// BASEBALL LOVE 실측(36단, 승단 후 40승 5패 -> 407,700)에서 역산한 220을 쓴다.
+// **표본 1개짜리 보정이라 독립 검증이 아니다.** 다른 계정으로 확인이 필요하다.
 
 export interface RankBand {
   id: number;
@@ -52,28 +58,31 @@ export const RANK_BANDS: readonly RankBand[] = [
 ];
 
 /**
- * 단별 1경기 점수. `scripts/check-rankpoint.ts` 가 다시 적합해 갱신한다.
- * `medianErrPct` 는 그 단 구간폭 대비 중앙오차 — 화면 표기 정밀도를 여기서 정한다.
- * `borrowedFrom` 이 있으면 그 단의 계수를 빌려온 것이다(자체 적합 불가).
+ * 단별 1경기 점수(승리 +delta, 패배 -delta). `scripts/check-rankpoint.ts` 가 갱신한다.
+ * `medianErr` 는 세그먼트 적합의 중앙오차로, 화면 표기 정밀도를 정하는 데 쓴다.
  */
 export interface PointModel {
-  win: number;
-  loss: number;
-  n: number;
-  medianErrPct: number;
-  borrowedFrom?: number;
+  delta: number;
+  medianErr: number;
+  /** 자체 적합이 안 돼 다른 근거로 넣은 값 */
+  calibrated?: boolean;
 }
 
 export const POINT_MODEL: Readonly<Record<number, PointModel>> = {
-  30: { win: 844, loss: 998, n: 3799, medianErrPct: 4.2 },
-  31: { win: 813, loss: 981, n: 2714, medianErrPct: 4.9 },
-  32: { win: 881, loss: 956, n: 575, medianErrPct: 5.1 },
-  33: { win: 925, loss: 926, n: 379, medianErrPct: 9.2 },
-  34: { win: 645, loss: 604, n: 1188, medianErrPct: 6.6 },
-  35: { win: 290, loss: 652, n: 1049, medianErrPct: 5.2 },
-  // 36·37 은 관통 세그먼트가 없어 자체 적합 불가 → 35단 계수를 빌린다.
-  36: { win: 290, loss: 652, n: 0, medianErrPct: 12, borrowedFrom: 35 },
-  37: { win: 290, loss: 652, n: 0, medianErrPct: 20, borrowedFrom: 35 },
+  24: { delta: 1169, medianErr: 1478 },
+  25: { delta: 1068, medianErr: 1948 },
+  26: { delta: 1001, medianErr: 2000 },
+  27: { delta: 894, medianErr: 1786 },
+  28: { delta: 779, medianErr: 1557 },
+  29: { delta: 389, medianErr: 388 },
+  30: { delta: 637, medianErr: 638 },
+  31: { delta: 598, medianErr: 597 },
+  32: { delta: 801, medianErr: 1601 },
+  33: { delta: 924, medianErr: 1847 },
+  34: { delta: 688, medianErr: 1376 },
+  35: { delta: 106, medianErr: 212 },
+  36: { delta: 220, medianErr: 1500, calibrated: true },
+  37: { delta: 220, medianErr: 2500, calibrated: true },
 };
 
 export function bandOf(rankId: number): RankBand {
@@ -144,9 +153,9 @@ export function estimateRankPoints(matches: RankMatch[]): RankPointEstimate {
 
   const prev = seq[anchorAt - 1].rank;
   const cur = seq[anchorAt].rank;
-  if (Math.abs(cur - prev) !== 1) {
-    return none('rank-jump');
-  }
+  // 단이 한 칸 넘게 뛰었으면 그 사이 경기가 빠진 것이다. 기준점(경계를 지났다는 사실)
+  // 자체는 살아 있으므로 버리지 않고, 아래에서 오차를 크게 잡는다.
+  const jumped = Math.abs(cur - prev) !== 1;
 
   // 승단이면 새 구간의 하한, 강등이면 새 구간의 상한을 막 지난 것이다.
   const anchorScore = cur > prev ? bandOf(cur).min : bandOf(cur).max;
@@ -161,40 +170,34 @@ export function estimateRankPoints(matches: RankMatch[]): RankPointEstimate {
     return { ...none('no-model'), sinceAnchor };
   }
 
-  const raw = anchorScore + wins * model.win - losses * model.loss;
-  // 구간 밖으로 나갈 수 없다 — 나갔다면 이미 단이 바뀌었어야 한다.
+  const raw = anchorScore + (wins - losses) * model.delta;
+
+  // 구간 밖은 있을 수 없다 — 나갔다면 이미 단이 바뀌었어야 한다. 그래도 **숨기지 않는다.**
+  // 참값이 구간 안이라는 것은 확실하므로 경계로 당기는 편이 아무것도 안 보여주는 것보다 낫다.
+  // 대신 어긋난 만큼을 오차에 그대로 더해 "이만큼 안 맞는다"를 드러낸다.
+  const width = band.max - band.min + 1;
   const score = Math.min(band.max, Math.max(band.min, Math.round(raw)));
+  const clampedBy = Math.abs(raw - score);
 
   // 경기당 오차가 무작위로 쌓인다고 보고 sqrt(n) 으로 누적시킨다.
-  // 계수 0.35 는 실측 검증(36단, 45경기 → 오차 640점)에 맞춘 값이며 보수적으로 잡았다.
-  const width = band.max - band.min + 1;
-  const perMatch = 0.35 * ((model.win + model.loss) / 2);
+  const statistical = 0.35 * model.delta * Math.sqrt(Math.max(1, after.length));
+  // 단이 건너뛰었으면 그 사이 경기가 빠졌다는 뜻이라 기준점 자체가 흔들린다.
+  const gapPenalty = jumped ? width * 0.15 : 0;
+
   const errorMargin = Math.min(
     Math.round(width / 2),
-    Math.round(perMatch * Math.sqrt(Math.max(1, after.length))),
+    Math.round(statistical + clampedBy + gapPenalty),
   );
 
-  // 구간 밖으로 크게 밀려났다면 이미 승단/강등했어야 한다는 뜻 —
-  // 경기 누락이나 모델 오차가 크다는 신호라 신뢰도를 낮춘다.
-  const clampedBy = Math.abs(raw - score);
-  const confidence: Confidence =
-    clampedBy > errorMargin ? 'none'
-      : errorMargin <= width * 0.03 ? 'good'
-        : errorMargin <= width * 0.2 ? 'rough'
-          : 'none';
-
-  if (confidence === 'none') {
-    return {
-      ...none(clampedBy > errorMargin ? 'out-of-band' : 'too-far'),
-      sinceAnchor,
-    };
-  }
+  const confidence: Confidence = errorMargin <= width * 0.03 ? 'good' : 'rough';
 
   return {
     rankId, band, score,
     toNext: rankId >= 37 ? null : band.max + 1 - score,
     progress: (score - band.min) / width,
     errorMargin, confidence, sinceAnchor,
+    // 숫자는 내보내되 왜 덜 믿을 만한지는 같이 알린다.
+    reasonCode: jumped ? 'rank-jump' : clampedBy > statistical ? 'out-of-band' : undefined,
   };
 }
 

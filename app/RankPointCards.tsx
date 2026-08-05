@@ -95,6 +95,8 @@ export default function RankPointCards({ polarisId, lang }: { polarisId: string;
           </button>
         </>
       )}
+
+      <p style={S.disclaimer}>{t('rpDisclaimer')}</p>
     </div>
   );
 }
@@ -176,6 +178,10 @@ function Card({ c, tag, lang }: { c: CharRow; tag: string; lang: Lang }) {
         </>
       )}
 
+      {c.score !== null && c.reasonCode && (
+        <div style={S.warn}>{t('rpWhy')[c.reasonCode]}</div>
+      )}
+
       {c.sinceAnchor && (
         <div style={S.foot}>
           {t('rpSince')(c.sinceAnchor.matches, c.sinceAnchor.wins, c.sinceAnchor.losses)}
@@ -218,6 +224,8 @@ const S: Record<string, React.CSSProperties> = {
   unknown: { padding: '15px 16px' },
   note: { fontSize: 12, color: '#8a8a96', marginTop: 6 },
   foot: { fontSize: 11, color: '#6f6f7c', padding: '0 16px 12px' },
+  warn: { fontSize: 11, color: '#c9a227', padding: '0 16px 8px' },
+  disclaimer: { fontSize: 11, color: '#6f6f7c', margin: '8px 2px 0', lineHeight: 1.5 },
   toggle: {
     width: '100%', background: '#16161c', border: '1px solid #2a2a32', color: '#8a8a96',
     padding: '8px', fontSize: 12, cursor: 'pointer', borderRadius: 4,
