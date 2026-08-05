@@ -410,8 +410,8 @@ const D = {
   spMinGamesLabel: { ko: '최소 판수', en: 'Min games', ja: '最低試合数' },
   spTrendLabel: { ko: '장기전 패턴', en: 'Long-session pattern', ja: '長時間戦のパターン' },
   spTrendAny: { ko: '무관', en: 'Any', ja: '指定なし' },
-  spTrendDeclining: { ko: '장기전에서 하락하는 사람', en: 'Declines in long sessions', ja: '長時間戦で下がる人' },
-  spTrendRising: { ko: '장기전에서 상승하는 사람', en: 'Rises in long sessions', ja: '長時間戦で上がる人' },
+  spTrendDeclining: { ko: '장기전에서 낮은 승률', en: 'Lower win rate in long sessions', ja: '長時間戦で勝率が低い' },
+  spTrendRising: { ko: '장기전에서 높은 승률', en: 'Higher win rate in long sessions', ja: '長時間戦で勝率が高い' },
   spTrendRisingCaveat: {
     ko: '주의: 이기는 날엔 계속 치고 지는 날엔 그만두는 경향 때문에, 후반 승률이 높게 나오는 건 흔한 일입니다. 실력이 좋아졌다는 뜻은 아닐 수 있습니다.',
     en: 'Caution: later-session win rates often look high simply because people keep playing on good days and stop on bad ones. This does not necessarily mean real improvement.',
