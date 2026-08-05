@@ -35,6 +35,7 @@ const base: QuipFacts = {
   worstMatchup: null,
   lastSessionGames: 20,
   todaySameChar: null,
+  divergence: null,
 };
 const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
 
@@ -218,6 +219,32 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
     '최고가 오래됐으면 말한다',
     has(factPools(f({ peakGamesAgo: 500, peakRating: 1800, currentRating: 1600 }), 'ko', 'cold').traits, '200 낮습니다'),
   );
+}
+
+// ── 어긋남 상태 (diverge-jokes.ts) ───────────────────────────────
+{
+  const kinds = ['winNoGain', 'loseButGain', 'flatEven'] as const;
+  for (const kind of kinds) {
+    const d = { kind, wins: kind === 'winNoGain' ? 18 : 11, losses: kind === 'winNoGain' ? 7 : 14,
+      net: kind === 'winNoGain' ? -22 : kind === 'loseButGain' ? 48 : 3 };
+    for (const lang of ['ko', 'en', 'ja'] as const) {
+      const p = factPools(f({ divergence: d }), lang, 'steady');
+      // 50개를 약속했다. 세 언어가 같은 개수여야 한다 — "죽는 건 번역이 아니라 재탕이다".
+      ok(`${kind}/${lang} 풀이 50개다`, p.state.length === 50, String(p.state.length));
+      ok(`${kind}/${lang} 빈 문자열이 없다`, p.state.every((s) => s.trim().length > 0));
+      // 강등은 단이 실제로 떨어졌을 때만 rankChange 가 말한다. 상태 풀이 쓰면 거짓말이다.
+      ok(
+        `${kind}/${lang} '강등' 계열 단어가 없다`,
+        !p.state.some((s) => s.includes('강등') || s.includes('降格') || s.toLowerCase().includes('demot')),
+      );
+    }
+  }
+  // 상태는 사건이 아니다 — events 로 새면 사다리에서 무조건 우선하게 된다.
+  const p = factPools(f({ divergence: { kind: 'winNoGain', wins: 18, losses: 7, net: -22 } }), 'ko', 'steady');
+  ok('상태가 events 로 새지 않는다', p.events.length === 0);
+  ok('상태 없음이면 state 가 빈다', factPools(base, 'ko', 'steady').state.length === 0);
+  // 숫자 보간 확인 — 실측값(w·l·net)이 문장에 실제로 박힌다.
+  ok('승패 숫자가 문장에 들어간다', has(p.state, '18승') && has(p.state, '7패'));
 }
 
 // ── 3개 언어 모두 나온다 ─────────────────────────────────────────

@@ -24,6 +24,7 @@
 import type { Lang } from './i18n';
 import type { QuipFacts } from '@/lib/tekken/quip-facts';
 import type { Mood } from './jokes';
+import { divergePool } from './diverge-jokes';
 
 /** 천 단위 쉼표. toLocaleString 은 실행 환경에 따라 결과가 갈릴 수 있어 직접 넣는다. */
 const n = (v: number) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -123,23 +124,37 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
         ],
       }
     : {
+        // '강등'이라는 단어는 여기서만 쓴다 — myRank 가 실제로 떨어진 직후다.
+        // 레이팅 하락(diverge-jokes.ts)은 이 단어를 쓰면 안 된다. 단은 그대로니까.
         ko: [
           `강등되셨습니다. 통계는 위로하지 않습니다.`,
           ...(many ? [`이 계급으로 ${v}번째 돌아오셨습니다. 익숙한 풍경이겠네요.`] : []),
           `내려왔습니다. 올라가는 길은 알고 계시잖습니까.`,
           `계급이 하나 사라졌습니다. 실력이 사라진 건 아닙니다.`,
+          `방금 그 판이 승단전이 아니라 잔류전이었습니다. 결과는 보시는 대로고요.`,
+          `이 계급의 전세 계약이 끝났습니다. 재계약 조건은 아시는 그대로입니다.`,
+          `한 층 아래에서 다시 출발입니다. 엘리베이터가 아니라 계단이었을 뿐입니다.`,
+          `내려온 김에 좋은 소식 하나 — 여기서는 당신이 위쪽 손님입니다.`,
         ],
         en: [
           `You got demoted. The stats offer no comfort.`,
           ...(many ? [`Your ${v}th return to this rank. Familiar scenery by now.`] : []),
           `You came down. You already know the way back up.`,
           `A rank vanished. Your skill did not.`,
+          `That last match was a relegation battle, not a promotion one. The result speaks.`,
+          `The lease on that rank expired. You know the renewal terms.`,
+          `Starting again one floor down. It was stairs, not an elevator.`,
+          `One upside to coming down: here, you are the visitor from upstairs.`,
         ],
         ja: [
           `降格しました。統計は慰めません。`,
           ...(many ? [`このランクに戻るのは${v}回目です。見慣れた景色でしょう。`] : []),
           `下がりました。上がり方はもう知っているはずです。`,
           `ランクがひとつ消えました。実力が消えたわけではありません。`,
+          `さっきの一戦は昇格戦ではなく残留戦でした。結果はご覧の通りです。`,
+          `そのランクの賃貸契約が切れました。更新条件はご存じの通りです。`,
+          `一階下から再出発です。エレベーターではなく階段だっただけです。`,
+          `下りた良い知らせをひとつ — ここではあなたが上の階からの来客です。`,
         ],
       };
   return p[lang];
@@ -435,6 +450,11 @@ function traits(f: QuipFacts, lang: Lang): string[] {
 export interface FactPools {
   /** 우선순위 순. 앞에서부터 비어 있지 않은 첫 pool 이 이긴다. */
   events: string[][];
+  /**
+   * 승률·레이팅 어긋남(diverge-jokes.ts). 사건도 특성도 아닌 **상태**다 —
+   * 25판쯤 지속되다 사라진다. 사다리에서의 취급은 jokes.ts 의 pickJoke 주석 참조.
+   */
+  state: string[];
   /** 기본 농담과 섞어 뽑는다. */
   traits: string[];
 }
@@ -448,7 +468,7 @@ export interface FactPools {
  * (10,000판 달성은 평생 한 번인데 25% 확률로 밀리면 안 된다).
  */
 export function factPools(f: QuipFacts | null, lang: Lang, mood: Mood): FactPools {
-  if (!f) return { events: [], traits: [] };
+  if (!f) return { events: [], state: [], traits: [] };
   return {
     events: [
       milestone(f, lang),
@@ -459,6 +479,7 @@ export function factPools(f: QuipFacts | null, lang: Lang, mood: Mood): FactPool
       todaySameChar(f, lang),
       clock(f, lang, mood),
     ].filter((p) => p.length > 0),
+    state: divergePool(f, lang),
     traits: traits(f, lang),
   };
 }
