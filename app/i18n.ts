@@ -385,6 +385,18 @@ const D = {
     en: '(exact offset within the region is estimated from the play-time distribution)',
     ja: '(地域内の正確な時間帯はプレイ時間の分布から推定した値です)',
   },
+
+  // ── 캐릭터별 현재 단 배지 (추정 없음, wavu 값 그대로) ──
+  riTagMain: { ko: '메인', en: 'Main', ja: 'メイン' },
+  riTagRecent: { ko: '최근', en: 'Recent', ja: '最近' },
+  riTagBoth: { ko: '메인 · 최근', en: 'Main · Recent', ja: 'メイン・最近' },
+  riGames: { ko: '경기', en: ' games', ja: '試合' },
+  riFold: { ko: '접기', en: 'Collapse', ja: '閉じる' },
+  riMore: {
+    ko: (n: number) => `다른 캐릭터 ${n}개 더 보기`,
+    en: (n: number) => `Show ${n} more character${n === 1 ? '' : 's'}`,
+    ja: (n: number) => `他${n}体を表示`,
+  },
 } satisfies Record<string, Entry | Record<Lang, (...a: never[]) => string>>;
 
 export type Dict = typeof D;
