@@ -19,13 +19,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getRecords } from '../lib/wavu/cache';
-import { hexScores } from '../lib/tekken/hexagon';
-import { sessionAdvice } from '../lib/tekken/advice';
+import { sessionAdvice, DROP_PP } from '../lib/tekken/advice';
 import type { MatchRecord } from '../lib/tekken/models';
 import type { PlayerIndex, PlayerIndexRow } from '../lib/tekken/player-index';
 
 const FILE = path.join(__dirname, '..', 'lib', 'tekken', 'player-index-data.json');
 const MIN_GAMES = 500;
+/** 캐릭터별 승률을 인덱스에 담으려면 그 캐릭터로 최소 이만큼은 쳤어야 한다 — 그 아래는 승률이 노이즈다. */
+const MIN_CHAR_GAMES = 20;
 const REFRESH_DAYS = 25; // 월 주기보다 살짝 짧게 — 갱신 실행일이 며칠 밀려도 전부 걸리게
 const RECHECK_SKIPPED_DAYS = 60;
 const WAVU_GAP_MS = 1200;
@@ -91,19 +92,53 @@ function buildRow(
   const recent = ord.slice(-200);
   const recentW = recent.filter((r) => r.result === 'W').length;
 
-  const byChar = new Map<string, number>();
-  for (const r of ord) byChar.set(r.myChar, (byChar.get(r.myChar) ?? 0) + 1);
+  // 캐릭터별로 묶는다 — mainChar/mainCharGames 는 여기서 같이 뽑고,
+  // 승률 검색(similarity.ts)이 쓸 chars 도 이 한 번의 순회로 만든다.
+  const byChar = new Map<string, MatchRecord[]>();
+  for (const r of ord) {
+    const list = byChar.get(r.myChar) ?? [];
+    list.push(r);
+    byChar.set(r.myChar, list);
+  }
   let mainChar = '';
   let mainCharGames = 0;
-  for (const [c, n] of byChar) if (n > mainCharGames) ((mainChar = c), (mainCharGames = n));
+  for (const [c, list] of byChar) if (list.length > mainCharGames) ((mainChar = c), (mainCharGames = list.length));
+
+  const chars: PlayerIndexRow['chars'] = {};
+  for (const [c, list] of byChar) {
+    if (list.length < MIN_CHAR_GAMES) continue; // 그 아래는 승률이 노이즈다
+    const w = list.filter((r) => r.result === 'W').length;
+    const recentList = list.slice(-100);
+    const recentWchar = recentList.filter((r) => r.result === 'W').length;
+    chars[c] = {
+      games: list.length,
+      wrOverall: Math.round((w * 1000) / list.length) / 10,
+      wrRecent: Math.round((recentWchar * 1000) / recentList.length) / 10,
+    };
+  }
 
   let peak = 0;
   for (const r of ord) if (r.myRating > peak) peak = r.myRating;
 
-  const hex: Record<string, number | null> = {};
-  for (const s of hexScores(ord)) hex[s.key] = s.value;
-
+  // 장기전 패턴은 캐릭터로 안 자른다 — 세션은 캐릭터를 넘나드는 시간 구조라
+  // 자르면 왜곡된다(player-index.ts 머리말 참조). 계정 전체(ord) 기준이다.
   const adv = sessionAdvice(ord);
+
+  // '상승' — advice.ts 의 하락 탐지(stopAfter/dropPp)를 그대로 대칭 이동한 것이다.
+  // advice.ts 는 이 계산을 안 한다(그 파일은 '중단 권장'만 판단하면 된다) — 여기서만
+  // 쓰는 값이라 여기서 계산한다. advice.ts 의 DROP_PP 를 그대로 재사용해 두 기준이
+  // 어긋나지 않게 한다.
+  let riseAfter: number | null = null;
+  let risePp: number | null = null;
+  if (adv) {
+    for (const b of adv.bands.filter((x) => x.enough)) {
+      if (b.winRate > adv.baselineWinRate + DROP_PP) {
+        riseAfter = b.from - 1;
+        risePp = Math.round((b.winRate - adv.baselineWinRate) * 10) / 10;
+        break;
+      }
+    }
+  }
 
   return {
     id,
@@ -121,9 +156,11 @@ function buildRow(
     peakRating: peak,
     mainChar,
     mainCharGames,
-    hex,
+    chars,
     stopAfter: adv?.stopAfter ?? null,
     dropPp: adv?.dropPp ?? null,
+    riseAfter,
+    risePp,
     adviceReliable: adv?.reliable ?? false,
     lookups,
   };
@@ -178,14 +215,15 @@ async function collect(
   console.log(`수집 ${done}명, 미달 스킵 ${skippedNew}명`);
 }
 
-async function refresh(ix: PlayerIndex, limit: number) {
-  const stale = ix.rows
-    .filter((r) => nowS() - r.fetchedAt > REFRESH_DAYS * 86400)
-    .sort((a, b) => a.fetchedAt - b.fetchedAt)
-    .slice(0, limit);
-  console.log(`재수집 대상 ${stale.length}명 (${REFRESH_DAYS}일 경과)`);
-
-  for (const [i, old] of stale.entries()) {
+/**
+ * targets 를 순서대로 재수집해 그 자리에서 덮어쓴다. refresh·recompute 가 공유한다.
+ *
+ * **완전 교체**다(Object.assign 이 아니다) — 스키마에서 뺀 필드(예: 예전 hex)가
+ * 병합으로는 안 지워지고 죽은 데이터로 파일에 계속 남는다. ix.rows 안에서
+ * id 로 실제 위치를 찾아 그 자리를 새 행으로 바꿔 끼운다.
+ */
+async function refetchInPlace(ix: PlayerIndex, targets: PlayerIndexRow[], label: string) {
+  for (const [i, old] of targets.entries()) {
     try {
       const { records, myName } = await getRecords(old.id);
       if (records.length < MIN_GAMES) {
@@ -193,8 +231,9 @@ async function refresh(ix: PlayerIndex, limit: number) {
         console.log(`  경고 ${old.id}: 판수가 ${records.length}로 줄었다?`);
       } else {
         const row = buildRow(old.id, myName || old.name, records, old.source, old.lookups);
-        Object.assign(old, row);
-        console.log(`[${i + 1}/${stale.length}] ${row.name}  ${row.games}판`);
+        const idx = ix.rows.findIndex((r) => r.id === old.id);
+        if (idx >= 0) ix.rows[idx] = row;
+        console.log(`[${i + 1}/${targets.length}] ${row.name}  ${row.games}판`);
       }
     } catch (e) {
       console.log(`  실패 ${old.id}: ${e instanceof Error ? e.message : e}`);
@@ -202,6 +241,29 @@ async function refresh(ix: PlayerIndex, limit: number) {
     save(ix);
     await sleep(WAVU_GAP_MS);
   }
+  console.log(`${label} 완료: ${targets.length}명`);
+}
+
+async function refresh(ix: PlayerIndex, limit: number) {
+  const stale = ix.rows
+    .filter((r) => nowS() - r.fetchedAt > REFRESH_DAYS * 86400)
+    .sort((a, b) => a.fetchedAt - b.fetchedAt)
+    .slice(0, limit);
+  console.log(`재수집 대상 ${stale.length}명 (${REFRESH_DAYS}일 경과)`);
+  await refetchInPlace(ix, stale, '재수집');
+}
+
+/**
+ * 스키마가 바뀌어 기존 행 전부를 다시 계산해야 할 때 쓴다(예: chars 필드 추가).
+ * fetchedAt 을 안 본다 — refresh 와 달리 '오래됐는가'가 아니라 '새 필드가
+ * 없는가'가 기준이다. limit 은 안전장치일 뿐, 보통 행 수 전체를 넘겨 부른다.
+ *
+ *   npx tsx scripts/build-player-index.ts recompute [개수]
+ */
+async function recompute(ix: PlayerIndex, limit: number) {
+  const targets = ix.rows.slice(0, limit);
+  console.log(`전체 재계산 대상 ${targets.length}명 (스키마 마이그레이션)`);
+  await refetchInPlace(ix, targets, '재계산');
 }
 
 function stats(ix: PlayerIndex) {
@@ -231,11 +293,13 @@ async function main() {
     await collect(ix, ids, 'feed', () => 0, limit);
   } else if (mode === 'refresh') {
     await refresh(ix, limit);
+  } else if (mode === 'recompute') {
+    await recompute(ix, limit);
   } else if (mode === 'stats') {
     stats(ix);
     return;
   } else {
-    console.log('사용법: tsx scripts/build-player-index.ts <ga|feed|refresh|stats> [개수]');
+    console.log('사용법: tsx scripts/build-player-index.ts <ga|feed|refresh|recompute|stats> [개수]');
     process.exit(1);
   }
   stats(ix);
