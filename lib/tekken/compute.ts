@@ -3,9 +3,12 @@
 
 import {
   buildTotal,
+  buildTotalSplit,
   buildPivot,
   buildWeak,
+  buildWeakSplit,
   buildStrong,
+  buildStrongSplit,
   buildRound,
   buildStage,
   buildH2h,
@@ -69,6 +72,20 @@ export interface PlayerResult {
    * 무관하게 작으므로 두 벌을 다 실어도 응답이 안 커지고 전환이 즉시 된다.
    */
   seasonByVersion: TabData;
+  /**
+   * 캐릭터·강점·약점 매치업 탭을 시즌별/버전별로 나눠 이어붙인 것
+   * ('시즌 (버전별)'과 같은 발상 — aggregations.ts 의 splitByPeriod 참조).
+   * localTime·roundByOpp·seasonByVersion 과 같은 이유로 tabs 밖에 있다: 탭
+   * 목록을 늘리지 않고 그 탭 안에서 "전체/시즌별/버전별" 보기만 바꾼다. 행 수가
+   * 캐릭터(또는 매치업) 수 × 시즌(또는 버전) 수로 작게 묶여 있어(실측 40종
+   * × 4시즌 이하) 경기 수와 무관하므로 두 벌씩 더 실어도 응답이 안 커진다.
+   */
+  totalBySeason: TabData;
+  totalByVersion: TabData;
+  strongBySeason: TabData;
+  strongByVersion: TabData;
+  weakBySeason: TabData;
+  weakByVersion: TabData;
 }
 
 const tab = (key: string, label: string, t: Table): TabData => ({
@@ -193,6 +210,15 @@ export function computeFromRecords(
       '시즌 (버전별)',
       summaryBy(records, (r) => `${r.season}-${r.gameVersion}`, 'Version'),
     ),
+    // 라벨은 각 원본 탭('캐릭터'/'강점 매치업'/'약점 매치업')과 다르게 둔다 —
+    // 위와 같은 이유(엑셀 시트명 충돌). 키도 'total_season' 처럼 원본 탭 키를
+    // 앞세운다 — SHEET_ORDER 에서 원본 옆에 두기 쉽게.
+    totalBySeason: tab('total_season', '캐릭터 (시즌별)', buildTotalSplit(records, 'season')),
+    totalByVersion: tab('total_version', '캐릭터 (버전별)', buildTotalSplit(records, 'version')),
+    strongBySeason: tab('strong_season', '강점 매치업 (시즌별)', buildStrongSplit(records, 'season')),
+    strongByVersion: tab('strong_version', '강점 매치업 (버전별)', buildStrongSplit(records, 'version')),
+    weakBySeason: tab('weak_season', '약점 매치업 (시즌별)', buildWeakSplit(records, 'season')),
+    weakByVersion: tab('weak_version', '약점 매치업 (버전별)', buildWeakSplit(records, 'version')),
   };
 }
 
@@ -208,11 +234,17 @@ export type TabGroup = 'summary' | 'mine' | 'versus' | 'when' | 'change' | 'raw'
 export const TAB_GROUP: Record<string, TabGroup> = {
   flow: 'summary',
   total: 'mine',
+  total_season: 'mine',
+  total_version: 'mine',
   round: 'mine',
   stage: 'mine',
   pivot: 'versus',
   strong: 'versus',
+  strong_season: 'versus',
+  strong_version: 'versus',
   weak: 'versus',
+  weak_season: 'versus',
+  weak_version: 'versus',
   round_opp: 'versus',
   vs_rating: 'versus',
   h2h: 'versus',
@@ -237,11 +269,17 @@ export const TAB_GROUP: Record<string, TabGroup> = {
 export const SHEET_ORDER: string[] = [
   'flow',
   'total',
+  'total_season',
+  'total_version',
   'round',
   'stage',
   'pivot',
   'strong',
+  'strong_season',
+  'strong_version',
   'weak',
+  'weak_season',
+  'weak_version',
   'round_opp',
   'vs_rating',
   'h2h',

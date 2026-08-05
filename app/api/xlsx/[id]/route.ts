@@ -152,6 +152,14 @@ export async function GET(
       // 버전별 시즌도 화면에선 보기 전환으로만 볼 수 있어 엑셀에 시트로 넣는다.
       // 행이 버전 수만큼(실측 12행)이라 파일 크기에 영향이 없다.
       result.seasonByVersion,
+      // 캐릭터·강점·약점 매치업의 시즌별/버전별도 같은 이유로 시트에 넣는다 —
+      // 행이 캐릭터(매치업) 수 × 시즌(버전) 수로 작게 묶여 있다.
+      result.totalBySeason,
+      result.totalByVersion,
+      result.strongBySeason,
+      result.strongByVersion,
+      result.weakBySeason,
+      result.weakByVersion,
     ].sort((a, b) => sheetRank(a.key) - sheetRank(b.key));
     const buf = await tabsToXlsx(sheets, {
       title: `${myName || id} (${id})${char ? ` — ${char}` : ''}`,

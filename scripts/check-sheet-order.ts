@@ -40,6 +40,12 @@ const result = computeFromRecords(records, 'testtesttest', 'tester', { tzShiftMi
 const extra = [
   result.roundByOpp,
   result.seasonByVersion,
+  result.totalBySeason,
+  result.totalByVersion,
+  result.strongBySeason,
+  result.strongByVersion,
+  result.weakBySeason,
+  result.weakByVersion,
   ...(result.localTime ? [result.localTime] : []),
 ];
 const allKeys = [...result.tabs.map((t) => t.key), ...extra.map((t) => t.key)];
