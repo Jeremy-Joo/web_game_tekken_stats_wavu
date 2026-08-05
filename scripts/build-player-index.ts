@@ -1,6 +1,7 @@
 // 플레이어 인덱스를 만든다. **개발자가 손으로 돌리는 스크립트다** (build-hex-baseline 과 동급).
 //
-//   npx tsx scripts/build-player-index.ts ga [개수]        GA 조회 기록에서 신규 수집 (월 2회)
+//   npx tsx scripts/build-player-index.ts ga [개수]        GA 조회 기록에서 신규 수집
+//                                                            (매일, .github/workflows/player-index-daily.yml)
 //   npx tsx scripts/build-player-index.ts feed [개수]      피드 표본 보충 (월 1회)
 //   npx tsx scripts/build-player-index.ts refresh [개수]   25일 넘은 행 재수집 (월 1회, feed 와 같이)
 //   npx tsx scripts/build-player-index.ts stats            현재 인덱스 요약만 출력

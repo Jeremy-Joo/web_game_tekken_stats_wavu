@@ -10,7 +10,6 @@
 // 기준값이 바뀌었을 때 두 곳을 따로 고치는 사고를 막는다.
 
 import type { PlayerIndexRow } from './player-index';
-import { currentVersion } from './player-index';
 
 export type GamesBand = 10 | 20 | 30 | 0; // 0 = 제한 없음
 export type Recency = 'month' | 'patch' | 'all';
@@ -22,6 +21,13 @@ export interface SimilarityQuery {
   direction: Direction;
   gamesBand: GamesBand;
   recency: Recency;
+  /**
+   * '이번 패치' 판정 기준. player-index.ts 의 currentVersionOf(index) 로
+   * **호출부가 한 번만 계산해 넘긴다** — withinRecency 는 풀 안 행마다 불리므로,
+   * 여기서 다시 계산하면(예전에는 그렇게 했다) 매 행마다 전체 인덱스를 훑는
+   * O(n²) 이 된다.
+   */
+  currentVersion: number;
   /** 결과에서 뺄 ID (자기 자신 — 인덱스에 조회자 본인이 들어있을 수 있다) */
   excludeId?: string;
 }
@@ -61,12 +67,12 @@ function withinGamesBand(rowGames: number, myGames: number, band: GamesBand): bo
   return rowGames >= lo && rowGames <= hi;
 }
 
-function withinRecency(row: PlayerIndexRow, recency: Recency): boolean {
+function withinRecency(row: PlayerIndexRow, recency: Recency, currentVersion: number): boolean {
   if (recency === 'all') return true;
   if (recency === 'month') return NOW_S() - row.lastPlayed <= MONTH_S;
   // 'patch' — 인덱스에서 관측된 최신 game_version 과 같아야 '이번 패치'다.
   // 시즌 경계를 코드에 박지 않는다(seasons.ts 규칙과 같은 이유) — 관측값으로 판정한다.
-  return row.lastVersion === currentVersion();
+  return row.lastVersion === currentVersion;
 }
 
 /**
@@ -80,7 +86,7 @@ export function findSimilar(
   q: SimilarityQuery,
 ): { results: SimilarityResult[]; wouldMatchWithWiderBand: number } {
   const pool = rows.filter(
-    (r) => r.id !== q.excludeId && withinRecency(r, q.recency),
+    (r) => r.id !== q.excludeId && withinRecency(r, q.recency, q.currentVersion),
   );
 
   const scored: SimilarityResult[] = [];

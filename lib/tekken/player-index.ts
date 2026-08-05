@@ -5,12 +5,23 @@
 // 한 번에 하나씩만 부르는 게 예의라(공식 문서) 조회 시점에 만들 수 없고,
 // 조회할 때마다 Blob 에 쌓는 방식은 작업 횟수 한도로 스토어가 정지된 사고가
 // 있다(lib/wavu/cache.ts 머리말). 그래서 hexagon-baseline.ts 와 같은 방식을 쓴다:
-// **개발자가 손으로 돌리는 스크립트가 월 1~2회 만들고, git 에 파일로 굳힌다.**
+// **개발자가 손으로 돌리는 스크립트가 월 1~2회(GA 분은 매일) 만들고, git 에
+// 파일로 굳힌다.**
 //
 //   갱신: scripts/build-player-index.ts
-//     ga 모드    월 2회 — GA 조회 기록(90일)에서 ID 를 얻어 신규만 수집
+//     ga 모드    매일(GitHub Actions) — GA 90일 조회 기록에서 신규만 수집
 //     feed 모드  월 1회 — wavu 공개 피드에서 표본 보충
 //     refresh    월 1회 — 오래된 행 재수집 (lastPlayed 가 낡으면 '최근 활동' 필터가 거짓말이 된다)
+//
+// ── 왜 빌드 타임 import 가 아니라 런타임 fetch 인가 (2026-08-06) ─────────
+// 처음엔 `import raw from './player-index-data.json'` 로 번들에 구웠다.
+// 그러면 인덱스가 바뀔 때마다(=GA 매일 갱신마다) git push → Vercel 자동 배포가
+// 매번 일어나, 배포 이력이 실제 앱 변경과 데이터 갱신으로 뒤섞였다.
+// 정리를 자동화하는 방법도 있었지만(Vercel CLI 로 오래된 배포 삭제), 그건
+// 지금 production 별칭이 걸린 배포를 잘못 지울 위험이 있는 되돌리기 어려운
+// 작업이라 증상 치료에 그친다. 원인을 없앴다 — GitHub raw URL 에서 런타임에
+// 받아온다. 부수 이점: 데이터가 다음 배포를 기다리지 않고 최대 캐시 시간(1시간)
+// 안에 반영된다.
 //
 // ── 표본이 무엇인지 정직하게 ─────────────────────────────────────────
 // source='lookup' 은 "이 사이트에서 조회된 사람들"이고 유명인·한국 쏠림이 있다.
@@ -21,7 +32,11 @@
 // hexagon.ts 의 '왜 절대 눈금인가'와 같은 규칙이다. 이 인덱스는 검색·탐색·통계용이고,
 // 조회자의 점수·모양을 이 모집단으로 환산하는 데 쓰면 안 된다.
 
-import raw from './player-index-data.json';
+const RAW_URL =
+  'https://raw.githubusercontent.com/Jeremy-Joo/web_game_tekken_stats_wavu/main/lib/tekken/player-index-data.json';
+
+/** GitHub raw 도 자체 CDN 캐시가 있어(수 분) 이보다 짧게 잡아도 실익이 없다. */
+const REVALIDATE_SECONDS = 3600;
 
 export interface PlayerIndexRow {
   id: string;
@@ -60,15 +75,36 @@ export interface PlayerIndex {
   skipped: Record<string, { games: number; at: number }>;
 }
 
-const INDEX = raw as unknown as PlayerIndex;
+const EMPTY: PlayerIndex = { updatedAt: 0, minGames: 500, rows: [], skipped: {} };
 
-export function playerIndex(): PlayerIndex {
-  return INDEX;
+/**
+ * 인덱스를 받아온다. 실패하면(네트워크·형식 오류) **빈 인덱스를 조용히 주지 않고
+ * 예외를 던진다** — 호출부(API 라우트)가 "지금 검색을 못 한다"고 정직하게 말할
+ * 수 있게 한다. 유사도 검색은 없어도 사이트의 다른 기능이 죽지 않는 선택 기능이라,
+ * 실패 처리는 그 호출부의 몫으로 남긴다.
+ */
+export async function fetchPlayerIndex(): Promise<PlayerIndex> {
+  const res = await fetch(RAW_URL, { next: { revalidate: REVALIDATE_SECONDS } });
+  if (!res.ok) throw new Error(`플레이어 인덱스를 못 받았습니다 (HTTP ${res.status})`);
+  const data = (await res.json()) as unknown;
+  if (!data || typeof data !== 'object' || !Array.isArray((data as PlayerIndex).rows)) {
+    throw new Error('플레이어 인덱스 형식이 예상과 다릅니다.');
+  }
+  return data as PlayerIndex;
 }
 
-/** 인덱스에서 관측된 최대 game_version = '이번 패치'. 경계를 코드에 박지 않는다(seasons.ts 규칙). */
-export function currentVersion(): number {
+/** 인덱스가 정말 비어 있는(초기 상태) 것과 못 받아온 것을 구분하고 싶을 때. */
+export function emptyPlayerIndex(): PlayerIndex {
+  return EMPTY;
+}
+
+/**
+ * 인덱스에서 관측된 최대 game_version = '이번 패치'. 경계를 코드에 박지 않는다
+ * (seasons.ts 규칙). **이미 받아온 인덱스를 받아 계산만 한다** — I/O 가 없는
+ * 순수 함수라 similarity.ts 에서 필터마다 다시 부르지 않고 한 번만 계산해 넘긴다.
+ */
+export function currentVersionOf(index: PlayerIndex): number {
   let v = 0;
-  for (const r of INDEX.rows) if (r.lastVersion > v) v = r.lastVersion;
+  for (const r of index.rows) if (r.lastVersion > v) v = r.lastVersion;
   return v;
 }

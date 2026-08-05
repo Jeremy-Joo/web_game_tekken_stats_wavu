@@ -1,0 +1,56 @@
+# 플레이어 인덱스 — GA 조회 기록에서 신규 ID만 매일 수집한다.
+#
+# 왜 매일인가 — build-player-index.ts ga 는 wavu 에 가는 부담이 '체크 빈도'가
+# 아니라 '신규 ID 수'로 정해진다. 월 2회로 몰아 받으나 매일 나눠 받으나 한 달
+# 총 요청 수는 거의 같고, 매일이면 배치가 작아져 오히려 더 완만하다.
+# 조회수 500~1,000 규모(2026-08 기준)에서는 하루 신규가 많아야 수십 명이라
+# 몇 분 안에 끝난다.
+#
+# feed·refresh 는 한 번에 훨씬 큰 배치(수백 명)라 여기 넣지 않는다 — 그건
+# 월 1회로 손으로 계속 돌린다(scripts/build-player-index.ts 머리말 참조).
+#
+# 필요 사전 준비 — 저장소 Settings → Secrets and variables → Actions 에
+#   ADMIN_PASSWORD   .env.local 의 값과 동일
+# 이 없으면 GA 조회 목록을 못 받아 실패한다(당연한 실패라 알림이 온다).
+
+name: player-index-daily
+
+on:
+  schedule:
+    # 매일 03:10 UTC = 12:10 KST. GA API·wavu 둘 다 트래픽이 뜸한 시간대를 고른 것은
+    # 아니고(GA4 는 시간대 무관, wavu 도 전세계 서비스라 '한산한 시간'이 딱히 없다),
+    # 그냥 사람이 안 보는 새벽으로 잡았다.
+    - cron: '10 3 * * *'
+  workflow_dispatch: {} # 수동으로도 돌릴 수 있게 — 확인용
+
+permissions:
+  contents: write # git commit·push 에 필요
+
+jobs:
+  update-index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: GA 조회 기록에서 신규 ID 수집
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: npx tsx scripts/build-player-index.ts ga 100
+
+      - name: 변경 있으면 커밋·푸시
+        run: |
+          if git diff --quiet -- lib/tekken/player-index-data.json; then
+            echo "신규 없음 — 커밋 생략"
+            exit 0
+          fi
+          git config user.name "player-index-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/tekken/player-index-data.json
+          git commit -m "플레이어 인덱스 일일 갱신 (GA 신규분)"
+          git push
