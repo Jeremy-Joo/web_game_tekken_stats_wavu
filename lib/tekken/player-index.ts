@@ -31,6 +31,14 @@
 // ── 제품 점수에 들이지 않는다 ────────────────────────────────────────
 // hexagon.ts 의 '왜 절대 눈금인가'와 같은 규칙이다. 이 인덱스는 검색·탐색·통계용이고,
 // 조회자의 점수·모양을 이 모집단으로 환산하는 데 쓰면 안 된다.
+//
+// ── 육각형 유사도 검색을 뺀 이유 (2026-08-06) ─────────────────────────
+// 처음엔 hexagon.ts 의 6축 거리로 "비슷한/반대 유형"을 찾았다. 그런데 정작
+// 원했던 건 "승률이 비슷하거나 정반대인 사람", "장기전에서 승률이 오르내리는
+// 사람"이었다 — 이건 육각형 축이 **일부러 지우도록 설계된 값**이다(승률 하나로
+// 재면 실력만 갈리고 성향은 안 갈린다는 게 그 설계의 핵심). 어려운 도구로
+// 돌아가서 부정확하게 도달하고 있었던 셈이라 걷어냈다. 이제 승률·장기전
+// 패턴을 직접 재고 보여준다(chars, stopAfter, dropPp) — similarity.ts 참조.
 
 const RAW_URL =
   'https://raw.githubusercontent.com/Jeremy-Joo/web_game_tekken_stats_wavu/main/lib/tekken/player-index-data.json';
@@ -64,11 +72,28 @@ export interface PlayerIndexRow {
   peakRating: number;
   mainChar: string;
   mainCharGames: number;
-  /** 육각형 6축의 눈금 위치(0~100). 축이 못 재지면 null. */
-  hex: Record<string, number | null>;
-  /** 세션 몇 판째부터 성적이 꺾이나. 못 찾으면 null. (장기전 추락 필터) */
+  /**
+   * 캐릭터별 승률. 캐릭터로 잘라내도 뒤틀리지 않는 값(승패를 그 캐릭터 판만 세면
+   * 그만)만 여기 둔다. 최소 20판 이상인 캐릭터만 담는다(그 아래는 승률이
+   * 노이즈다). 장기전 패턴(stopAfter/dropPp)은 여기 없다 — 세션은 캐릭터를
+   *넘나드는 시간 구조라 캐릭터로 잘라내면 왜곡된다(2026-08-06 결정,
+   * lib/tekken/similarity.ts 머리말 참조). 그래서 장기전은 아래 계정 전체
+   * 값(stopAfter/dropPp)만 쓴다.
+   */
+  chars: Record<string, { games: number; wrOverall: number; wrRecent: number }>;
+  /** 세션 몇 판째부터 성적이 꺾이나. 못 찾으면 null. 캐릭터 무관, 계정 전체 세션 기준. */
   stopAfter: number | null;
   dropPp: number | null;
+  /**
+   * 세션 몇 판째부터 성적이 기준선보다 뚜렷이 높은 구간이 시작되나(하락의 대칭,
+   * advice.ts 의 DROP_PP 를 그대로 재사용). **주의해서 쓸 것** — advice.ts
+   * 머리말이 이미 경고한다: 이기고 있으면 계속 치고 지면 그만두는 경향 때문에
+   * 뒷구간 승률이 높게 나오는 건 흔한 현상이고, 그게 '몸이 풀려서 더 잘한다'는
+   * 뜻은 아니다. 화면에 낼 때 이 문구를 같이 보여줄 것 — stopAfter/dropPp 보다
+   * 훨씬 오독하기 쉬운 값이다.
+   */
+  riseAfter: number | null;
+  risePp: number | null;
   adviceReliable: boolean;
   /** GA 조회수(90일). feed 출신은 0. */
   lookups: number;
