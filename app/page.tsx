@@ -7,6 +7,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { gaEvent } from '@/lib/ga-events';
 import RankBadges from './RankBadges';
+import SimilarPlayers from './SimilarPlayers';
 import {
   TrendChart,
   DailyChart,
@@ -2337,6 +2338,7 @@ export default function Home() {
           </p>
           {/* 캐릭터별 현재 단 — wavu 값 그대로, 추정 없음 */}
           <RankBadges polarisId={single.polarisId} lang={lang} />
+          <SimilarPlayers polarisId={single.polarisId} lang={lang} />
           {summary && (
             <div className="sum-card">
               <div className="sum-block">
