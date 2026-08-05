@@ -408,6 +408,9 @@ const D = {
     ja: (c: string) => `基準キャラ: ${c}(最近使用)`,
   },
   spMinGamesLabel: { ko: '최소 판수', en: 'Min games', ja: '最低試合数' },
+  spGamesBandLabel: { ko: '통산 판수 유사도', en: 'Total games similarity', ja: '通算試合数の近さ' },
+  spRatingBandLabel: { ko: '레이팅 유사도', en: 'Rating similarity', ja: 'レートの近さ' },
+  spBandUnlimited: { ko: '무관', en: 'Any', ja: '指定なし' },
   spTrendLabel: { ko: '장기전 패턴', en: 'Long-session pattern', ja: '長時間戦のパターン' },
   spTrendAny: { ko: '무관', en: 'Any', ja: '指定なし' },
   spTrendDeclining: { ko: '장기전에서 낮은 승률', en: 'Lower win rate in long sessions', ja: '長時間戦で勝率が低い' },
@@ -428,6 +431,19 @@ const D = {
     en: (wr: number, n: number) => `Your win rate: ${wr}% (last ${n} games)`,
     ja: (wr: number, n: number) => `自分の勝率 ${wr}%(直近${n}戦)`,
   },
+  spMyGamesRating: {
+    ko: (g: number, r: number) => `통산 ${g.toLocaleString()}판 · 레이팅 ${r.toLocaleString()}`,
+    en: (g: number, r: number) => `${g.toLocaleString()} games total · rating ${r.toLocaleString()}`,
+    ja: (g: number, r: number) => `通算${g.toLocaleString()}戦・レート${r.toLocaleString()}`,
+  },
+  spResultSub: {
+    ko: (charGames: number, games: number, rating: number) =>
+      `그 캐릭터 ${charGames.toLocaleString()}판 · 통산 ${games.toLocaleString()}판 · 레이팅 ${rating.toLocaleString()}`,
+    en: (charGames: number, games: number, rating: number) =>
+      `${charGames.toLocaleString()} on this character · ${games.toLocaleString()} total · rating ${rating.toLocaleString()}`,
+    ja: (charGames: number, games: number, rating: number) =>
+      `このキャラ${charGames.toLocaleString()}戦・通算${games.toLocaleString()}戦・レート${rating.toLocaleString()}`,
+  },
   spIndexNote: {
     ko: (n: number, d: number) => `표본 ${n}명 · ${d}일 전 스냅샷 기준`,
     en: (n: number, d: number) => `Sample of ${n}, snapshot from ${d} days ago`,
@@ -438,10 +454,20 @@ const D = {
     en: (n: number) => `None of the ${n} sampled players match. Try lowering the minimum games.`,
     ja: (n: number) => `サンプル${n}人の中に条件に合う人がいません。最低試合数を下げてみてください。`,
   },
-  spLooserHint: {
+  spLooserHintMinGames: {
     ko: (n: number) => `최소 판수를 한 단계 낮추면 ${n}명 더 나옵니다.`,
-    en: (n: number) => `Lowering the minimum by one step adds ${n} more.`,
+    en: (n: number) => `Lowering the minimum games by one step adds ${n} more.`,
     ja: (n: number) => `最低試合数を一段下げると${n}人増えます。`,
+  },
+  spLooserHintGamesBand: {
+    ko: (n: number) => `통산 판수 유사도를 한 단계 넓히면 ${n}명 더 나옵니다.`,
+    en: (n: number) => `Widening the total-games similarity by one step adds ${n} more.`,
+    ja: (n: number) => `通算試合数の近さを一段広げると${n}人増えます。`,
+  },
+  spLooserHintRatingBand: {
+    ko: (n: number) => `레이팅 유사도를 한 단계 넓히면 ${n}명 더 나옵니다.`,
+    en: (n: number) => `Widening the rating similarity by one step adds ${n} more.`,
+    ja: (n: number) => `レートの近さを一段広げると${n}人増えます。`,
   },
   spGamesShort: { ko: '판', en: ' games', ja: '戦' },
   spTooFewGames: {

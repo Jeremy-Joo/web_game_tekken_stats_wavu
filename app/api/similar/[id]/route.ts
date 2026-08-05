@@ -4,7 +4,9 @@ import { fetchPlayerIndex, currentVersionOf } from '@/lib/tekken/player-index';
 import {
   findSimilar,
   type Direction,
+  type GamesBand,
   type MinCharGames,
+  type RatingBand,
   type Recency,
   type SessionTrend,
 } from '@/lib/tekken/similarity';
@@ -18,6 +20,8 @@ export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 const MIN_CHAR_GAMES_VALUES = [20, 50, 100, 200];
+const GAMES_BAND_VALUES = [10, 20, 30, 0];
+const RATING_BAND_VALUES = [100, 200, 300, 0];
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -32,6 +36,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const sessionTrend = (['any', 'declining', 'rising'].includes(sp.get('trend') ?? '')
     ? sp.get('trend')
     : 'any') as SessionTrend;
+  const gamesBand = (GAMES_BAND_VALUES.includes(Number(sp.get('gamesBand')))
+    ? Number(sp.get('gamesBand'))
+    : 20) as GamesBand;
+  const ratingBand = (RATING_BAND_VALUES.includes(Number(sp.get('ratingBand')))
+    ? Number(sp.get('ratingBand'))
+    : 200) as RatingBand;
   // 기준 캐릭터를 직접 지정할 수도 있다(예: 메인이 아니라 부캐로 비교하고 싶을 때).
   // 안 주면 최근에 쓴 캐릭터로 정한다.
   const charaParam = sp.get('char');
@@ -79,12 +89,24 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       Math.round(
         (recentMine.filter((r) => r.result === 'W').length * 1000) / recentMine.length,
       ) / 10;
+    // 계정 전체 기준 — 캐릭터별이 아니라 '경험치'·'실력대' 비교용이다.
+    const myGames = ord.length;
+    const myRating = ord[ord.length - 1].myRating;
 
-    const { results, wouldMatchWithLooserMinGames } = findSimilar(ix.rows, {
+    const {
+      results,
+      wouldMatchWithLooserMinGames,
+      wouldMatchWithLooserGamesBand,
+      wouldMatchWithLooserRatingBand,
+    } = findSimilar(ix.rows, {
       charaId,
       myWinRate,
+      myGames,
+      myRating,
       direction,
       minCharGames,
+      gamesBand,
+      ratingBand,
       sessionTrend,
       recency,
       currentVersion: currentVersionOf(ix),
@@ -94,19 +116,26 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     return NextResponse.json({
       direction,
       minCharGames,
+      gamesBand,
+      ratingBand,
       recency,
       sessionTrend,
       charaId,
       charaName: charaId,
       myCharGames: myCharRecords.length,
       myWinRate,
+      myGames,
+      myRating,
       indexSize: ix.rows.length,
       indexUpdatedAt: ix.updatedAt,
       count: results.length,
       wouldMatchWithLooserMinGames,
+      wouldMatchWithLooserGamesBand,
+      wouldMatchWithLooserRatingBand,
       results: results.slice(0, 12).map((r) => ({
         id: r.row.id,
         name: r.row.name,
+        games: r.row.games,
         charGames: r.charGames,
         charWinRate: r.charWinRate,
         wrDiff: r.wrDiff,
