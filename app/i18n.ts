@@ -407,7 +407,7 @@ const D = {
     en: (c: string) => `Comparing on: ${c} (recently used)`,
     ja: (c: string) => `基準キャラ: ${c}(最近使用)`,
   },
-  spCharGamesBandLabel: { ko: '그 캐릭터 판수 유사도', en: 'Character games similarity', ja: 'そのキャラの試合数の近さ' },
+  spCharGamesBandLabel: { ko: '해당 캐릭터 판수 유사도', en: 'Character games similarity', ja: 'そのキャラの試合数の近さ' },
   spGamesBandLabel: { ko: '통산 판수 유사도', en: 'Total games similarity', ja: '通算試合数の近さ' },
   spRatingBandLabel: { ko: '레이팅 유사도', en: 'Rating similarity', ja: 'レートの近さ' },
   spBandUnlimited: { ko: '무관', en: 'Any', ja: '指定なし' },
@@ -438,7 +438,7 @@ const D = {
   },
   spResultSub: {
     ko: (charGames: number, games: number, rating: number) =>
-      `그 캐릭터 ${charGames.toLocaleString()}판 · 통산 ${games.toLocaleString()}판 · 레이팅 ${rating.toLocaleString()}`,
+      `해당 캐릭터 ${charGames.toLocaleString()}판 · 통산 ${games.toLocaleString()}판 · 레이팅 ${rating.toLocaleString()}`,
     en: (charGames: number, games: number, rating: number) =>
       `${charGames.toLocaleString()} on this character · ${games.toLocaleString()} total · rating ${rating.toLocaleString()}`,
     ja: (charGames: number, games: number, rating: number) =>
@@ -455,7 +455,7 @@ const D = {
     ja: (n: number) => `サンプル${n}人の中に条件に合う人がいません。近さの範囲を広げてみてください。`,
   },
   spLooserHintCharGamesBand: {
-    ko: (n: number) => `그 캐릭터 판수 유사도를 한 단계 넓히면 ${n}명 더 나옵니다.`,
+    ko: (n: number) => `해당 캐릭터 판수 유사도를 한 단계 넓히면 ${n}명 더 나옵니다.`,
     en: (n: number) => `Widening the character-games similarity by one step adds ${n} more.`,
     ja: (n: number) => `そのキャラの試合数の近さを一段広げると${n}人増えます。`,
   },

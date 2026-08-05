@@ -77,7 +77,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       // myChar 는 이미 표시용 이름 문자열이다(정규화 단계에서 변환됨) — 그대로 쓴다.
       return NextResponse.json(
         {
-          error: `${charaId}(으)로 20판 미만이라 그 캐릭터 기준 승률을 잴 수 없습니다.`,
+          error: `${charaId}(으)로 20판 미만이라 해당 캐릭터 기준 승률을 잴 수 없습니다.`,
           charaId,
           charaName: charaId,
         },
