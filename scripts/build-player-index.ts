@@ -19,14 +19,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getRecords } from '../lib/wavu/cache';
-import { sessionAdvice, DROP_PP } from '../lib/tekken/advice';
-import type { MatchRecord } from '../lib/tekken/models';
+import { buildRow, MIN_GAMES } from '../lib/tekken/build-row';
 import type { PlayerIndex, PlayerIndexRow } from '../lib/tekken/player-index';
 
 const FILE = path.join(__dirname, '..', 'lib', 'tekken', 'player-index-data.json');
-const MIN_GAMES = 500;
-/** 캐릭터별 승률을 인덱스에 담으려면 그 캐릭터로 최소 이만큼은 쳤어야 한다 — 그 아래는 승률이 노이즈다. */
-const MIN_CHAR_GAMES = 20;
 const REFRESH_DAYS = 25; // 월 주기보다 살짝 짧게 — 갱신 실행일이 며칠 밀려도 전부 걸리게
 const RECHECK_SKIPPED_DAYS = 60;
 const WAVU_GAP_MS = 1200;
@@ -76,94 +72,6 @@ async function feedIds(): Promise<string[]> {
       if (typeof id === 'string' && /^[A-Za-z0-9]{12}$/.test(id)) seen.add(id);
     }
   return [...seen];
-}
-
-function buildRow(
-  id: string,
-  name: string,
-  records: MatchRecord[],
-  source: PlayerIndexRow['source'],
-  lookups: number,
-): PlayerIndexRow {
-  const ord = [...records].sort((a, b) => a.dt.getTime() - b.dt.getTime());
-  const last = ord[ord.length - 1];
-
-  const wins = ord.filter((r) => r.result === 'W').length;
-  const recent = ord.slice(-200);
-  const recentW = recent.filter((r) => r.result === 'W').length;
-
-  // 캐릭터별로 묶는다 — mainChar/mainCharGames 는 여기서 같이 뽑고,
-  // 승률 검색(similarity.ts)이 쓸 chars 도 이 한 번의 순회로 만든다.
-  const byChar = new Map<string, MatchRecord[]>();
-  for (const r of ord) {
-    const list = byChar.get(r.myChar) ?? [];
-    list.push(r);
-    byChar.set(r.myChar, list);
-  }
-  let mainChar = '';
-  let mainCharGames = 0;
-  for (const [c, list] of byChar) if (list.length > mainCharGames) ((mainChar = c), (mainCharGames = list.length));
-
-  const chars: PlayerIndexRow['chars'] = {};
-  for (const [c, list] of byChar) {
-    if (list.length < MIN_CHAR_GAMES) continue; // 그 아래는 승률이 노이즈다
-    const w = list.filter((r) => r.result === 'W').length;
-    const recentList = list.slice(-100);
-    const recentWchar = recentList.filter((r) => r.result === 'W').length;
-    chars[c] = {
-      games: list.length,
-      wrOverall: Math.round((w * 1000) / list.length) / 10,
-      wrRecent: Math.round((recentWchar * 1000) / recentList.length) / 10,
-    };
-  }
-
-  let peak = 0;
-  for (const r of ord) if (r.myRating > peak) peak = r.myRating;
-
-  // 장기전 패턴은 캐릭터로 안 자른다 — 세션은 캐릭터를 넘나드는 시간 구조라
-  // 자르면 왜곡된다(player-index.ts 머리말 참조). 계정 전체(ord) 기준이다.
-  const adv = sessionAdvice(ord);
-
-  // '상승' — advice.ts 의 하락 탐지(stopAfter/dropPp)를 그대로 대칭 이동한 것이다.
-  // advice.ts 는 이 계산을 안 한다(그 파일은 '중단 권장'만 판단하면 된다) — 여기서만
-  // 쓰는 값이라 여기서 계산한다. advice.ts 의 DROP_PP 를 그대로 재사용해 두 기준이
-  // 어긋나지 않게 한다.
-  let riseAfter: number | null = null;
-  let risePp: number | null = null;
-  if (adv) {
-    for (const b of adv.bands.filter((x) => x.enough)) {
-      if (b.winRate > adv.baselineWinRate + DROP_PP) {
-        riseAfter = b.from - 1;
-        risePp = Math.round((b.winRate - adv.baselineWinRate) * 10) / 10;
-        break;
-      }
-    }
-  }
-
-  return {
-    id,
-    name,
-    source,
-    fetchedAt: nowS(),
-    games: ord.length,
-    // dt 는 KST 벽시계를 UTC 필드에 담은 Date — epoch 로 되돌릴 때 9시간을 빼야
-    // 실제 UTC 시각이 된다 (models.ts 시각 규약).
-    lastPlayed: Math.floor(last.dt.getTime() / 1000) - 9 * 3600,
-    lastVersion: last.gameVersion,
-    wrOverall: Math.round((wins * 1000) / ord.length) / 10,
-    wrRecent200: Math.round((recentW * 1000) / recent.length) / 10,
-    rating: last.myRating,
-    peakRating: peak,
-    mainChar,
-    mainCharGames,
-    chars,
-    stopAfter: adv?.stopAfter ?? null,
-    dropPp: adv?.dropPp ?? null,
-    riseAfter,
-    risePp,
-    adviceReliable: adv?.reliable ?? false,
-    lookups,
-  };
 }
 
 async function collect(
