@@ -1,12 +1,12 @@
 {
- "updatedAt": 1785909862,
+ "updatedAt": 1785915218,
  "minGames": 500,
  "rows": [
   {
    "id": "22jDEYnLL7NN",
    "name": "시니아_퍼시피카",
    "source": "lookup",
-   "fetchedAt": 1785908820,
+   "fetchedAt": 1785915187,
    "games": 13926,
    "lastPlayed": 1785846483,
    "lastVersion": 30101,
@@ -16,16 +16,17 @@
    "peakRating": 2565,
    "mainChar": "Bryan",
    "mainCharGames": 13921,
-   "hex": {
-    "skill": 53.2,
-    "variety": 0.1,
-    "grind": 74.6,
-    "growth": 44.4,
-    "stamina": 59.9,
-    "giantkill": 47
+   "chars": {
+    "Bryan": {
+     "games": 13921,
+     "wrOverall": 51.8,
+     "wrRecent": 60
+    }
    },
    "stopAfter": 0,
    "dropPp": 3.4,
+   "riseAfter": 20,
+   "risePp": 3.7,
    "adviceReliable": true,
    "lookups": 4
   },
@@ -33,7 +34,7 @@
    "id": "23E6mBBq3bLd",
    "name": "재활중인 풍신류아저씨",
    "source": "lookup",
-   "fetchedAt": 1785909056,
+   "fetchedAt": 1785915190,
    "games": 5783,
    "lastPlayed": 1785743396,
    "lastVersion": 30101,
@@ -43,16 +44,62 @@
    "peakRating": 1847,
    "mainChar": "Anna",
    "mainCharGames": 1353,
-   "hex": {
-    "skill": 48.1,
-    "variety": 100,
-    "grind": 39.7,
-    "growth": 60.3,
-    "stamina": 54.5,
-    "giantkill": 39
+   "chars": {
+    "Kazuya": {
+     "games": 699,
+     "wrOverall": 55.5,
+     "wrRecent": 45
+    },
+    "Jin": {
+     "games": 360,
+     "wrOverall": 48.1,
+     "wrRecent": 45
+    },
+    "Heihachi": {
+     "games": 473,
+     "wrOverall": 50.7,
+     "wrRecent": 45
+    },
+    "Law": {
+     "games": 301,
+     "wrOverall": 49.8,
+     "wrRecent": 46
+    },
+    "Anna": {
+     "games": 1353,
+     "wrOverall": 50,
+     "wrRecent": 53
+    },
+    "Dragunov": {
+     "games": 142,
+     "wrOverall": 53.5,
+     "wrRecent": 53
+    },
+    "Fahkumram": {
+     "games": 1125,
+     "wrOverall": 44,
+     "wrRecent": 41
+    },
+    "Devil Jin": {
+     "games": 929,
+     "wrOverall": 42.9,
+     "wrRecent": 44
+    },
+    "Armor King": {
+     "games": 358,
+     "wrOverall": 52.2,
+     "wrRecent": 58
+    },
+    "Miary Zo": {
+     "games": 32,
+     "wrOverall": 28.1,
+     "wrRecent": 28.1
+    }
    },
    "stopAfter": 25,
    "dropPp": 4.9,
+   "riseAfter": 40,
+   "risePp": 7.3,
    "adviceReliable": true,
    "lookups": 3
   },
@@ -60,26 +107,47 @@
    "id": "2497L7RAGE8G",
    "name": "Yazeed",
    "source": "feed",
-   "fetchedAt": 1785909847,
-   "games": 10827,
-   "lastPlayed": 1785909785,
+   "fetchedAt": 1785915196,
+   "games": 10831,
+   "lastPlayed": 1785912019,
    "lastVersion": 30101,
    "wrOverall": 52.7,
    "wrRecent200": 65,
-   "rating": 2265,
+   "rating": 2269,
    "peakRating": 2317,
    "mainChar": "Yoshimitsu",
-   "mainCharGames": 10481,
-   "hex": {
-    "skill": 55.6,
-    "variety": 4.9,
-    "grind": 41.7,
-    "growth": 60.3,
-    "stamina": 53.7,
-    "giantkill": 42.8
+   "mainCharGames": 10485,
+   "chars": {
+    "Yoshimitsu": {
+     "games": 10485,
+     "wrOverall": 53.3,
+     "wrRecent": 69
+    },
+    "Eddy": {
+     "games": 46,
+     "wrOverall": 17.4,
+     "wrRecent": 17.4
+    },
+    "Steve": {
+     "games": 20,
+     "wrOverall": 0,
+     "wrRecent": 0
+    },
+    "Nina": {
+     "games": 110,
+     "wrOverall": 24.5,
+     "wrRecent": 26
+    },
+    "Kunimitsu": {
+     "games": 168,
+     "wrOverall": 51.8,
+     "wrRecent": 59
+    }
    },
    "stopAfter": 30,
    "dropPp": 3.1,
+   "riseAfter": 55,
+   "risePp": 11.4,
    "adviceReliable": true,
    "lookups": 0
   },
@@ -87,7 +155,7 @@
    "id": "24E7fGqn9nMB",
    "name": "녹단요시유저",
    "source": "lookup",
-   "fetchedAt": 1785909354,
+   "fetchedAt": 1785915200,
    "games": 3780,
    "lastPlayed": 1785711756,
    "lastVersion": 30101,
@@ -97,16 +165,22 @@
    "peakRating": 2044,
    "mainChar": "Yoshimitsu",
    "mainCharGames": 3334,
-   "hex": {
-    "skill": 54.5,
-    "variety": 11.6,
-    "grind": 30.9,
-    "growth": 44.8,
-    "stamina": 71.3,
-    "giantkill": 44.7
+   "chars": {
+    "Yoshimitsu": {
+     "games": 3334,
+     "wrOverall": 52.5,
+     "wrRecent": 49
+    },
+    "Armor King": {
+     "games": 431,
+     "wrOverall": 50.3,
+     "wrRecent": 48
+    }
    },
    "stopAfter": 0,
    "dropPp": 4.7,
+   "riseAfter": 15,
+   "risePp": 5.3,
    "adviceReliable": true,
    "lookups": 2
   },
@@ -114,7 +188,7 @@
    "id": "25E4YDEFejfj",
    "name": "eowkd",
    "source": "lookup",
-   "fetchedAt": 1785909015,
+   "fetchedAt": 1785915202,
    "games": 739,
    "lastPlayed": 1785409059,
    "lastVersion": 30101,
@@ -124,16 +198,22 @@
    "peakRating": 1717,
    "mainChar": "Jin",
    "mainCharGames": 536,
-   "hex": {
-    "skill": 45.5,
-    "variety": 21,
-    "grind": 45.6,
-    "growth": 40.9,
-    "stamina": 49,
-    "giantkill": 40.2
+   "chars": {
+    "Jin": {
+     "games": 536,
+     "wrOverall": 48.5,
+     "wrRecent": 48
+    },
+    "Jun": {
+     "games": 200,
+     "wrOverall": 49,
+     "wrRecent": 49
+    }
    },
    "stopAfter": 10,
    "dropPp": 4.8,
+   "riseAfter": 20,
+   "risePp": 4,
    "adviceReliable": true,
    "lookups": 3
   },
@@ -141,7 +221,7 @@
    "id": "25Mt5h5N8dY8",
    "name": "스장연.",
    "source": "lookup",
-   "fetchedAt": 1785909471,
+   "fetchedAt": 1785915209,
    "games": 18316,
    "lastPlayed": 1785677785,
    "lastVersion": 30101,
@@ -151,16 +231,72 @@
    "peakRating": 2440,
    "mainChar": "Steve",
    "mainCharGames": 13333,
-   "hex": {
-    "skill": 54.3,
-    "variety": 51.1,
-    "grind": 62.4,
-    "growth": 40.9,
-    "stamina": 55.2,
-    "giantkill": 43.7
+   "chars": {
+    "Jin": {
+     "games": 1479,
+     "wrOverall": 56.9,
+     "wrRecent": 67
+    },
+    "Shaheen": {
+     "games": 206,
+     "wrOverall": 63.1,
+     "wrRecent": 60
+    },
+    "Lee": {
+     "games": 1110,
+     "wrOverall": 54.7,
+     "wrRecent": 63
+    },
+    "Steve": {
+     "games": 13333,
+     "wrOverall": 51.4,
+     "wrRecent": 66
+    },
+    "Victor": {
+     "games": 801,
+     "wrOverall": 56.7,
+     "wrRecent": 54
+    },
+    "Kazuya": {
+     "games": 312,
+     "wrOverall": 60.9,
+     "wrRecent": 64
+    },
+    "Devil Jin": {
+     "games": 464,
+     "wrOverall": 59.7,
+     "wrRecent": 48
+    },
+    "Dragunov": {
+     "games": 259,
+     "wrOverall": 59.8,
+     "wrRecent": 63
+    },
+    "Heihachi": {
+     "games": 210,
+     "wrOverall": 62.4,
+     "wrRecent": 61
+    },
+    "Bryan": {
+     "games": 57,
+     "wrOverall": 56.1,
+     "wrRecent": 56.1
+    },
+    "Clive": {
+     "games": 30,
+     "wrOverall": 56.7,
+     "wrRecent": 56.7
+    },
+    "Kunimitsu": {
+     "games": 37,
+     "wrOverall": 45.9,
+     "wrRecent": 45.9
+    }
    },
    "stopAfter": null,
    "dropPp": null,
+   "riseAfter": null,
+   "risePp": null,
    "adviceReliable": true,
    "lookups": 2
   },
@@ -168,7 +304,7 @@
    "id": "25QAdYJRGaqE",
    "name": "Weak Character",
    "source": "lookup",
-   "fetchedAt": 1785908979,
+   "fetchedAt": 1785915211,
    "games": 2041,
    "lastPlayed": 1785516775,
    "lastVersion": 30101,
@@ -178,16 +314,37 @@
    "peakRating": 2081,
    "mainChar": "Paul",
    "mainCharGames": 840,
-   "hex": {
-    "skill": 59,
-    "variety": 68.6,
-    "grind": 23.8,
-    "growth": 61,
-    "stamina": 47.4,
-    "giantkill": 39.8
+   "chars": {
+    "Paul": {
+     "games": 840,
+     "wrOverall": 53.6,
+     "wrRecent": 58
+    },
+    "Dragunov": {
+     "games": 609,
+     "wrOverall": 57.3,
+     "wrRecent": 67
+    },
+    "Leroy": {
+     "games": 80,
+     "wrOverall": 51.3,
+     "wrRecent": 51.3
+    },
+    "Steve": {
+     "games": 37,
+     "wrOverall": 37.8,
+     "wrRecent": 37.8
+    },
+    "Heihachi": {
+     "games": 453,
+     "wrOverall": 57.6,
+     "wrRecent": 67
+    }
    },
    "stopAfter": 20,
    "dropPp": 4.6,
+   "riseAfter": 5,
+   "risePp": 3.5,
    "adviceReliable": true,
    "lookups": 3
   },
@@ -195,26 +352,57 @@
    "id": "2625Hdi5LyEa",
    "name": "vudtod401",
    "source": "feed",
-   "fetchedAt": 1785909640,
-   "games": 5961,
-   "lastPlayed": 1785909568,
+   "fetchedAt": 1785915215,
+   "games": 5984,
+   "lastPlayed": 1785914416,
    "lastVersion": 30101,
-   "wrOverall": 50,
-   "wrRecent200": 49.5,
-   "rating": 1740,
+   "wrOverall": 50.1,
+   "wrRecent200": 50,
+   "rating": 1728,
    "peakRating": 1876,
    "mainChar": "King",
    "mainCharGames": 2006,
-   "hex": {
-    "skill": 50,
-    "variety": 81,
-    "grind": 43.8,
-    "growth": 44,
-    "stamina": 58,
-    "giantkill": 38.7
+   "chars": {
+    "King": {
+     "games": 2006,
+     "wrOverall": 50.8,
+     "wrRecent": 47
+    },
+    "Lee": {
+     "games": 1354,
+     "wrOverall": 48.4,
+     "wrRecent": 47
+    },
+    "Panda": {
+     "games": 60,
+     "wrOverall": 45,
+     "wrRecent": 45
+    },
+    "Paul": {
+     "games": 282,
+     "wrOverall": 51.1,
+     "wrRecent": 52
+    },
+    "Jun": {
+     "games": 150,
+     "wrOverall": 50,
+     "wrRecent": 57
+    },
+    "Lars": {
+     "games": 146,
+     "wrOverall": 45.9,
+     "wrRecent": 51
+    },
+    "Fahkumram": {
+     "games": 1985,
+     "wrOverall": 50.7,
+     "wrRecent": 53
+    }
    },
    "stopAfter": null,
    "dropPp": null,
+   "riseAfter": 30,
+   "risePp": 3.7,
    "adviceReliable": true,
    "lookups": 0
   },
@@ -222,7 +410,7 @@
    "id": "2663FJfmMT4r",
    "name": "ByunSters",
    "source": "lookup",
-   "fetchedAt": 1785909023,
+   "fetchedAt": 1785915218,
    "games": 1288,
    "lastPlayed": 1785764969,
    "lastVersion": 30101,
@@ -232,16 +420,37 @@
    "peakRating": 1784,
    "mainChar": "Kuma",
    "mainCharGames": 428,
-   "hex": {
-    "skill": 59.2,
-    "variety": 80.3,
-    "grind": 34.1,
-    "growth": 44.6,
-    "stamina": 53,
-    "giantkill": 37.6
+   "chars": {
+    "Kuma": {
+     "games": 428,
+     "wrOverall": 52.3,
+     "wrRecent": 53
+    },
+    "Azucena": {
+     "games": 419,
+     "wrOverall": 54.2,
+     "wrRecent": 37
+    },
+    "Panda": {
+     "games": 236,
+     "wrOverall": 60.6,
+     "wrRecent": 56
+    },
+    "Clive": {
+     "games": 134,
+     "wrOverall": 55.2,
+     "wrRecent": 55
+    },
+    "Lidia": {
+     "games": 71,
+     "wrOverall": 42.3,
+     "wrRecent": 42.3
+    }
    },
    "stopAfter": 25,
    "dropPp": 7.6,
+   "riseAfter": 5,
+   "risePp": 3.2,
    "adviceReliable": true,
    "lookups": 3
   },
