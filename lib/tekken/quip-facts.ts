@@ -47,6 +47,22 @@ const MATCHUP_MIN = 20;
 /** 하루 안에서 같은 상대 캐릭이 이만큼 몰리면 '유행'이라고 말할 수 있다. */
 const TODAY_SAME_CHAR = 5;
 
+/**
+ * 승률·레이팅 어긋남을 재는 창. 25로 둔 근거: 손익분기 실측(2026-08-05, 15명
+ * 363,237경기)을 25경기 창으로 했고, 그 창에서 2200+ 는 17승 8패(68%)여도
+ * 레이팅이 떨어진 비율이 33%였다 — 이 어긋남이 실재한다는 게 이 축의 존재 이유다.
+ * 손익분기 승률은 1600대 52% → 2400+ 64% 로 오른다(이길 때 +8, 질 때 -13 규모).
+ */
+const DIVERGE_WINDOW = 25;
+/** 창 안에서 레이팅 변동이 있는 경기가 이만큼은 돼야 말할 수 있다(방금 경기는 TBD=0). */
+const DIVERGE_KNOWN_MIN = 15;
+/** '이기고 있다'로 부르는 승수 (25판 중 15승 = 60%). */
+const DIVERGE_WIN_HI = 15;
+/** '5할 이하'로 부르는 승수 (25판 중 12승 = 48%). */
+const DIVERGE_WIN_LO = 12;
+/** 순변화가 이 안이면 '제자리'다. 경기당 변동이 ±8~13 이라 한 판 값보다 크게 잡았다. */
+const DIVERGE_FLAT = 15;
+
 export interface QuipFacts {
   /**
    * 보고 있는 범위가 **현재까지 이어지는가**(범위의 마지막 경기 = 통산 마지막 경기).
@@ -120,6 +136,23 @@ export interface QuipFacts {
 
   /** 오늘 같은 상대 캐릭을 몇 번 만났나. 몰리지 않았으면 null. */
   todaySameChar: { opp: string; count: number } | null;
+
+  /**
+   * 상태 — 최근 DIVERGE_WINDOW 판의 **승률과 레이팅 방향이 어긋날 때만** 값이 있다.
+   * 사건(한 번 참)도 특성(늘 참)도 아니라서 셋째 갈래다: 몇 판 지속되다 사라진다.
+   *   winNoGain   이기고 있는데(60%+) 레이팅은 제자리거나 후퇴 — 위쪽 상대가 없다
+   *   loseButGain 5할 이하인데 레이팅은 올랐다 — 위를 잡고 아래에 진 것
+   *   flatEven    5할 이하 + 레이팅도 제자리 — 시스템이 판단을 보류 중
+   * 승률이 좋고 레이팅도 오르는 경우(정상)와 나쁘고 떨어지는 경우(mood 가 맡는다)는
+   * 여기 안 담는다 — 어긋남이 없으면 이 축은 침묵한다.
+   */
+  divergence: {
+    kind: 'winNoGain' | 'loseButGain' | 'flatEven';
+    wins: number;
+    losses: number;
+    /** 창 안 레이팅 순변화(반올림). */
+    net: number;
+  } | null;
 }
 
 const wrOf = (w: number, n: number) => (n > 0 ? Math.round((w * 1000) / n) / 10 : 0);
@@ -316,6 +349,27 @@ export function buildQuipFacts(input: QuipFactsInput): QuipFacts | null {
     if (top && top[1] >= TODAY_SAME_CHAR) todaySameChar = { opp: top[0], count: top[1] };
   }
 
+  // ── 승률·레이팅 어긋남 ─────────────────────────────────────────
+  // 창은 범위(ord)의 마지막 DIVERGE_WINDOW 판. 방금 끝난 경기는 wavu 가 레이팅을
+  // 아직 안 매겨 delta=0 으로 오므로(normalize 의 TBD 처리), 변동이 있는 경기 수가
+  // DIVERGE_KNOWN_MIN 미만이면 "모른다"로 두고 침묵한다 — 0 을 제자리로 읽으면 안 된다.
+  let divergence: QuipFacts['divergence'] = null;
+  if (ord.length >= DIVERGE_WINDOW) {
+    const win = ord.slice(-DIVERGE_WINDOW);
+    const known = win.filter((r) => r.myDelta !== 0).length;
+    if (known >= DIVERGE_KNOWN_MIN) {
+      const wins = win.filter((r) => r.result === 'W').length;
+      const losses = DIVERGE_WINDOW - wins;
+      const net = Math.round(win.reduce((s, r) => s + r.myDelta, 0));
+      const kind: NonNullable<QuipFacts['divergence']>['kind'] | null =
+        wins >= DIVERGE_WIN_HI && net <= 0 ? 'winNoGain'
+          : wins <= DIVERGE_WIN_LO && net >= DIVERGE_FLAT ? 'loseButGain'
+            : wins <= DIVERGE_WIN_LO && Math.abs(net) < DIVERGE_FLAT ? 'flatEven'
+              : null;
+      if (kind) divergence = { kind, wins, losses, net };
+    }
+  }
+
   // 범위가 현재까지 이어지는가 — '사건' 계열은 여기에 전부 매인다.
   const isCurrent =
     all[all.length - 1].dt.getTime() === last.dt.getTime() && all.length === records.length;
@@ -341,5 +395,7 @@ export function buildQuipFacts(input: QuipFactsInput): QuipFacts | null {
     worstMatchup,
     lastSessionGames,
     todaySameChar,
+    // 지난 시즌을 보며 "지금 정체 중"이라고 말하면 거짓말이다 — 사건 계열과 같은 가드.
+    divergence: isCurrent ? divergence : null,
   };
 }

@@ -24,6 +24,7 @@
 import type { Lang } from './i18n';
 import type { QuipFacts } from '@/lib/tekken/quip-facts';
 import type { Mood } from './jokes';
+import { divergePool } from './diverge-jokes';
 
 /** 천 단위 쉼표. toLocaleString 은 실행 환경에 따라 결과가 갈릴 수 있어 직접 넣는다. */
 const n = (v: number) => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -435,6 +436,11 @@ function traits(f: QuipFacts, lang: Lang): string[] {
 export interface FactPools {
   /** 우선순위 순. 앞에서부터 비어 있지 않은 첫 pool 이 이긴다. */
   events: string[][];
+  /**
+   * 승률·레이팅 어긋남(diverge-jokes.ts). 사건도 특성도 아닌 **상태**다 —
+   * 25판쯤 지속되다 사라진다. 사다리에서의 취급은 jokes.ts 의 pickJoke 주석 참조.
+   */
+  state: string[];
   /** 기본 농담과 섞어 뽑는다. */
   traits: string[];
 }
@@ -448,7 +454,7 @@ export interface FactPools {
  * (10,000판 달성은 평생 한 번인데 25% 확률로 밀리면 안 된다).
  */
 export function factPools(f: QuipFacts | null, lang: Lang, mood: Mood): FactPools {
-  if (!f) return { events: [], traits: [] };
+  if (!f) return { events: [], state: [], traits: [] };
   return {
     events: [
       milestone(f, lang),
@@ -459,6 +465,7 @@ export function factPools(f: QuipFacts | null, lang: Lang, mood: Mood): FactPool
       todaySameChar(f, lang),
       clock(f, lang, mood),
     ].filter((p) => p.length > 0),
+    state: divergePool(f, lang),
     traits: traits(f, lang),
   };
 }
