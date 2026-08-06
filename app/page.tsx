@@ -869,13 +869,23 @@ export default function Home() {
   // 캐릭터·강점·약점 매치업 탭 보기. 기본은 '전체'(지금까지의 동작) — 세 탭이
   // 하나의 상태를 공유한다(한 번에 한 탭만 보이므로 안전하고, 탭을 옮겨도
   // "시즌별로 보던 중"이 유지되는 편이 자연스럽다).
-  const [splitView, setSplitView] = useState<'all' | 'season' | 'version'>('all');
+  const [splitView, setSplitView] = useState<'all' | 'season' | 'version' | 'custom'>('all');
   // 캐릭터 칩 접힘 상태 — 사람이 바뀌어도 유지한다(펼쳐두고 여러 명을 도는 사용을 방해하지 않게).
   const [charChipsOpen, setCharChipsOpen] = useState(false);
   // 시즌별/버전별 보기에서 고른 시즌(예: 'S2')·버전(예: 'S2-20500') 하나. 목록에
   // 없는 값이면(탭을 옮겼거나 시즌/버전으로 전환을 막 했을 때) 첫 항목으로
   // 대체한다(아래 effSplitSel) — 그래서 여기 빈 문자열로 둬도 안전하다.
   const [splitSel, setSplitSel] = useState('');
+  // 나눠보기 '날짜로 지정'(splitView==='custom'). 상대전적의 '날짜로 지정'과 달리
+  // 클라이언트에서 못 자른다 — 캐릭터·강점·약점 등은 시즌/버전 단위로만 집계돼
+  // 있고 경기 하나하나의 날짜가 없다(docs/ui-period-analysis.md). 그래서 이 탭
+  // 하나만 서버에 범위를 넘겨 다시 계산해 받는다 — 예전에 없앤 '상단 조회 기간'
+  // (전체 재조회)과 달리 지금 탭 하나만, 나머지 화면(멘트·다른 탭 캐시)은 그대로 둔다.
+  const [splitCustomStart, setSplitCustomStart] = useState('');
+  const [splitCustomEnd, setSplitCustomEnd] = useState('');
+  const [splitCustomResult, setSplitCustomResult] = useState<PlayerResponse | null>(null);
+  const [splitCustomLoading, setSplitCustomLoading] = useState(false);
+  const [splitCustomError, setSplitCustomError] = useState('');
   // 상대전적에서 눌러 담은 비교 대상 (나는 제외 — 목록을 만들 때 앞에 붙인다)
   const [picked, setPicked] = useState<Favorite[]>([]);
   const [pickMsg, setPickMsg] = useState('');
@@ -1566,7 +1576,10 @@ export default function Home() {
   // S1·S2·S3 가 한 표에 같이 있으면 오히려 안 읽힌다는 피드백(2026-08)을 받아,
   // 화면에서는 시즌/버전마다 **별도 버튼**을 만들고 고른 것만 보여준다 —
   // '전체' 볼 때처럼 깔끔한 한 표가 되게, 구분 열은 지운다.
-  const rawSplitTab = current && splitView !== 'all' ? (splitTabs[current.key]?.[splitView] ?? null) : null;
+  const rawSplitTab =
+    current && (splitView === 'season' || splitView === 'version')
+      ? (splitTabs[current.key]?.[splitView] ?? null)
+      : null;
   // 하위 버튼(시즌/버전 목록)은 **그 표에 실제로 나온 행**이 아니라, 이 사람이
   // 실제로 뛴 시즌/버전 전체(seasonsFiltered/versionsFiltered — effSplitSpan 이
   // 쓰는 것과 같은 소스)에서 뽑는다. 표에서 뽑으면 강점 매치업은 17개, 약점
@@ -1579,7 +1592,11 @@ export default function Home() {
   // 기존 '표시할 행이 없습니다' 문구가 그대로 뜬다 — 매치업이 없다는 뜻으로
   // 자연스럽게 읽힌다.
   const splitLabelsRaw = (
-    splitView === 'season' ? (single?.seasonsFiltered ?? []) : (single?.versionsFiltered ?? [])
+    splitView === 'season'
+      ? (single?.seasonsFiltered ?? [])
+      : splitView === 'version'
+        ? (single?.versionsFiltered ?? [])
+        : [] // 'all' | 'custom' — 둘 다 하위 시즌/버전 선택지가 없다
   )
     .map((s) => s.key)
     .sort(); // 사전순 = 시간순(S1<S2<S3, 버전도 자리수가 같아 마찬가지 — seasons.ts 머리말과 같은 근거)
@@ -1598,7 +1615,14 @@ export default function Home() {
       ? (single?.seasonsFiltered?.find((s) => s.key === effSplitSel) ?? null)
       : splitView === 'version'
         ? (single?.versionsFiltered?.find((s) => s.key === effSplitSel) ?? null)
-        : null;
+        : splitView === 'custom' && splitCustomResult
+          ? {
+              key: 'custom',
+              start: splitCustomResult.filtered?.start ?? splitCustomStart,
+              end: splitCustomResult.filtered?.end ?? splitCustomEnd,
+              games: splitCustomResult.recordCount,
+            }
+          : null;
   // 이 시즌·버전이 지금 보는 전체(필터 적용 후)에서 몇 %를 차지하나 + 표본이
   // 너무 적어 숫자를 그대로 믿기 어려운 구간인가. THIN_SPLIT_GAMES 는 리포트
   // 페이지의 THIN_GAMES(30)와 같은 기준 — 이 사이트 전반에서 "표본 얇음"의 눈금이다.
@@ -1615,6 +1639,52 @@ export default function Home() {
         rows: rawSplitTab.rows.filter((r) => r[0] === effSplitSel).map((r) => r.slice(1)),
       }
     : null;
+
+  // 나눠보기 '날짜로 지정' — 범위가 다 채워지면 이 탭 하나만 서버에 다시 계산해
+  // 받는다(위 splitCustom* 상태 선언부 주석 참조). 범위가 바뀌는 동안 옛 응답이
+  // 늦게 도착해 새 범위를 덮어쓰지 않도록 cancelled 플래그로 막는다.
+  useEffect(() => {
+    if (splitView !== 'custom' || !single?.polarisId) return;
+    if (!splitCustomStart || !splitCustomEnd) return;
+    if (splitCustomStart > splitCustomEnd) {
+      setSplitCustomResult(null);
+      setSplitCustomError(t('splitCustomInvalidRange'));
+      return;
+    }
+    let cancelled = false;
+    setSplitCustomLoading(true);
+    setSplitCustomError('');
+    const q = new URLSearchParams({ start: splitCustomStart, end: splitCustomEnd });
+    if (charSel) q.set('char', charSel);
+    fetch(`/api/replays/${encodeURIComponent(single.polarisId)}?${q}`)
+      .then((res) => readJson<PlayerResponse>(res).then((data) => {
+        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+        return data;
+      }))
+      .then((data) => {
+        if (cancelled) return;
+        setSplitCustomResult(data);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setSplitCustomResult(null);
+        setSplitCustomError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setSplitCustomLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [splitView, splitCustomStart, splitCustomEnd, single?.polarisId, charSel, t]);
+
+  // 날짜로 지정 범위로 받은 응답에서, 지금 보는 탭과 같은 키의 표만 꺼낸다.
+  // 응답엔 전체 탭이 다 들어있지만(computeFromRecords 가 항상 전부 만든다),
+  // 여기서 쓰는 건 이 탭 하나뿐이다.
+  const splitCustomTab: TabData | null =
+    splitView === 'custom' && splitCustomResult && current
+      ? (splitCustomResult.tabs.find((tb) => tb.key === current.key) ?? null)
+      : null;
 
   const displayTab =
     current?.key === 'daily'
@@ -1635,11 +1705,14 @@ export default function Home() {
             : // 시즌도 같은 방식 — game_version 별 표로 갈아끼운다.
               current?.key === 'season' && seasonView === 'version' && seasonVersionTab
               ? seasonVersionTab
-              : // 캐릭터·강점·약점 매치업 — 시즌별/버전별 표로 갈아끼운다.
-                //  선택된 시즌/버전 하나만, 구분 열 없이 '전체'와 같은 모양으로.
-                splitFilteredTab
-                ? splitFilteredTab
-                : current;
+              : // 캐릭터·강점·약점 매치업 — 날짜로 지정(서버 재계산) 또는 시즌별/버전별
+                // (클라이언트 전환) 표로 갈아끼운다. 선택된 범위/시즌/버전 하나만,
+                // 구분 열 없이 '전체'와 같은 모양으로.
+                splitView === 'custom'
+                ? (splitCustomTab ?? current)
+                : splitFilteredTab
+                  ? splitFilteredTab
+                  : current;
 
   // 비교 표(캐릭터·상대 캐릭·공통 상대)에서 표본이 얇은 행을 걸러낼 수 있는가.
   // 실측: 39행 중 3행이 5경기 미만이었고 그중 둘이 '3전 100%' 였다.
@@ -2968,13 +3041,71 @@ export default function Home() {
                         {t('splitByVersion')}
                       </button>
                     )}
+                    {/* 날짜로 지정 — 시즌·버전 단위가 아니라 임의 구간. 캐릭터·강점·약점
+                        등은 클라이언트에 경기 하나하나의 날짜가 없어(시즌/버전 단위로만
+                        집계돼 있다) 상대전적의 '날짜로 지정'처럼 즉시 자를 수 없다 — 이
+                        탭 하나만 서버에 범위를 넘겨 다시 계산해 받는다(위 useEffect 참조). */}
+                    <button
+                      className={splitView === 'custom' ? 'on' : ''}
+                      onClick={() => {
+                        if (splitView !== 'custom') gaEvent('matchup_by_custom_date');
+                        setSplitView('custom');
+                      }}
+                    >
+                      {t('splitCustom')}
+                    </button>
                   </div>
+                )}
+
+                {/* 날짜로 지정 — 범위 입력 + 로딩/에러 + 힌트. splitLabels 를 쓰는
+                    시즌/버전 하위 선택 블록과 데이터 소스가 달라(서버 재계산) 별도로 둔다. */}
+                {splitView === 'custom' && (
+                  <>
+                    <div className="row">
+                      <span>
+                        <label htmlFor="splitCustomStart">{t('startDate')}</label>
+                        <input
+                          id="splitCustomStart"
+                          type="date"
+                          value={splitCustomStart}
+                          onChange={(e) => setSplitCustomStart(e.target.value)}
+                        />
+                      </span>
+                      <span>
+                        <label htmlFor="splitCustomEnd">{t('endDate')}</label>
+                        <input
+                          id="splitCustomEnd"
+                          type="date"
+                          value={splitCustomEnd}
+                          onChange={(e) => setSplitCustomEnd(e.target.value)}
+                        />
+                      </span>
+                    </div>
+                    {splitCustomLoading && <p className="hint">{t('querying')}</p>}
+                    {splitCustomError && <p className="hint split-thin">{splitCustomError}</p>}
+                    {!splitCustomLoading && effSplitSpan && (
+                      <p className="hint split-span" style={{ marginTop: '0.2rem' }}>
+                        {effSplitSpan.start === effSplitSpan.end
+                          ? effSplitSpan.start
+                          : `${effSplitSpan.start} ~ ${effSplitSpan.end}`}
+                        {' · '}
+                        {effSplitPct != null
+                          ? t('splitComposition')(effSplitSpan.games, effSplitPct)
+                          : `${effSplitSpan.games.toLocaleString()}${t('games')}`}
+                      </p>
+                    )}
+                    {!splitCustomLoading && effSplitThin && (
+                      <p className="hint split-span split-thin">
+                        {t('splitThin')(THIN_SPLIT_GAMES)}
+                      </p>
+                    )}
+                  </>
                 )}
 
                 {/* 시즌별/버전별을 골랐으면, 그중 어느 시즌·버전인지 하나 더 고른다.
                     S1·S2·S3 를 한 표에 다 몰아 보여주면 오히려 안 읽힌다는 피드백
                     (2026-08)을 받아, 여기서 하나로 좁히고 표는 '전체'처럼 깔끔하게 낸다. */}
-                {splitView !== 'all' && splitLabels.length > 0 && (
+                {(splitView === 'season' || splitView === 'version') && splitLabels.length > 0 && (
                   <>
                     <div className="mode-switch period split-sub">
                       {/* 선택지가 많으면(버전이 28개까지 간다) 버튼 대신 셀렉트 —

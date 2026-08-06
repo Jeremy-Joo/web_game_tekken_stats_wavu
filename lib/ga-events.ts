@@ -32,6 +32,7 @@ export const FEATURE_EVENTS = {
   // 그 구분이 필요 없다).
   matchup_by_season: '캐릭터·매치업 — 시즌별로 나눠보기',
   matchup_by_version: '캐릭터·매치업 — 버전별로 나눠보기',
+  matchup_by_custom_date: '캐릭터·매치업 — 날짜로 지정해서 나눠보기',
   lang_switch: '언어 전환',
 } as const;
 

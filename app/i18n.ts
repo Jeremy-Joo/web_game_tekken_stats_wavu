@@ -527,6 +527,15 @@ const D = {
   // ('버전별로 나눠보기' → 라벨 '나눠보기' + 버튼 '버전별').
   splitBy: { ko: '나눠보기', en: 'Split', ja: '分割表示' },
   splitByVersion: { ko: '버전별', en: 'By version', ja: 'バージョン別' },
+  // 나눠보기 '날짜로 지정' — 상대전적의 metSinceCustom과 뜻은 같지만 이름은 다르게
+  // 뒀다. 같은 화면에 '기간별' 탭(daily)이 이미 있어서 그 라벨과 겹치면 안 된다
+  // (docs/ui-period-analysis.md P2 — 같은 이름 두 개 노출 문제를 다시 만들지 않기 위해).
+  splitCustom: { ko: '날짜로 지정', en: 'Custom dates', ja: '日付で指定' },
+  splitCustomInvalidRange: {
+    ko: '시작일이 종료일보다 늦습니다.',
+    en: 'Start date is after the end date.',
+    ja: '開始日が終了日より後になっています。',
+  },
   chipsFold: { ko: '접기', en: 'Show less', ja: '折りたたむ' },
   tzRegion: {
     ko: (region: string, off: string) => `이 플레이어는 ${region} 서버입니다 — 현지 시각은 ${off} 기준입니다.`,
