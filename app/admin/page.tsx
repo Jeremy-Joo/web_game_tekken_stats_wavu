@@ -255,13 +255,13 @@ export default function AdminPage() {
   const downloadCsv = () => {
     if (!data) return;
     const lines = [
-      '#,이름,식별코드,조회,페이지뷰,깊이,비율(%),사용자,첫 조회,마지막 조회,조회일 수,패턴',
+      '#,마지막 조회,이름,식별코드,조회,페이지뷰,깊이,비율(%),사용자,첫 조회,조회일 수,패턴',
     ];
     data.players.forEach((p, i) => {
       lines.push(
         [
-          i + 1, p.name || '', p.id, p.lookups, p.views, depth(p), pct(p.views), p.users,
-          p.firstDate, p.lastDate, p.daysSeen, pattern(p),
+          i + 1, p.lastDate, p.name || '', p.id, p.lookups, p.views, depth(p), pct(p.views),
+          p.users, p.firstDate, p.daysSeen, pattern(p),
         ].map(csvCell).join(','),
       );
     });
@@ -577,6 +577,7 @@ export default function AdminPage() {
               <thead>
                 <tr>
                   <th>#</th>
+                  <th>마지막</th>
                   <th>이름</th>
                   <th>식별코드</th>
                   <th title="player_lookup 이벤트 — 실제로 조회된 횟수">조회</th>
@@ -584,7 +585,6 @@ export default function AdminPage() {
                   <th>비율</th>
                   <th>사용자</th>
                   <th>첫 조회</th>
-                  <th>마지막</th>
                   <th>조회일</th>
                   <th>패턴</th>
                 </tr>
@@ -593,6 +593,7 @@ export default function AdminPage() {
                 {data.players.map((p, i) => (
                   <tr key={p.id}>
                     <td>{i + 1}</td>
+                    <td>{p.lastDate?.slice(5) ?? ''}</td>
                     <td>
                       <a
                         className="plink"
@@ -609,7 +610,6 @@ export default function AdminPage() {
                     <td>{pct(p.views)}%</td>
                     <td>{p.users}</td>
                     <td>{p.firstDate?.slice(5) ?? ''}</td>
-                    <td>{p.lastDate?.slice(5) ?? ''}</td>
                     <td>{p.daysSeen}</td>
                     <td>{pattern(p)}</td>
                   </tr>
