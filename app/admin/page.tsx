@@ -6,7 +6,7 @@
 // 서버가 데이터를 돌려준다. 즉 이 페이지 소스를 열어봐도 통계는 볼 수 없다.
 // 비밀번호는 이 브라우저 세션에만 기억한다(탭을 닫으면 사라짐).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TAB_LABELS } from '../i18n';
 import { FEATURE_EVENTS, type FeatureEvent } from '@/lib/ga-events';
 import { ADMIN_RANGES, ADMIN_RANGE_ALL_DAYS, adminRangeLabel } from '@/lib/admin-ranges';
@@ -100,6 +100,38 @@ function BarList({
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * 정렬 기준을 바꾸는 표 헤더. 누르면 그 열 기준으로 정렬하고, 이미 그 열이면
+ * 방향만 뒤집는다 — 화살표(▲▼)로 지금 기준·방향을 보여준다.
+ */
+function SortTh<K extends string>({
+  sortKey,
+  label,
+  title,
+  current,
+  dir,
+  onSort,
+}: {
+  sortKey: K;
+  label: string;
+  title?: string;
+  current: K;
+  dir: 'asc' | 'desc';
+  onSort: (key: K) => void;
+}) {
+  const active = sortKey === current;
+  return (
+    <th
+      className={`sortable${active ? ' sort-active' : ''}`}
+      title={title}
+      onClick={() => onSort(sortKey)}
+    >
+      {label}
+      {active && (dir === 'asc' ? ' ▲' : ' ▼')}
+    </th>
   );
 }
 
@@ -341,6 +373,85 @@ export default function AdminPage() {
   const depth = (p: PlayerRow): string =>
     p.lookups > 0 ? (p.views / p.lookups).toFixed(1) : '—';
 
+  // ── 표 정렬 ──────────────────────────────────────────────────────
+  // 여러 방법으로 훑어보고 싶다는 요청 — 헤더를 눌러 기준을 바꾼다.
+  // 기본값(마지막 조회 · 내림차순)은 지금까지의 화면과 같다.
+  const sortableColumns = [
+    'lastDate', 'name', 'id', 'lookups', 'depth', 'pct', 'users',
+    'firstDate', 'daysSeen', 'pattern',
+  ] as const;
+  type SortKey = (typeof sortableColumns)[number];
+  const [sortKey, setSortKey] = useState<SortKey>('lastDate');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else {
+      setSortKey(key);
+      // 대부분은 '큰 게 먼저'가 자연스럽다(조회 많은 순·최근 순 …).
+      // 이름·식별코드만 가나다순이 자연스러워 오름차순으로 시작한다.
+      setSortDir(key === 'name' || key === 'id' ? 'asc' : 'desc');
+    }
+  };
+
+  // 문자열이 아닌 열(패턴·깊이)은 정렬용 숫자값이 따로 필요하다.
+  // pattern() 이 뱉는 라벨 자체는 순서가 없으므로, '더 눈에 띄는 패턴'이
+  // 위로 오도록 그 함수가 판정하는 순서(여러 명 → … → 1회성)를 그대로 등급화한다.
+  const PATTERN_RANK: Record<string, number> = {
+    '여러 명': 4,
+    '2명': 3,
+    '1명 반복': 2,
+    '1명 정독': 1,
+    '1회성': 0,
+  };
+  const depthNum = (p: PlayerRow) => (p.lookups > 0 ? p.views / p.lookups : -1);
+
+  const sortedPlayers = useMemo(() => {
+    const rows = data?.players ?? [];
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case 'name':
+          cmp = (a.name || a.id).localeCompare(b.name || b.id);
+          break;
+        case 'id':
+          cmp = a.id.localeCompare(b.id);
+          break;
+        case 'lookups':
+          cmp = a.lookups - b.lookups;
+          break;
+        case 'depth':
+          cmp = depthNum(a) - depthNum(b);
+          break;
+        // pct 는 views ÷ totalViews 라 totalViews 가 같은 모든 행에서 views 와
+        // 순서가 늘 같다 — 그대로 views 로 비교한다.
+        case 'pct':
+          cmp = a.views - b.views;
+          break;
+        case 'users':
+          cmp = a.users - b.users;
+          break;
+        case 'firstDate':
+          cmp = a.firstDate < b.firstDate ? -1 : a.firstDate > b.firstDate ? 1 : 0;
+          break;
+        case 'lastDate':
+          cmp = a.lastDate < b.lastDate ? -1 : a.lastDate > b.lastDate ? 1 : 0;
+          break;
+        case 'daysSeen':
+          cmp = a.daysSeen - b.daysSeen;
+          break;
+        case 'pattern':
+          cmp = (PATTERN_RANK[pattern(a)] ?? 0) - (PATTERN_RANK[pattern(b)] ?? 0);
+          break;
+      }
+      return cmp * dir;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, sortKey, sortDir]);
+
+  const sortProps = { current: sortKey, dir: sortDir, onSort: toggleSort };
+
   return (
     <main>
       <div className="titlebar">
@@ -571,26 +682,41 @@ export default function AdminPage() {
             </button>
           </div>
 
-          <h2 className="admin-h2">조회된 플레이어 ({data.players.length})</h2>
+          <h2 className="admin-h2">
+            조회된 플레이어 ({data.players.length})
+            <span className="hint" style={{ marginLeft: '0.5rem', fontWeight: 400 }}>
+              헤더를 누르면 그 기준으로 정렬됩니다
+            </span>
+          </h2>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>마지막</th>
-                  <th>이름</th>
-                  <th>식별코드</th>
-                  <th title="player_lookup 이벤트 — 실제로 조회된 횟수">조회</th>
-                  <th title="페이지뷰 ÷ 조회 — 조회 한 번에 화면을 몇 번 만졌나">깊이</th>
-                  <th>비율</th>
-                  <th>사용자</th>
-                  <th>첫 조회</th>
-                  <th>조회일</th>
-                  <th>패턴</th>
+                  <SortTh sortKey="lastDate" label="마지막" {...sortProps} />
+                  <SortTh sortKey="name" label="이름" {...sortProps} />
+                  <SortTh sortKey="id" label="식별코드" {...sortProps} />
+                  <SortTh
+                    sortKey="lookups"
+                    label="조회"
+                    title="player_lookup 이벤트 — 실제로 조회된 횟수"
+                    {...sortProps}
+                  />
+                  <SortTh
+                    sortKey="depth"
+                    label="깊이"
+                    title="페이지뷰 ÷ 조회 — 조회 한 번에 화면을 몇 번 만졌나"
+                    {...sortProps}
+                  />
+                  <SortTh sortKey="pct" label="비율" {...sortProps} />
+                  <SortTh sortKey="users" label="사용자" {...sortProps} />
+                  <SortTh sortKey="firstDate" label="첫 조회" {...sortProps} />
+                  <SortTh sortKey="daysSeen" label="조회일" {...sortProps} />
+                  <SortTh sortKey="pattern" label="패턴" {...sortProps} />
                 </tr>
               </thead>
               <tbody>
-                {data.players.map((p, i) => (
+                {sortedPlayers.map((p, i) => (
                   <tr key={p.id}>
                     <td>{i + 1}</td>
                     <td>{p.lastDate?.slice(5) ?? ''}</td>

@@ -860,6 +860,21 @@ tbody tr:last-child td {
   border-bottom: none;
 }
 
+/* 클릭해서 정렬을 바꾸는 헤더 (관리자 플레이어 표). 화살표는 글자로만 —
+   본문 다른 곳(아이콘 안 쓰는 방침)과 맞춘다. */
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.sortable:hover {
+  color: var(--accent);
+}
+
+th.sort-active {
+  color: var(--accent);
+}
+
 tbody tr:hover td {
   background: rgba(110, 168, 254, 0.06);
 }
