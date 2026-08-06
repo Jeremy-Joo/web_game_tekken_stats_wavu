@@ -1544,9 +1544,27 @@ export default function Home() {
   // 화면에서는 시즌/버전마다 **별도 버튼**을 만들고 고른 것만 보여준다 —
   // '전체' 볼 때처럼 깔끔한 한 표가 되게, 구분 열은 지운다.
   const rawSplitTab = current && splitView !== 'all' ? (splitTabs[current.key]?.[splitView] ?? null) : null;
-  const splitLabels = rawSplitTab
-    ? [...new Set(rawSplitTab.rows.map((r) => String(r[0])))]
-    : [];
+  // 하위 버튼(시즌/버전 목록)은 **그 표에 실제로 나온 행**이 아니라, 이 사람이
+  // 실제로 뛴 시즌/버전 전체(seasonsFiltered/versionsFiltered — effSplitSpan 이
+  // 쓰는 것과 같은 소스)에서 뽑는다. 표에서 뽑으면 강점 매치업은 17개, 약점
+  // 매치업은 4개처럼 **탭마다 버튼 개수가 달라져서** 같은 사람인데 강점→약점으로
+  // 옮기면 방금 보던 시즌이 목록에서 사라지는 일이 생겼다(2026-08 피드백 —
+  // "강점/약점의 버전별 보기 기능이 다르다"). 강점/약점은 표본 하한(minG)·승률
+  // 조건을 만족하는 매치업이 없는 시즌/버전엔 행이 아예 없을 수 있어서다 — 그건
+  // 정상이지만(표본이 얇으면 안 나오는 게 맞다), 그렇다고 그 시즌을 **고를 수조차
+  // 없게** 만들 이유는 없다. 고른 시즌에 해당 표가 비어 있으면 DataTable 의
+  // 기존 '표시할 행이 없습니다' 문구가 그대로 뜬다 — 매치업이 없다는 뜻으로
+  // 자연스럽게 읽힌다.
+  const splitLabelsRaw = (
+    splitView === 'season' ? (single?.seasonsFiltered ?? []) : (single?.versionsFiltered ?? [])
+  )
+    .map((s) => s.key)
+    .sort(); // 사전순 = 시간순(S1<S2<S3, 버전도 자리수가 같아 마찬가지 — seasons.ts 머리말과 같은 근거)
+  // 시즌은 오름차순(S1→S3, 조회 화면 시즌 버튼·리포트 범위 바와 같은 규칙)을
+  // 유지하지만, 버전은 최신이 먼저 오게 뒤집는다 — 버전이 최대 28개까지 가는데
+  // 보통 "지금 패치에서 어떤지"가 궁금하지 오래된 패치부터 볼 일은 적다.
+  // 기본 선택값(effSplitSel = splitLabels[0])도 자연히 최신 버전이 된다.
+  const splitLabels = splitView === 'version' ? [...splitLabelsRaw].reverse() : splitLabelsRaw;
   const effSplitSel = splitLabels.includes(splitSel) ? splitSel : (splitLabels[0] ?? '');
   // 고른 시즌·버전이 실제로 언제~언제인지. **필터 적용 후** spans 를 쓴다 —
   // 나눠보기 표가 필터된 레코드로 계산되므로 힌트도 같은 모집단이어야 한다.
