@@ -627,7 +627,9 @@ export default async function ReportPage({ params, searchParams }: Props) {
         quipFacts,
       )
     : '';
-  const coach = advice ? pickCoach(mood, lang, seed + 13, latest?.myRating ?? null) : '';
+  const coach = advice
+    ? pickCoach(mood, lang, seed + 13, latest?.myRating ?? null, advice.baselineWinRate)
+    : '';
 
   const sess = lastSession(records);
   // daysSince 는 위(advice 계산 직전)에서 이미 구했다 — mood 판정과 컨디션 판정이

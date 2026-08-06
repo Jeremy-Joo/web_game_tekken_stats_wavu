@@ -2770,6 +2770,8 @@ export default function Home() {
                           single.recordCount * 3 + Math.round(single.advice.recentDeltaPp),
                           // 중상위 이상에게는 다른 조언 묶음이 나간다 (jokes.COACH_HIGH_MIN_RATING)
                           single.currentRating,
+                          // steady 인데 승률이 이미 좋으면 "지키기/손실 관리" 계열로 갈라진다
+                          single.advice.baselineWinRate,
                         )}
                       </p>
                     )}

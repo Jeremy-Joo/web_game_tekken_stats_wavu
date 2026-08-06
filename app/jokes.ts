@@ -2675,7 +2675,6 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       '확정딜캐 연습 10분이 랭크 10판보다 남습니다. 오늘은 특히요.',
       '유튜브에서 자기 캐릭 최신 콤보 영상 하나만 보고 오세요.',
       '같은 실수를 반복하고 있는지 리플레이가 알려줍니다.',
-      '승률이 안 움직이면 실력이 아니라 습관을 바꿔야 합니다.',
       '제일 자주 만나는 상대 캐릭 하나만 골라 파 보세요. 넓게 도는 것보다 남습니다.',
       '연습 모드에서 확정딜캐 세 개만 확실히 만들어두세요.',
       '정체 구간에서는 새 콤보보다 확정딜캐가 승률을 올립니다.',
@@ -2686,7 +2685,6 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       'Watch one replay. Plateaus usually break there.',
       'Ten minutes of punish drills beats ten ranked games today.',
       'Look up one recent combo video for your character.',
-      'When the rate stops moving, change the habit — not the character.',
       `Pick one habit to break this week. Just one.`,
       `Try a different opener. Predictable is the only real weakness here.`,
       `Lab one matchup properly instead of playing five more sets.`,
@@ -2698,7 +2696,6 @@ const COACH: Record<Mood, Record<Lang, string[]>> = {
       'リプレイを1試合だけ見返しましょう。停滞はそこで解けます。',
       '確定反撃の練習10分は、ランク10戦より残ります。',
       '自キャラの最新コンボ動画を1本だけ見てきましょう。',
-      '勝率が動かないならキャラではなく癖を変える番です。',
       `今週は直す癖をひとつだけ決めましょう。ひとつで十分です。`,
       `初手を変えてみましょう。読まれることが唯一の弱点です。`,
       `5セット回すより、1つの相性をきちんと調べましょう。`,
@@ -2934,19 +2931,16 @@ const COACH_HIGH: Record<Mood, Record<Lang, string[]>> = {
     ko: [
       '같은 레이팅대에 오래 머무르면 상대도 당신을 압니다. 첫 판 셋업을 바꿔 보세요.',
       '이 구간에서는 새 기술보다 안 쓰던 선택지 하나가 승률을 올립니다.',
-      '승률이 안 움직이는 건 실력이 아니라 선택이 굳었다는 뜻입니다.',
       '제일 자주 만나는 상대 캐릭 하나만 파 보세요. 넓게 도는 것보다 남습니다.',
     ],
     en: [
       'Stay in one bracket long enough and they read you too. Change your opener.',
       'At this level one unused option moves the needle more than a new combo.',
-      'A flat win rate is not a skill ceiling. It is a choice that has set.',
       'Pick the one character you face most and go deep. Breadth pays less here.',
     ],
     ja: [
       '同じレート帯に長くいると相手もあなたを覚えます。初戦の入りを変えてみましょう。',
       'この帯では新技より、使っていない選択肢ひとつのほうが勝率に効きます。',
-      '勝率が動かないのは実力ではなく、選択が固まったということです。',
       '一番よく当たる相手キャラを一つだけ掘りましょう。広く回るより残ります。',
     ],
   },
@@ -3014,19 +3008,190 @@ const COACH_HIGH: Record<Mood, Record<Lang, string[]>> = {
 export const COACH_HIGH_MIN_RATING = 1950;
 
 /**
+ * steady(평소와 비슷한 폼)인데 승률이 ≥50% 인 사람 전용 풀.
+ *
+ * 왜 따로 뒀나: steady 는 "지금이 그 사람 평소와 비슷한가"만 재고 승패 자체는
+ * 안 본다. 그런데 예전 COACH.steady 에는 "승률이 안 움직이면 실력이 아니라
+ * 습관을 바꿔야 합니다" 처럼 정체를 진단하는 줄이 섞여 있었다 — steady 가
+ * 실제로 재는 것과 무관한 주장이고, 승률이 이미 좋은 사람한테는 더 이상하게
+ * 읽힌다(2026-08 피드백). 승률을 따로 받아서, ≥50% 면 "이미 이기고 있으니
+ * 지키자/잃는 쪽을 줄이자" 계열로, 그 미만이면 기존 steady 풀(정체 자체를
+ * 진단하지 않는 실용 팁들)로 가른다.
+ *
+ * 주제: 레이팅 방어·패턴 반복·매치업 심화·무리수 자제·마무리 타이밍·폼 지속
+ * 여부·패배 관리(가장 두껍다 — "이기는 법은 아니까 남은 건 지는 판 관리"가
+ * 이 풀의 핵심 축이다).
+ */
+const COACH_STEADY_WINNING: Record<Lang, string[]> = {
+  ko: [
+    '승률은 충분합니다. 지금 새는 건 이기는 판이 아니라 지는 판을 오래 끄는 습관입니다.',
+    '진 판 뒤에 바로 재도전하지 않는 것만으로도 이번 주 레이팅은 달라집니다.',
+    '연패가 두 판을 넘으면 판을 늘리기보다 그 세션을 접는 쪽이 남습니다.',
+    '이기는 패턴은 이미 아십니다. 지는 판의 공통점을 리플레이로 한 번 짚어보세요.',
+    '화가 난 채로 하는 한 판이 오늘 딴 것보다 더 크게 깎습니다.',
+    '유독 자주 지는 상대 캐릭이 있다면, 이기는 캐릭보다 그쪽부터 봐야 합니다.',
+    '이겨도 남는 게 적은 판이 있듯, 져도 덜 잃는 판이 있습니다. 그 차이부터 보세요.',
+    '오늘 상한을 정해두면 지는 판의 절반은 애초에 일어나지 않습니다.',
+    '승률을 더 올리려 하지 말고, 지금 승률에서 지는 판만 줄여보세요. 계산이 다릅니다.',
+    '역전패가 잦다면 초반이 아니라 후반 판단력이 문제입니다. 3라운드 위주로 복기해보세요.',
+    '오늘 몇 승했는지보다 오늘 레이팅이 순으로 얼마나 남았는지를 보세요.',
+    '판을 더 하는 것보다, 방금 진 판 하나를 제대로 복기하는 쪽이 다음 승률을 지킵니다.',
+    '이번 주 등수는 이긴 판이 아니라 가장 크게 진 판 하나가 정합니다.',
+    '지는 판을 늦게 인정할수록 그 여파가 다음 판까지 이어집니다.',
+    '오늘 승률은 우연일 수 있어도, 오늘 가장 크게 진 판은 우연이 아닙니다.',
+    '이기는 습관은 이미 있습니다. 지금 필요한 건 지는 습관을 하나 없애는 겁니다.',
+    "승률을 목표로 두는 대신, '가장 크게 진 판 줄이기'를 이번 주 목표로 바꿔보세요.",
+    '잘한 판은 기억에 안 남고 크게 진 판만 남습니다. 그 판이 진짜 봐야 할 판입니다.',
+    '판이 쌓일수록 승률은 평균으로 가지만, 큰 패배는 그대로 레이팅에 남습니다.',
+    '오늘 딴 걸 지키는 것도 실력입니다. 크게 잃는 판 하나만 막아도 충분합니다.',
+    '승률은 이미 이기고 있습니다. 지금은 새로 시도할 때가 아니라 지키는 판입니다.',
+    '승률을 더 올리는 것보다, 지금 밑으로 안 내려가는 게 이번 주 목표로 낫습니다.',
+    '이길 방법을 새로 찾을 때가 아니라, 이미 찾은 방법을 의심하지 않을 때입니다.',
+    '승률이 좋을 때 뭔가 바꾸고 싶어진다면, 그건 필요가 아니라 지루함입니다.',
+    '지금 승률은 우연이 아니라 선택의 결과입니다. 그 선택부터 의심하지 마세요.',
+    '승률은 여러 상대를 이긴 결과가 아니라, 자주 만나는 상대 한둘을 이긴 결과인 경우가 많습니다.',
+    '이 승률을 만든 건 다양함이 아니라 익숙함입니다. 그 익숙한 상대를 더 파는 쪽이 맞습니다.',
+    '승률이 좋을 때일수록 위험한 시도는 다음으로 미루는 게 남습니다.',
+    '지금 같은 승률에서 무리한 픽을 걸면 잃는 쪽이 더 큽니다. 확실한 것만 쓰세요.',
+    '이 정도 승률에서 몇 판 더 하는 건 딸 것보다 잃을 게 많습니다.',
+    '오늘만 좋은 건지 요즘 계속 이런지, 그 차이가 다음 판을 결정합니다.',
+  ],
+  en: [
+    "Your win rate is fine. What's leaking right now isn't the wins — it's how long you let losses run.",
+    "Not queuing straight back into someone you just lost to already changes this week's rating.",
+    'Past two losses in a row, stopping the session beats playing through it.',
+    'You already know your winning patterns. Watch a replay for what your losses have in common.',
+    "One game played angry costs more than today's wins gained.",
+    "If there's a character you keep losing to, look there before you look at your winners.",
+    'Just as some wins leave nothing, some losses cost less than others. Start with that gap.',
+    "Set today's cap in advance and half your losses never happen.",
+    "Don't try to raise the win rate — just cut the losses at this win rate. Different math.",
+    'Comebacks going the wrong way often means late-round judgment, not the opener. Review round 3s.',
+    "Don't count today's wins — check today's net rating instead.",
+    "Reviewing one loss properly protects tomorrow's win rate more than playing more games does.",
+    "This week's rank comes down to your single worst loss, not your wins.",
+    'The longer you take to accept a loss, the more it bleeds into the next game.',
+    "Today's win rate can be luck. Today's worst loss usually isn't.",
+    "You already have the winning habit. What's missing is dropping one losing one.",
+    'Instead of chasing win rate, make this week\'s goal "shrink the worst loss."',
+    "Good games don't stick in memory — bad losses do. That's the one worth watching.",
+    "Win rate reverts to your average over enough games. A bad loss doesn't.",
+    'Protecting what you won is a skill too. Stopping one big loss is enough for today.',
+    "Your win rate is already winning. This isn't the time to try something new — it's the time to hold the line.",
+    "A better goal than raising the win rate: don't let it drop this week.",
+    "It's not time to find a new way to win — it's time to stop doubting the way you already found.",
+    "If you're itching to change something while winning, that's boredom talking, not necessity.",
+    "This win rate isn't luck — it's the result of choices. Don't second-guess those choices yet.",
+    "Your win rate usually isn't built on beating many opponents — it's built on beating the one or two you see the most.",
+    'What built this win rate is familiarity, not variety. Go deeper on the matchup you already know.',
+    'The better the win rate, the more a risky experiment should wait.',
+    "A risky pick at this win rate costs more than it earns. Stick to what's certain.",
+    "A few more games at this win rate risk more than they're worth.",
+    'Whether today alone is good or this has been going on for a while — that difference decides the next game.',
+  ],
+  ja: [
+    '勝率は十分です。今漏れているのは勝ち分ではなく、負け試合を長引かせる癖です。',
+    '負けた直後にすぐ再挑戦しないだけで、今週のレートは変わります。',
+    '連敗が2つを超えたら、続けるよりそのセッションを閉じるほうが残ります。',
+    '勝ちパターンはもう分かっています。負け試合の共通点をリプレイで一度確認しましょう。',
+    '怒ったまま打つ一戦は、今日稼いだ分より大きく削ります。',
+    'やたら負ける相手キャラがいるなら、得意キャラより先にそちらを見るべきです。',
+    '勝っても残らない試合があるように、負けても失いが少ない試合もあります。まずその差を見ましょう。',
+    '今日の上限を先に決めておけば、負け試合の半分はそもそも起きません。',
+    '勝率を上げようとせず、今の勝率のまま負け試合だけ減らしてみましょう。計算が違います。',
+    '逆転負けが多いなら序盤ではなく終盤の判断が問題です。3ラウンド目を中心に見返しましょう。',
+    '今日何勝したかより、今日レートが正味いくら残ったかを見ましょう。',
+    '試合数を増やすより、今負けた一戦をきちんと見返すほうが次の勝率を守ります。',
+    '今週の順位は勝った試合ではなく、一番大きく負けた一戦が決めます。',
+    '負けを認めるのが遅いほど、その影響は次の試合まで続きます。',
+    '今日の勝率は運かもしれませんが、今日一番大きな負けはたいてい運ではありません。',
+    '勝つ習慣はもうあります。今必要なのは負ける習慣をひとつ消すことです。',
+    '勝率を追う代わりに、「一番大きな負けを減らす」を今週の目標にしてみましょう。',
+    '良い試合は記憶に残らず、大きく負けた試合だけ残ります。それが本当に見るべき試合です。',
+    '試合数が増えれば勝率は平均に近づきますが、大きな負けはそのままレートに残ります。',
+    '稼いだ分を守るのも実力です。大きな負けを一つ防ぐだけで今日は十分です。',
+    '勝率はもう勝っています。今は新しく試す時ではなく、守る番です。',
+    '勝率を上げるより、今週は下げないことを目標にするほうがいいです。',
+    '勝つ方法を新しく探す時ではなく、もう見つけた方法を疑わない時です。',
+    '勝率がいい時に何かを変えたくなるなら、それは必要ではなく退屈です。',
+    '今の勝率は偶然ではなく選択の結果です。その選択をまだ疑わないでください。',
+    '勝率は多くの相手に勝った結果ではなく、よく当たる一人二人に勝った結果であることが多いです。',
+    'この勝率を作ったのは広さではなく慣れです。その慣れた相手をもっと掘り下げるほうが合っています。',
+    '勝率がいい時ほど、リスクのある試みは次に回すほうが残ります。',
+    '今の勝率で無理なピックをすると失うほうが大きいです。確実なものだけ使いましょう。',
+    'この勝率であと数戦するのは、得るものより失うもののほうが大きいです。',
+    '今日だけ良いのか最近ずっとこうなのか、その違いが次の試合を決めます。',
+  ],
+};
+
+/**
+ * 위와 같은 조건(steady·승률≥50%)의 COACH_HIGH 판. 레이팅이 높을수록
+ * '확정딜캐' 같은 실행 단위 조언보다 '운영'(무리한 판 자제·손실 관리·선택
+ * 유지) 쪽이 맞다는 피드백(2026-08)을 반영해 어휘를 그쪽으로 맞췄다 —
+ * 기존 COACH_HIGH 다른 무드들의 어휘("판단"·"선택"·"습관")와도 결이 같다.
+ */
+const COACH_HIGH_STEADY_WINNING: Record<Lang, string[]> = {
+  ko: [
+    '이 레이팅대에서 승률은 이미 증명됐습니다. 지금 필요한 건 운영 — 무리한 판을 줄이는 겁니다.',
+    '이번 주 순위는 딴 판이 아니라 가장 크게 진 판 하나가 정합니다. 그 판부터 줄이세요.',
+    '연패가 둘을 넘으면 판을 늘리는 것도 운영의 실패입니다. 세션을 접으세요.',
+    '승률을 올리려 하지 마세요. 지금 승률에서 지는 판만 줄이는 게 이 구간의 운영입니다.',
+    '이 승률을 만든 선택을 의심하지 마세요. 지금은 실험이 아니라 반복할 때입니다.',
+    '위험한 시도는 연습 상대에게, 랭크에서는 확실한 운영만 쓰세요.',
+    '오늘 몇 승했는지가 아니라 순 레이팅이 얼마나 남았는지로 오늘을 판단하세요.',
+    '이 폼이 며칠 가는지가 오늘 승률보다 중요합니다. 운영으로 그 기간을 늘리세요.',
+  ],
+  en: [
+    "At this bracket your win rate already proves itself. What's needed now is game management — fewer forced games.",
+    "This week's rank comes down to your single worst loss, not your wins. Cut that first.",
+    'Past two losses in a row, playing more is a management failure too. Close the session.',
+    "Don't chase a higher win rate. At this bracket, managing it means cutting the losses at the rate you already have.",
+    'Don\'t second-guess the choices that built this win rate. This is a time to repeat, not experiment.',
+    'Save the risky reads for practice partners. In ranked, play the sure thing.',
+    'Judge today by net rating left, not by how many wins you counted.',
+    'How long this form holds matters more than today\'s win rate. Good management extends it.',
+  ],
+  ja: [
+    'このレート帯では勝率はもう証明済みです。今必要なのは運営 — 無理な試合を減らすことです。',
+    '今週の順位は勝った試合ではなく、一番大きく負けた一戦が決めます。まずそこを減らしましょう。',
+    '連敗が2つを超えたら、続けるのも運営の失敗です。セッションを閉じましょう。',
+    '勝率を上げようとしないでください。今の勝率のまま負け試合を減らすのが、この帯での運営です。',
+    'この勝率を作った選択を疑わないでください。今は実験ではなく反復する時です。',
+    'リスクのある読みは練習相手に取っておき、ランクでは確実な運営だけ使いましょう。',
+    '今日の判断は勝数ではなく、正味のレート残高でしましょう。',
+    'この調子が何日続くかが今日の勝率より重要です。運営でその期間を延ばしましょう。',
+  ],
+};
+
+/**
  * 조언 한 줄.
  *
  * `rating` 을 주면 중상위 이상에게 다른 묶음이 나간다. 안 주면 예전과 같다 —
  * 레이팅을 모르는 자리에서 함부로 수위를 올리지 않기 위해서다.
+ *
+ * `winRatePct` 는 steady 무드에서만 쓴다(그 외 무드는 승패 방향이 이미
+ * mood 자체에 담겨 있다 — hot/cooling 등은 최근 폼이 좋다/나쁘다를 이미
+ * 말하고 있어서 승률을 또 물을 필요가 없다). ≥50 이면 COACH_STEADY_WINNING
+ * (또는 그 HIGH 판)을 쓴다 — steady 는 원래 승패와 무관하게 "평소와
+ * 비슷한가"만 재는데, 승률이 이미 좋은 사람에게 정체를 진단하는 문구가
+ * 나가면 어색하다는 피드백(2026-08)에서 나온 분기다.
  */
 export function pickCoach(
   mood: Mood,
   lang: Lang,
   seed: number,
   rating?: number | null,
+  winRatePct?: number | null,
 ): string {
   const high = rating != null && rating >= COACH_HIGH_MIN_RATING;
-  const pool = high ? COACH_HIGH[mood][lang] : COACH[mood][lang];
+  const steadyWinning = mood === 'steady' && winRatePct != null && winRatePct >= 50;
+  const pool = steadyWinning
+    ? high
+      ? COACH_HIGH_STEADY_WINNING[lang]
+      : COACH_STEADY_WINNING[lang]
+    : high
+      ? COACH_HIGH[mood][lang]
+      : COACH[mood][lang];
   const use = pool.length ? pool : COACH[mood][lang];
   return use.length ? pick(use, seed) : '';
 }

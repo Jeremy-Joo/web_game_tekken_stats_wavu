@@ -99,5 +99,85 @@ for (const m of MOODS)
   is(a === b, '같은 씨앗이면 같은 문구', `'${a}' vs '${b}'`);
 }
 
+// ── 6. steady + 승률≥50 이면 다른 풀로 갈린다 ───────────────
+{
+  let split = true;
+  const same: string[] = [];
+  for (const l of LANGS)
+    for (const s of SEEDS.slice(0, 10)) {
+      const plain = pickCoach('steady', l, s, 1200);
+      const winning = pickCoach('steady', l, s, 1200, 55);
+      if (plain === winning) {
+        split = false;
+        same.push(`${l}: '${plain}'`);
+      }
+    }
+  is(
+    split,
+    '★ steady·승률≥50 이면 기본 steady 풀과 다른 문구가 나간다',
+    `경계 양쪽이 같다: ${same.slice(0, 2).join(' | ')}`,
+  );
+}
+
+// ── 7. 경계는 딱 50 (49 는 기존 풀, 50 은 새 풀) ─────────────
+{
+  let split = true;
+  const same: string[] = [];
+  for (const s of SEEDS.slice(0, 10)) {
+    const below = pickCoach('steady', 'ko', s, 1200, 49);
+    const plain = pickCoach('steady', 'ko', s, 1200);
+    if (below !== plain) {
+      split = false;
+      same.push(`'${below}' vs '${plain}'`);
+    }
+  }
+  is(split, '★ 승률 49 는 기존 steady 풀 그대로다', same.slice(0, 2).join(' | '));
+}
+
+// ── 8. winRatePct 는 steady 에서만 쓴다 (다른 무드는 무시) ──
+{
+  let same = true;
+  const diff: string[] = [];
+  for (const m of MOODS.filter((x) => x !== 'steady'))
+    for (const l of LANGS)
+      for (const s of SEEDS.slice(0, 5)) {
+        const plain = pickCoach(m, l, s, 1200);
+        const withWr = pickCoach(m, l, s, 1200, 80);
+        if (plain !== withWr) {
+          same = false;
+          diff.push(`${m}/${l}: '${plain}' vs '${withWr}'`);
+        }
+      }
+  is(same, 'winRatePct 는 steady 가 아니면 무시된다', diff.slice(0, 3).join(' | '));
+}
+
+// ── 9. 새 풀에도 프레임 권유가 없다 ──────────────────────────
+{
+  const FRAME = /프레임|프레임표|frame data|フレーム/i;
+  const lowWinning: string[] = [];
+  const highWinning: string[] = [];
+  for (const l of LANGS)
+    for (const s of SEEDS) {
+      lowWinning.push(pickCoach('steady', l, s, 1200, 60));
+      highWinning.push(pickCoach('steady', l, s, 2400, 60));
+    }
+  const hitLow = [...new Set(lowWinning.filter((x) => FRAME.test(x)))];
+  const hitHigh = [...new Set(highWinning.filter((x) => FRAME.test(x)))];
+  is(hitLow.length === 0, '★ 승률≥50 조언에 프레임 권유가 없다', `걸림: ${hitLow.join(' / ')}`);
+  is(hitHigh.length === 0, '★ 승률≥50 상위권 조언에 프레임 권유가 없다', `걸림: ${hitHigh.join(' / ')}`);
+}
+
+// ── 10. 새 풀도 수위·언어마다 2줄 이상 ───────────────────────
+{
+  const empty: string[] = [];
+  for (const l of LANGS) {
+    const gotLow = new Set(SEEDS.map((s) => pickCoach('steady', l, s, 1200, 60)));
+    const gotHigh = new Set(SEEDS.map((s) => pickCoach('steady', l, s, 2400, 60)));
+    if (gotLow.size < 2 || [...gotLow].some((x) => !x)) empty.push(`기본/${l} (${gotLow.size}종)`);
+    if (gotHigh.size < 2 || [...gotHigh].some((x) => !x)) empty.push(`상위권/${l} (${gotHigh.size}종)`);
+  }
+  is(empty.length === 0, '승률≥50 풀이 수위·언어마다 2줄 이상', `빈약: ${empty.join(', ')}`);
+}
+
 console.log(fail === 0 ? '\n전부 통과' : `\n${fail}건 실패`);
 process.exit(fail === 0 ? 0 : 1);
