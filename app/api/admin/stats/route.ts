@@ -22,6 +22,7 @@ import {
   GaError,
 } from '@/lib/ga';
 import { isAdminRangeDays } from '@/lib/admin-ranges';
+import { fetchPlayerIndex, mainCharByPlayer } from '@/lib/tekken/player-index';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
