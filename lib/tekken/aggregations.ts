@@ -239,6 +239,61 @@ export function buildStrong(
   return t;
 }
 
+// ── 시즌/버전 나눠보기 ────────────────────────────────────────────────
+//
+// '시즌' 탭(계정 전체를 시즌별로 묶은 표, summaryBy 로 만듦)과 같은 발상을
+// 캐릭터별(buildTotal)·매치업(buildStrong/buildWeak) 표에도 적용한다.
+// 캐릭터·매치업은 이미 "무엇으로 묶을까"가 있는 표라(내 캐릭터, 상대 캐릭터),
+// summaryBy 를 그대로 못 쓰고 — 시즌/버전으로 먼저 표본을 쪼갠 다음 **같은
+// 집계 함수를 그룹마다 돌려 이어붙인다.** 앞에 구분 열 하나만 더 얹으면
+// 결과 스키마가 기존 표와 호환돼 화면의 DataTable 을 그대로 쓸 수 있다.
+function splitByPeriod(
+  df: MatchRecord[],
+  by: 'season' | 'version',
+): { label: string; rows: MatchRecord[] }[] {
+  const keyOf = by === 'season' ? (r: MatchRecord) => r.season : (r: MatchRecord) => `${r.season}-${r.gameVersion}`;
+  const m = new Map<string, MatchRecord[]>();
+  for (const r of df) {
+    const k = keyOf(r);
+    const list = m.get(k);
+    if (list) list.push(r);
+    else m.set(k, [r]);
+  }
+  // S1<S2<S3 사전순=시간순(season 탭과 같은 근거). 버전도 자리수가 같아 마찬가지다.
+  return [...m.entries()].sort((a, b) => cmpOIC(a[0], b[0])).map(([label, rows]) => ({ label, rows }));
+}
+
+/** buildTotal 을 시즌/버전으로 나눠 이어붙인다 — 앞에 구분 열이 붙는다. */
+export function buildTotalSplit(df: MatchRecord[], by: 'season' | 'version'): Table {
+  const groups = splitByPeriod(df, by);
+  const t = new Table(by === 'season' ? 'Season' : 'Version', 'my_char', 'Total', 'W', 'L', 'WinRate(%)');
+  for (const g of groups) for (const row of buildTotal(g.rows).rows) t.rows.push([g.label, ...row]);
+  return t;
+}
+
+/**
+ * buildStrong/buildWeak 을 시즌/버전으로 나눠 이어붙인다.
+ * 표본 하한(minG)은 **전체 df 기준으로 한 번만** 정해 모든 그룹에 그대로 쓴다 —
+ * 시즌별로 다시 정하면(예: 30판 하한이 5판으로 뚝 떨어짐) 시즌 하나가 8판짜리
+ * 매치업으로도 '강점'이라고 말하게 된다. 대신 표본이 정말 얇은 시즌은 매치업이
+ * 아예 안 나올 수 있다 — 그게 맞는 동작이다.
+ */
+export function buildStrongSplit(df: MatchRecord[], by: 'season' | 'version'): Table {
+  const groups = splitByPeriod(df, by);
+  const minG = matchupMinGames(df.length);
+  const t = new Table(by === 'season' ? 'Season' : 'Version', 'opp_char', 'Games', 'W', 'L', 'WinRate(%)');
+  for (const g of groups) for (const row of buildStrong(g.rows, minG).rows) t.rows.push([g.label, ...row]);
+  return t;
+}
+
+export function buildWeakSplit(df: MatchRecord[], by: 'season' | 'version'): Table {
+  const groups = splitByPeriod(df, by);
+  const minG = matchupMinGames(df.length);
+  const t = new Table(by === 'season' ? 'Season' : 'Version', 'opp_char', 'Games', 'W', 'L', 'WinRate(%)');
+  for (const g of groups) for (const row of buildWeak(g.rows, minG).rows) t.rows.push([g.label, ...row]);
+  return t;
+}
+
 function roundRow(sub: MatchRecord[], label: string) {
   const games = sub.length;
   let rw = 0,
