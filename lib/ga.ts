@@ -258,12 +258,15 @@ export async function playerViews(days: number): Promise<PlayerView[]> {
 
   for (const [id, p] of byId) p.daysSeen = daysById.get(id)?.size ?? 0;
 
-  // 조회 수로 정렬하되, 이벤트가 없던 기간(전부 0)에는 페이지뷰로 떨어진다.
-  // 그렇게 안 하면 과거를 조회했을 때 목록 순서가 통째로 무의미해진다.
+  // 가장 최근에 조회한 사람이 맨 위로 온다(2026-08 요청) — lastDate 는
+  // 'yyyy-MM-dd HH시'라 문자열 비교만으로 시간 순서가 그대로 맞는다.
+  // 시각까지 똑같이 겹치는 드문 경우엔 예전 기준(조회 수, 없으면 페이지뷰)으로
+  // 갈라 순서가 매번 흔들리지 않게 한다.
   const anyLookup = [...byId.values()].some((p) => p.lookups > 0);
-  return [...byId.values()].sort((a, b) =>
-    anyLookup ? b.lookups - a.lookups || b.views - a.views : b.views - a.views,
-  );
+  return [...byId.values()].sort((a, b) => {
+    if (a.lastDate !== b.lastDate) return a.lastDate < b.lastDate ? 1 : -1;
+    return anyLookup ? b.lookups - a.lookups || b.views - a.views : b.views - a.views;
+  });
 }
 
 export interface DayCount {
