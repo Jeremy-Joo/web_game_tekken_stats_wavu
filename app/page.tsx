@@ -30,6 +30,7 @@ import {
 } from './i18n';
 import { looksLikeId, toPolarisId } from '@/lib/wavu/token';
 import { COMPARE_MIN_GAMES } from '@/lib/tekken/compare';
+import { formatVersionKey } from '@/lib/tekken/seasons';
 import {
   pickJoke,
   pickCoach,
@@ -787,7 +788,14 @@ function DataTable({
                           ) : v === null ? (
                             ''
                           ) : typeof v === 'string' ? (
-                            cellText(lang, v)
+                            // '기간별' 탭을 '버전별' 단위로 묶으면 Period 열에 원본 버전
+                            // 키('S3-30101')가 그대로 온다 — CSV 는 그 키가 맞지만(rollupDaily
+                            // 출력이 곧 다운로드 대상), 화면은 사람이 읽는 패치 번호로 보여준다.
+                            tab.columns[j] === 'Period' && /^S\d+-\d+$/.test(v) ? (
+                              formatVersionKey(v)
+                            ) : (
+                              cellText(lang, v)
+                            )
                           ) : (
                             v
                           )}
@@ -1510,10 +1518,19 @@ export default function Home() {
 
   // 버전별 시즌 표도 한 명 모드 전용. 버전이 하나뿐이면(=한 패치 안에서만 뛴
   // 사람) 전환해봐야 같은 한 줄이라 전환 자체를 안 그린다.
-  const seasonVersionTab =
+  const seasonVersionTabRaw =
     mode === 'single' && (single?.seasonByVersion?.rows.length ?? 0) > 1
       ? (single?.seasonByVersion ?? null)
       : null;
+  // 화면 표시는 패치 번호로 바꾸지만("S3-30101" → "S3 1.01"), 원본 키는
+  // CSV/엑셀 내보내기에 그대로 쓰여야 하므로 single.seasonByVersion 자체는
+  // 건드리지 않고 화면용 복사본만 만든다.
+  const seasonVersionTab: TabData | null = seasonVersionTabRaw
+    ? {
+        ...seasonVersionTabRaw,
+        rows: seasonVersionTabRaw.rows.map((r) => [formatVersionKey(String(r[0])), ...r.slice(1)]),
+      }
+    : null;
 
   // 캐릭터·강점·약점 매치업의 시즌별/버전별 보기 — season 탭과 같은 방식으로
   // '탭 안에서 표만 갈아끼운다'. 시즌이 하나뿐이면(seasonTab 1행) 시즌별 토글을,
@@ -2932,7 +2949,7 @@ export default function Home() {
                         >
                           {splitLabels.map((label) => (
                             <option key={label} value={label}>
-                              {label}
+                              {splitView === 'version' ? formatVersionKey(label) : label}
                             </option>
                           ))}
                         </select>
@@ -2943,7 +2960,7 @@ export default function Home() {
                             className={effSplitSel === label ? 'on' : ''}
                             onClick={() => setSplitSel(label)}
                           >
-                            {label}
+                            {splitView === 'version' ? formatVersionKey(label) : label}
                           </button>
                         ))
                       )}

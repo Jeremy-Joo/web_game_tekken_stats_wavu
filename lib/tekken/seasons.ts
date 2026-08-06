@@ -60,6 +60,28 @@ export function versionSpans(records: MatchRecord[]): SeasonSpan[] {
  * 쓸데없이 메모리에 이고 있게 되고, `push(...records)` 는 인자 개수 한계에 걸릴 수도 있다.
  * 각자 요약해서 합치면 시즌 수(한 자릿수)만큼만 든다.
  */
+/**
+ * 버전 구간 키('S3-30101')를 화면에 보여줄 패치 번호('S3 1.01')로 바꾼다.
+ *
+ * game_version 은 5자리 수인데, 뒤 4자리를 100으로 나눈 값이 패치 번호다
+ * (예: 30101 → 1.01, 20901 → 9.01 — 사용자가 직접 확인해준 두 사례로 역산한
+ * 공식). 시즌 자릿수(맨 앞)는 season 필드로 이미 따로 있으니 버림.
+ * 공식 패치 표기와 대조한 건 아니라서, 그 사람이 확인해준 매핑을 그대로 쓴다.
+ *
+ * 시즌만 있는 키('S3')나 형식이 안 맞는 값은 그대로 돌려준다 — 이 함수는
+ * seasonSpans/versionSpans 가 낸 키를 표시용으로만 바꾸고, 매칭·URL·엑셀
+ * 내보내기에는 원래 키를 계속 써야 한다(호출부에서 구분).
+ */
+export function formatVersionKey(key: string): string {
+  const m = /^(S\d+)-(\d+)$/.exec(key);
+  if (!m) return key;
+  const [, season, gvStr] = m;
+  const gv = Number(gvStr);
+  if (!Number.isFinite(gv)) return key;
+  const patch = ((gv % 10000) / 100).toFixed(2);
+  return `${season} ${patch}`;
+}
+
 export function mergeSeasonSpans(lists: SeasonSpan[][]): SeasonSpan[] {
   const m = new Map<string, SeasonSpan>();
   for (const list of lists)

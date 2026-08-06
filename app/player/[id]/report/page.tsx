@@ -12,7 +12,7 @@ import { notFound } from 'next/navigation';
 import { getRecords } from '@/lib/wavu/cache';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { sessionAdvice } from '@/lib/tekken/advice';
-import { seasonSpans, versionSpans } from '@/lib/tekken/seasons';
+import { seasonSpans, versionSpans, formatVersionKey } from '@/lib/tekken/seasons';
 import { SESSION_GAP_MINUTES } from '@/lib/tekken/aggregations';
 import { dateKey, type MatchRecord } from '@/lib/tekken/models';
 import {
@@ -104,7 +104,7 @@ const scopeLabel = (scope: Scope, lang: Lang) =>
     : scope.kind === 'season'
       ? R.seasonLabel[lang](scope.key.slice(1))
       : scope.kind === 'version'
-        ? R.versionLabel[lang](scope.key)
+        ? R.versionLabel[lang](formatVersionKey(scope.key))
         : `${scope.from} ~ ${scope.to}`;
 
 /** 범위·언어를 유지한 채 일부만 바꾼 주소를 만든다. */
@@ -899,7 +899,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
                   href={href({ version: v.key })}
                 >
                   <span className="rp-bar-name">
-                    {v.key}
+                    {formatVersionKey(v.key)}
                     {v.wr === bestVersionWr && <em className="rp-best">{R.versionBest[lang]}</em>}
                   </span>
                   <span className="rp-bar-track rp-bar-dev">
