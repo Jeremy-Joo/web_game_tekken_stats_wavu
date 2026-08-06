@@ -3,17 +3,24 @@
 
 import {
   buildTotal,
+  buildTotalSplit,
   buildPivot,
+  buildPivotSplit,
   buildWeak,
+  buildWeakSplit,
   buildStrong,
+  buildStrongSplit,
   buildRound,
+  buildRoundSplit,
   buildStage,
+  buildStageSplit,
   buildH2h,
   buildDaily,
   buildSessions,
   buildRatingTrend,
   widenTrend,
   buildVsRating,
+  buildVsRatingSplit,
   buildRankHistory,
   buildTimePatterns,
   buildFlow,
@@ -69,6 +76,34 @@ export interface PlayerResult {
    * 무관하게 작으므로 두 벌을 다 실어도 응답이 안 커지고 전환이 즉시 된다.
    */
   seasonByVersion: TabData;
+  /**
+   * 캐릭터·강점·약점 매치업 탭을 시즌별/버전별로 나눠 이어붙인 것
+   * ('시즌 (버전별)'과 같은 발상 — aggregations.ts 의 splitByPeriod 참조).
+   * localTime·roundByOpp·seasonByVersion 과 같은 이유로 tabs 밖에 있다: 탭
+   * 목록을 늘리지 않고 그 탭 안에서 "전체/시즌별/버전별" 보기만 바꾼다. 행 수가
+   * 캐릭터(또는 매치업) 수 × 시즌(또는 버전) 수로 작게 묶여 있어(실측 40종
+   * × 4시즌 이하) 경기 수와 무관하므로 두 벌씩 더 실어도 응답이 안 커진다.
+   */
+  totalBySeason: TabData;
+  totalByVersion: TabData;
+  strongBySeason: TabData;
+  strongByVersion: TabData;
+  weakBySeason: TabData;
+  weakByVersion: TabData;
+  /**
+   * 스테이지·상대 캐릭·레이팅대·라운드(내 캐릭터 기준) 탭도 같은 방식으로
+   * 시즌별/버전별을 낸다. 라운드는 'my' 기준만 나눈다 — '상대 캐릭터별로
+   * 펼쳐보기'(roundByOpp)와 곱하면 축이 3개(내 캐릭터×상대 캐릭터×시즌)가 돼
+   * 화면 토글이 과하게 복잡해진다(aggregations.ts buildRoundSplit 참조).
+   */
+  stageBySeason: TabData;
+  stageByVersion: TabData;
+  pivotBySeason: TabData;
+  pivotByVersion: TabData;
+  vsRatingBySeason: TabData;
+  vsRatingByVersion: TabData;
+  roundBySeason: TabData;
+  roundByVersion: TabData;
 }
 
 const tab = (key: string, label: string, t: Table): TabData => ({
@@ -156,7 +191,7 @@ export function computeFromRecords(
     // 언제 하나 (localTime 이 time 뒤에 붙는다)
     tab('time', '시간대', buildTimePatterns(records)),
     tab('sessions', '세션', buildSessions(records)),
-    tab('daily', '일별', buildDaily(records)),
+    tab('daily', '기간별', buildDaily(records)),
     // 시간에 따라 어떻게 변했나
     tab('season', '시즌', summaryBy(records, (r) => r.season, 'Season')),
     tab('rank', '승단 이력', buildRankHistory(records)),
@@ -193,6 +228,23 @@ export function computeFromRecords(
       '시즌 (버전별)',
       summaryBy(records, (r) => `${r.season}-${r.gameVersion}`, 'Version'),
     ),
+    // 라벨은 각 원본 탭('캐릭터'/'강점 매치업'/'약점 매치업')과 다르게 둔다 —
+    // 위와 같은 이유(엑셀 시트명 충돌). 키도 'total_season' 처럼 원본 탭 키를
+    // 앞세운다 — SHEET_ORDER 에서 원본 옆에 두기 쉽게.
+    totalBySeason: tab('total_season', '캐릭터 (시즌별)', buildTotalSplit(records, 'season')),
+    totalByVersion: tab('total_version', '캐릭터 (버전별)', buildTotalSplit(records, 'version')),
+    strongBySeason: tab('strong_season', '강점 매치업 (시즌별)', buildStrongSplit(records, 'season')),
+    strongByVersion: tab('strong_version', '강점 매치업 (버전별)', buildStrongSplit(records, 'version')),
+    weakBySeason: tab('weak_season', '약점 매치업 (시즌별)', buildWeakSplit(records, 'season')),
+    weakByVersion: tab('weak_version', '약점 매치업 (버전별)', buildWeakSplit(records, 'version')),
+    stageBySeason: tab('stage_season', '스테이지 (시즌별)', buildStageSplit(records, 'season')),
+    stageByVersion: tab('stage_version', '스테이지 (버전별)', buildStageSplit(records, 'version')),
+    pivotBySeason: tab('pivot_season', '상대 캐릭 (시즌별)', buildPivotSplit(records, 'season')),
+    pivotByVersion: tab('pivot_version', '상대 캐릭 (버전별)', buildPivotSplit(records, 'version')),
+    vsRatingBySeason: tab('vs_rating_season', '레이팅대 (시즌별)', buildVsRatingSplit(records, 'season')),
+    vsRatingByVersion: tab('vs_rating_version', '레이팅대 (버전별)', buildVsRatingSplit(records, 'version')),
+    roundBySeason: tab('round_season', '라운드 (시즌별)', buildRoundSplit(records, 'season')),
+    roundByVersion: tab('round_version', '라운드 (버전별)', buildRoundSplit(records, 'version')),
   };
 }
 
@@ -208,13 +260,27 @@ export type TabGroup = 'summary' | 'mine' | 'versus' | 'when' | 'change' | 'raw'
 export const TAB_GROUP: Record<string, TabGroup> = {
   flow: 'summary',
   total: 'mine',
+  total_season: 'mine',
+  total_version: 'mine',
   round: 'mine',
+  round_season: 'mine',
+  round_version: 'mine',
   stage: 'mine',
+  stage_season: 'mine',
+  stage_version: 'mine',
   pivot: 'versus',
+  pivot_season: 'versus',
+  pivot_version: 'versus',
   strong: 'versus',
+  strong_season: 'versus',
+  strong_version: 'versus',
   weak: 'versus',
+  weak_season: 'versus',
+  weak_version: 'versus',
   round_opp: 'versus',
   vs_rating: 'versus',
+  vs_rating_season: 'versus',
+  vs_rating_version: 'versus',
   h2h: 'versus',
   time: 'when',
   time_local: 'when',
@@ -237,13 +303,27 @@ export const TAB_GROUP: Record<string, TabGroup> = {
 export const SHEET_ORDER: string[] = [
   'flow',
   'total',
+  'total_season',
+  'total_version',
   'round',
+  'round_season',
+  'round_version',
   'stage',
+  'stage_season',
+  'stage_version',
   'pivot',
+  'pivot_season',
+  'pivot_version',
   'strong',
+  'strong_season',
+  'strong_version',
   'weak',
+  'weak_season',
+  'weak_version',
   'round_opp',
   'vs_rating',
+  'vs_rating_season',
+  'vs_rating_version',
   'h2h',
   'time',
   'time_local',

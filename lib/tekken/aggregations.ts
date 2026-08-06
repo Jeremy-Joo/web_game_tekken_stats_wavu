@@ -239,6 +239,100 @@ export function buildStrong(
   return t;
 }
 
+// ── 시즌/버전 나눠보기 ────────────────────────────────────────────────
+//
+// '시즌' 탭(계정 전체를 시즌별로 묶은 표, summaryBy 로 만듦)과 같은 발상을
+// 캐릭터별(buildTotal)·매치업(buildStrong/buildWeak) 표에도 적용한다.
+// 캐릭터·매치업은 이미 "무엇으로 묶을까"가 있는 표라(내 캐릭터, 상대 캐릭터),
+// summaryBy 를 그대로 못 쓰고 — 시즌/버전으로 먼저 표본을 쪼갠 다음 **같은
+// 집계 함수를 그룹마다 돌려 이어붙인다.** 앞에 구분 열 하나만 더 얹으면
+// 결과 스키마가 기존 표와 호환돼 화면의 DataTable 을 그대로 쓸 수 있다.
+function splitByPeriod(
+  df: MatchRecord[],
+  by: 'season' | 'version',
+): { label: string; rows: MatchRecord[] }[] {
+  const keyOf = by === 'season' ? (r: MatchRecord) => r.season : (r: MatchRecord) => `${r.season}-${r.gameVersion}`;
+  const m = new Map<string, MatchRecord[]>();
+  for (const r of df) {
+    const k = keyOf(r);
+    const list = m.get(k);
+    if (list) list.push(r);
+    else m.set(k, [r]);
+  }
+  // S1<S2<S3 사전순=시간순(season 탭과 같은 근거). 버전도 자리수가 같아 마찬가지다.
+  return [...m.entries()].sort((a, b) => cmpOIC(a[0], b[0])).map(([label, rows]) => ({ label, rows }));
+}
+
+/**
+ * buildFn(records) 이 "records 배열 → 같은 컬럼 구성의 Table" 인 함수라면 뭐든
+ * 재사용할 수 있는 공통 뼈대다. 그룹마다 buildFn 을 그대로 돌리고 앞에 구분
+ * 열(시즌/버전)만 붙여 이어붙인다 — 컬럼 구성은 첫 그룹 결과에서 그대로 가져온다.
+ */
+function splitTable(
+  df: MatchRecord[],
+  by: 'season' | 'version',
+  buildFn: (rows: MatchRecord[]) => Table,
+): Table {
+  const groups = splitByPeriod(df, by);
+  const t = new Table(by === 'season' ? 'Season' : 'Version');
+  let colsSet = false;
+  for (const g of groups) {
+    const sub = buildFn(g.rows);
+    if (!colsSet) {
+      t.columns.push(...sub.columns);
+      colsSet = true;
+    }
+    for (const row of sub.rows) t.rows.push([g.label, ...row]);
+  }
+  return t;
+}
+
+/** buildTotal 을 시즌/버전으로 나눠 이어붙인다 — 앞에 구분 열이 붙는다. */
+export function buildTotalSplit(df: MatchRecord[], by: 'season' | 'version'): Table {
+  return splitTable(df, by, buildTotal);
+}
+
+/**
+ * buildStrong/buildWeak 을 시즌/버전으로 나눠 이어붙인다.
+ * 표본 하한(minG)은 **전체 df 기준으로 한 번만** 정해 모든 그룹에 그대로 쓴다 —
+ * 시즌별로 다시 정하면(예: 30판 하한이 5판으로 뚝 떨어짐) 시즌 하나가 8판짜리
+ * 매치업으로도 '강점'이라고 말하게 된다. 대신 표본이 정말 얇은 시즌은 매치업이
+ * 아예 안 나올 수 있다 — 그게 맞는 동작이다.
+ */
+export function buildStrongSplit(df: MatchRecord[], by: 'season' | 'version'): Table {
+  const minG = matchupMinGames(df.length);
+  return splitTable(df, by, (rows) => buildStrong(rows, minG));
+}
+
+export function buildWeakSplit(df: MatchRecord[], by: 'season' | 'version'): Table {
+  const minG = matchupMinGames(df.length);
+  return splitTable(df, by, (rows) => buildWeak(rows, minG));
+}
+
+/** buildStage 를 시즌/버전으로 나눠 이어붙인다. */
+export function buildStageSplit(df: MatchRecord[], by: 'season' | 'version'): Table {
+  return splitTable(df, by, buildStage);
+}
+
+/** buildPivot 을 시즌/버전으로 나눠 이어붙인다. 정렬 기준은 기본값(판수순)으로 고정한다. */
+export function buildPivotSplit(df: MatchRecord[], by: 'season' | 'version'): Table {
+  return splitTable(df, by, (rows) => buildPivot(rows));
+}
+
+/** buildVsRating 을 시즌/버전으로 나눠 이어붙인다. */
+export function buildVsRatingSplit(df: MatchRecord[], by: 'season' | 'version'): Table {
+  return splitTable(df, by, buildVsRating);
+}
+
+/**
+ * buildRound 를 시즌/버전으로 나눠 이어붙인다. **'my' 기준만** 나눈다 — 화면의
+ * '상대 캐릭터별로 펼쳐보기'(roundByOpp)와는 별개 축이라, 둘을 곱하면(내 캐릭터×
+ * 상대 캐릭터×시즌) 표가 과하게 커지고 화면 토글도 3차원이 돼 복잡해진다.
+ */
+export function buildRoundSplit(df: MatchRecord[], by: 'season' | 'version'): Table {
+  return splitTable(df, by, (rows) => buildRound(rows, 'my'));
+}
+
 function roundRow(sub: MatchRecord[], label: string) {
   const games = sub.length;
   let rw = 0,
