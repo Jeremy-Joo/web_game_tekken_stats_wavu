@@ -22,6 +22,14 @@ interface PlayerRow {
   firstDate: string;
   lastDate: string;
   daysSeen: number;
+  /**
+   * 플레이어 인덱스(lib/tekken/player-index.ts) 기준 메인 캐릭터. 그 인덱스는
+   * 500판 이상 수집된 사람만 담으므로, 여기 조회된 사람 전부가 아니라 그중
+   * 인덱스 문턱을 넘긴 사람만 값이 있다 — 없으면 표본 미달이라는 뜻(안 뜨면
+   * 캐릭터가 없다는 뜻이 아니다).
+   */
+  mainChar?: string;
+  mainCharGames?: number;
 }
 interface DayRow {
   date: string;
@@ -293,13 +301,13 @@ export default function AdminPage() {
   const downloadCsv = () => {
     if (!data) return;
     const lines = [
-      '#,마지막 조회,이름,식별코드,조회,페이지뷰,깊이,비율(%),사용자,첫 조회,조회일 수,패턴,언어',
+      '#,마지막 조회,이름,메인,식별코드,조회,페이지뷰,깊이,비율(%),사용자,첫 조회,조회일 수,패턴,언어',
     ];
     data.players.forEach((p, i) => {
       lines.push(
         [
-          i + 1, p.lastDate, p.name || '', p.id, p.lookups, p.views, depth(p), pct(p.views),
-          p.users, p.firstDate, p.daysSeen, pattern(p), langLabel(p.id),
+          i + 1, p.lastDate, p.name || '', p.mainChar || '', p.id, p.lookups, p.views, depth(p),
+          pct(p.views), p.users, p.firstDate, p.daysSeen, pattern(p), langLabel(p.id),
         ].map(csvCell).join(','),
       );
     });
@@ -395,7 +403,7 @@ export default function AdminPage() {
   // 여러 방법으로 훑어보고 싶다는 요청 — 헤더를 눌러 기준을 바꾼다.
   // 기본값(마지막 조회 · 내림차순)은 지금까지의 화면과 같다.
   const sortableColumns = [
-    'lastDate', 'name', 'id', 'lookups', 'depth', 'pct', 'users',
+    'lastDate', 'name', 'mainChar', 'id', 'lookups', 'depth', 'pct', 'users',
     'firstDate', 'daysSeen', 'pattern',
   ] as const;
   type SortKey = (typeof sortableColumns)[number];
@@ -407,8 +415,8 @@ export default function AdminPage() {
     else {
       setSortKey(key);
       // 대부분은 '큰 게 먼저'가 자연스럽다(조회 많은 순·최근 순 …).
-      // 이름·식별코드만 가나다순이 자연스러워 오름차순으로 시작한다.
-      setSortDir(key === 'name' || key === 'id' ? 'asc' : 'desc');
+      // 이름·식별코드·메인 캐릭터만 가나다순이 자연스러워 오름차순으로 시작한다.
+      setSortDir(key === 'name' || key === 'id' || key === 'mainChar' ? 'asc' : 'desc');
     }
   };
 
@@ -433,6 +441,17 @@ export default function AdminPage() {
         case 'name':
           cmp = (a.name || a.id).localeCompare(b.name || b.id);
           break;
+        // 표본 미달로 값이 없는 행은 방향과 무관하게 늘 뒤로 보낸다 — 오름차순일 때
+        // 빈 문자열이 맨 앞으로 오면 "메인 캐릭터 없음"이 1등처럼 보인다. 아래 return 에서
+        // cmp * dir 을 곱하므로, 여기서 dir 을 미리 곱해둬야 그 반전을 상쇄해서 항상
+        // 같은 쪽(끝)으로 간다.
+        case 'mainChar': {
+          if (!a.mainChar && !b.mainChar) cmp = 0;
+          else if (!a.mainChar) cmp = dir;
+          else if (!b.mainChar) cmp = -dir;
+          else cmp = a.mainChar.localeCompare(b.mainChar);
+          break;
+        }
         case 'id':
           cmp = a.id.localeCompare(b.id);
           break;
@@ -713,6 +732,12 @@ export default function AdminPage() {
                   <th>#</th>
                   <SortTh sortKey="lastDate" label="마지막" {...sortProps} />
                   <SortTh sortKey="name" label="이름" {...sortProps} />
+                  <SortTh
+                    sortKey="mainChar"
+                    label="메인"
+                    title="플레이어 인덱스 기준 메인 캐릭터 — 500판 이상 수집된 사람만 있음(없으면 표본 미달)"
+                    {...sortProps}
+                  />
                   <SortTh sortKey="id" label="식별코드" {...sortProps} />
                   <SortTh
                     sortKey="lookups"
@@ -750,6 +775,9 @@ export default function AdminPage() {
                       >
                         {p.name}
                       </a>
+                    </td>
+                    <td title={p.mainCharGames ? `${p.mainCharGames.toLocaleString()}판` : undefined}>
+                      {p.mainChar ?? '—'}
                     </td>
                     <td>{p.id}</td>
                     <td>{p.lookups || '—'}</td>
