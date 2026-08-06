@@ -18,3 +18,5 @@ fixtures/
 
 # 스크립트 산출물 (scripts/hex-sample.ts 등이 만든다)
 hex-sample.svg
+pull.bat
+push.bat
