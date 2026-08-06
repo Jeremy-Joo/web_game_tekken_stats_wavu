@@ -20,6 +20,7 @@ import {
   reportViews,
   GaError,
 } from '@/lib/ga';
+import { isAdminRangeDays } from '@/lib/admin-ranges';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '비밀번호가 틀렸습니다.' }, { status: 401 });
   }
 
-  const days = [7, 28, 90, 365].includes(Number(body.days)) ? Number(body.days) : 28;
+  const days = isAdminRangeDays(Number(body.days)) ? Number(body.days) : 28;
 
   try {
     // 핵심 세 가지. 하나라도 실패하면 화면을 띄우지 않는다 — 조용히 0 으로 채우면
