@@ -15,7 +15,7 @@ import { getRecords } from '@/lib/wavu/cache';
 import { filterByDate } from '@/lib/wavu/normalize';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { buildBarcodeSeq } from '@/lib/tekken/barcode';
-import { seasonSpans } from '@/lib/tekken/seasons';
+import { seasonSpans, versionSpans } from '@/lib/tekken/seasons';
 import { sessionAdvice } from '@/lib/tekken/advice';
 import { dateKey, type MatchRecord } from '@/lib/tekken/models';
 import { buildQuipFacts } from '@/lib/tekken/quip-facts';
@@ -112,6 +112,10 @@ export async function GET(
       stats,
       // 시즌 목록·구간은 전체 이력에서 뽑는다 — 기간 필터를 바꿔도 버튼이 흔들리지 않게.
       seasons: seasonSpans(records),
+      // 버전별 나눠보기가 고른 버전이 정확히 언제~언제인지 보여주는 데 쓴다. 같은
+      // 이유로 전체 이력 기준 — split 표가 filtered 라 일부 버전은 안 쓰일 수 있지만,
+      // 안 쓰이는 항목이 있어도 조회일 뿐 문제는 아니다.
+      versions: versionSpans(records),
       // 권장 판수는 '지금 보고 있는 범위' 기준이라 필터된 데이터로 계산한다.
       // 셋째 인자는 '마지막 경기로부터 지난 날짜' — 오래 쉰 사람의 최근 20판을
       // 현재 폼으로 단정하지 않게 하는 값이다(advice.ts 의 STALE_DAYS).

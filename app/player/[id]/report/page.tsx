@@ -12,7 +12,7 @@ import { notFound } from 'next/navigation';
 import { getRecords } from '@/lib/wavu/cache';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { sessionAdvice } from '@/lib/tekken/advice';
-import { seasonSpans } from '@/lib/tekken/seasons';
+import { seasonSpans, versionSpans } from '@/lib/tekken/seasons';
 import { SESSION_GAP_MINUTES } from '@/lib/tekken/aggregations';
 import { dateKey, type MatchRecord } from '@/lib/tekken/models';
 import {
@@ -54,10 +54,13 @@ const normalize = (raw: string) => decodeURIComponent(raw).replace(/[^A-Za-z0-9]
 type Scope =
   | { kind: 'all' }
   | { kind: 'season'; key: string }
+  | { kind: 'version'; key: string }
   | { kind: 'range'; from: string; to: string };
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+/** 시즌+버전 키 형식 — 'S3-30101' (models.seasonOf 의 시즌 + game_version). */
+const isVersionKey = (s: string) => /^S\d+-\d+$/.test(s);
 
 /** 오늘 (KST). 레코드의 dt 가 KST 로 shift 된 Date 라 같은 기준으로 맞춘다. */
 const todayKst = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
@@ -72,6 +75,9 @@ function parseScope(q: Query): Scope {
   const season = one(q.season);
   if (/^S\d+$/.test(season)) return { kind: 'season', key: season };
 
+  const version = one(q.version);
+  if (isVersionKey(version)) return { kind: 'version', key: version };
+
   const from = one(q.from);
   const to = one(q.to);
   if (isDate(from) && isDate(to)) {
@@ -84,6 +90,8 @@ function parseScope(q: Query): Scope {
 function applyScope(records: MatchRecord[], scope: Scope): MatchRecord[] {
   if (scope.kind === 'all') return records;
   if (scope.kind === 'season') return records.filter((r) => r.season === scope.key);
+  if (scope.kind === 'version')
+    return records.filter((r) => `${r.season}-${r.gameVersion}` === scope.key);
   return records.filter((r) => {
     const d = dateKey(r.dt);
     return d >= scope.from && d <= scope.to;
@@ -95,12 +103,15 @@ const scopeLabel = (scope: Scope, lang: Lang) =>
     ? R.scopeAllLabel[lang]
     : scope.kind === 'season'
       ? R.seasonLabel[lang](scope.key.slice(1))
-      : `${scope.from} ~ ${scope.to}`;
+      : scope.kind === 'version'
+        ? R.versionLabel[lang](scope.key)
+        : `${scope.from} ~ ${scope.to}`;
 
 /** 범위·언어를 유지한 채 일부만 바꾼 주소를 만든다. */
 function hrefWith(base: string, scope: Scope, lang: Lang, override?: Partial<Query>): string {
   const p = new URLSearchParams();
   if (scope.kind === 'season') p.set('season', scope.key);
+  if (scope.kind === 'version') p.set('version', scope.key);
   if (scope.kind === 'range') {
     p.set('from', scope.from);
     p.set('to', scope.to);
@@ -110,12 +121,21 @@ function hrefWith(base: string, scope: Scope, lang: Lang, override?: Partial<Que
     if (v == null || v === '') p.delete(k);
     else p.set(k, String(v));
   }
-  // 범위 키는 서로 배타적이다 — season 을 켜면 from/to 는 지운다(그 반대도).
+  // 범위 키는 서로 배타적이다 — 하나를 켜면 나머지는 지운다.
   if (override && 'season' in override) {
+    p.delete('version');
     p.delete('from');
     p.delete('to');
   }
-  if (override && ('from' in override || 'to' in override)) p.delete('season');
+  if (override && 'version' in override) {
+    p.delete('season');
+    p.delete('from');
+    p.delete('to');
+  }
+  if (override && ('from' in override || 'to' in override)) {
+    p.delete('season');
+    p.delete('version');
+  }
   const qs = p.toString();
   return qs ? `${base}?${qs}` : base;
 }
@@ -213,6 +233,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
   const records = applyScope(allRecords, scope);
 
   const spans = seasonSpans(allRecords);
+  const vSpans = versionSpans(allRecords);
   const today = todayKst();
   const base = `/player/${id}/report`;
   const href = (o?: Partial<Query>) => hrefWith(base, scope, lang, o);
@@ -457,6 +478,19 @@ export default async function ReportPage({ params, searchParams }: Props) {
     })
     .filter((s) => s.games > 0);
   const bestSeasonWr = Math.max(...seasonRows.map((s) => s.wr), 0);
+
+  // ── 버전별 (시즌별과 같은 발상, 같은 시즌 안 밸런스 패치까지 갈라 본다) ──
+  // spans 는 최신 시즌이 먼저 오도록 정렬돼 있다(seasonSpans). vSpans 는 정렬을
+  // 안 하므로(seasons.ts 참조), 여기서 같은 기준(최신 먼저)으로 맞춘다.
+  const versionRows = [...vSpans]
+    .sort((a, b) => (a.key < b.key ? 1 : a.key > b.key ? -1 : 0))
+    .map((v) => {
+      const rs = allRecords.filter((r) => `${r.season}-${r.gameVersion}` === v.key);
+      const w = rs.filter((r) => r.result === 'W').length;
+      return { key: v.key, games: rs.length, wins: w, wr: wrOf(w, rs.length), span: v };
+    })
+    .filter((v) => v.games > 0);
+  const bestVersionWr = Math.max(...versionRows.map((v) => v.wr), 0);
 
   // ── 언제 강한가 ───────────────────────────────────────────────
   // 표본이 얇은 칸이 1위로 올라오면 "새벽 4시에 100%" 같은 헛소리가 된다.
@@ -843,6 +877,47 @@ export default async function ReportPage({ params, searchParams }: Props) {
             })}
           </div>
           <p className="rp-note">{R.seasonsNote[lang]}</p>
+        </section>
+      )}
+
+      {/* ── 버전별 ── */}
+      {versionRows.length > 1 && (
+        <section className="rp-sec">
+          <h2 className="rp-h2">{R.secVersions[lang]}</h2>
+          <div className="rp-bars">
+            {versionRows.map((v) => {
+              const dev = v.wr - 50;
+              const half = Math.min(50, Math.abs(dev));
+              const on = scope.kind === 'version' && scope.key === v.key;
+              return (
+                <a
+                  key={v.key}
+                  className={`rp-bar-row rp-bar-link ${on ? 'on' : ''}`}
+                  href={href({ version: v.key })}
+                >
+                  <span className="rp-bar-name">
+                    {v.key}
+                    {v.wr === bestVersionWr && <em className="rp-best">{R.versionBest[lang]}</em>}
+                  </span>
+                  <span className="rp-bar-track rp-bar-dev">
+                    <span className="rp-bar-mid" />
+                    <span
+                      className={`rp-bar-fill ${dev >= 0 ? 'good' : 'bad'}`}
+                      style={{
+                        left: dev >= 0 ? '50%' : `${50 - half}%`,
+                        width: `${Math.max(0.6, half)}%`,
+                      }}
+                    />
+                  </span>
+                  <span className={`rp-bar-wr ${dev >= 0 ? 'good' : 'bad'}`}>
+                    {v.wr.toFixed(1)}%
+                  </span>
+                  <span className="rp-bar-games">{R.gamesUnit[lang](fmt(v.games))}</span>
+                </a>
+              );
+            })}
+          </div>
+          <p className="rp-note">{R.versionsNote[lang]}</p>
         </section>
       )}
 

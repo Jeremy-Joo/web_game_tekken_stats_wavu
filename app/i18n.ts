@@ -55,7 +55,12 @@ const D = {
   periodAll: { ko: '전체', en: 'All', ja: '全体' },
   periodMonth: { ko: '월별', en: 'Month', ja: '月別' },
   periodYear: { ko: '연별', en: 'Year', ja: '年別' },
-  periodCustom: { ko: '직접입력', en: 'Custom', ja: '指定' },
+  periodCustom: { ko: '기간설정', en: 'Custom range', ja: '期間指定' },
+  periodRecentYears: {
+    ko: (n: number) => `최근 ${n}년`,
+    en: (n: number) => `Last ${n}y`,
+    ja: (n: number) => `直近${n}年`,
+  },
   startDate: { ko: '시작일', en: 'From', ja: '開始日' },
   endDate: { ko: '종료일', en: 'To', ja: '終了日' },
   // 비교는 wavu 지침에 맞춰 순차 수집이라 인원수만큼 시간이 는다.
@@ -90,7 +95,7 @@ const D = {
   charLabel: { ko: '캐릭터별 상세 (경기 수 순)', en: 'Per-character detail (by games)', ja: 'キャラ別詳細 (試合数順)' },
   hlToggle: { ko: '우위 항목 하이라이트', en: 'Highlight advantages', ja: '優位項目をハイライト' },
   // 상대전적 → 비교 목록에 담기 (화면을 벗어나지 않는다)
-  addToCompare: { ko: '비교 목록에 추가', en: 'Add to compare list', ja: '比較リストに追加' },
+  addToCompare: { ko: '나와 비교 (새 창으로 즉시)', en: 'Compare with me (opens instantly)', ja: '自分と比較(すぐ新しいタブで)' },
   // 비교 결과 위 한 줄 — 서로 붙은 기록이 있을 때만. 누르면 '맞대결 상세' 탭으로 간다.
   // 승패는 **앞사람 기준**이라 이름을 다시 붙인다 — 누구의 2승인지 안 밝히면 못 읽는다.
   h2hHint: {
@@ -193,11 +198,11 @@ const D = {
   // 아무도 안 쓰던 값이었다 — 승률만 봐서는 절대 안 보이는 정보다.
   adviceNoGain: {
     ko: (from: number, to: number) =>
-      `${from}~${to}판째는 이겨도 레이팅이 거의 안 오릅니다. 승률만 보면 안 보이는 구간입니다.`,
+      `${from}~${to}판째는 승률만 보면 잘하고 있는 걸로 보이지만, 실제로는 이겨도 레이팅이 남는 게 없는 구간입니다.`,
     en: (from: number, to: number) =>
-      `Games ${from}–${to} win but barely move your rating. The win rate alone hides this.`,
+      `Games ${from}–${to}: your win rate makes it look fine, but you're winning without actually gaining rating.`,
     ja: (from: number, to: number) =>
-      `${from}〜${to}戦目は勝ってもレートがほぼ動きません。勝率だけでは見えない区間です。`,
+      `${from}〜${to}戦目は勝率だけ見ると順調に見えますが、実際は勝ってもレートが増えない区間です。`,
   },
   // 표본이 없는 '이유'를 나눈다. 경기가 많은데 뒷구간이 빈 건 실패가 아니라
   // '짧게 자주 하는 사람'이라는 정보다 — 알고 있는 걸 모른다고 말하면 안 된다.
@@ -233,6 +238,17 @@ const D = {
     ko: (n: number) => `${n}경기 미만 숨기기 (표본 부족)`,
     en: (n: number) => `Hide under ${n} games (thin sample)`,
     ja: (n: number) => `${n}試合未満を隠す (標本不足)`,
+  },
+  // 시즌·버전 나눠보기 — 고른 구간이 전체(필터 적용 후)에서 몇 %를 차지하나.
+  splitComposition: {
+    ko: (games: number, pct: number) => `${games.toLocaleString()}판 · 전체의 ${pct}%`,
+    en: (games: number, pct: number) => `${games.toLocaleString()} games · ${pct}% of total`,
+    ja: (games: number, pct: number) => `${games.toLocaleString()}戦・全体の${pct}%`,
+  },
+  splitThin: {
+    ko: (n: number) => `표본이 적습니다(${n}판 미만) — 숫자를 참고만 하세요.`,
+    en: (n: number) => `Thin sample (under ${n} games) — treat these numbers as rough only.`,
+    ja: (n: number) => `標本が少ないです(${n}戦未満) — 参考程度にご覧ください。`,
   },
   periodPrefix: { ko: '기간', en: 'Period', ja: '期間' },
   begin: { ko: '처음', en: 'start', ja: '最初' },
@@ -370,6 +386,7 @@ const D = {
   // 시즌 탭 보기 전환 — 시즌별(기본) ↔ game_version 별(같은 시즌 안의 밸런스 패치까지)
   seasonBySeason: { ko: '시즌별', en: 'By season', ja: 'シーズン別' },
   seasonByVersion: { ko: '버전별로 나눠보기', en: 'Split by version', ja: 'バージョン別に分割' },
+  splitAll: { ko: '전체', en: 'All', ja: '全体' },
   tzRegion: {
     ko: (region: string, off: string) => `이 플레이어는 ${region} 서버입니다 — 현지 시각은 ${off} 기준입니다.`,
     en: (region: string, off: string) => `This player is on the ${region} server — local time is ${off}.`,
@@ -504,7 +521,7 @@ export const TAB_LABELS: Record<string, Entry> = {
   round: { ko: '라운드', en: 'Rounds', ja: 'ラウンド' },
   stage: { ko: '스테이지', en: 'Stages', ja: 'ステージ' },
   h2h: { ko: '상대전적', en: 'Head-to-head', ja: '対戦成績' },
-  daily: { ko: '일별', en: 'Daily', ja: '日別' },
+  daily: { ko: '기간별', en: 'By period', ja: '期間別' },
   sessions: { ko: '세션', en: 'Sessions', ja: 'セッション' },
   trend: { ko: '레이팅 추이', en: 'Rating trend', ja: 'レート推移' },
   vs_rating: { ko: '레이팅대', en: 'By opp rating', ja: 'レート帯' },

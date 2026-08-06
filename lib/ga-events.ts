@@ -27,6 +27,11 @@ export const FEATURE_EVENTS = {
   round_by_opp: '라운드 — 상대 캐릭터별로 펼쳐보기',
   tz_kst: '시간대 — 한국 시간으로 보기',
   season_by_version: '시즌 — 버전별로 나눠보기',
+  // 캐릭터/강점/약점 매치업 공통 — 세 탭 중 어디서 눌렀는지는 안 가른다
+  // (탭별로 나누면 이름이 6개가 되는데, "이 토글을 쓰는 사람이 있나"에는
+  // 그 구분이 필요 없다).
+  matchup_by_season: '캐릭터·매치업 — 시즌별로 나눠보기',
+  matchup_by_version: '캐릭터·매치업 — 버전별로 나눠보기',
   lang_switch: '언어 전환',
 } as const;
 

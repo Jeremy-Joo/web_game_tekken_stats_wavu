@@ -22,21 +22,35 @@ export interface SeasonSpan {
   games: number;
 }
 
-/** 최신 시즌 우선으로 정렬해 돌려준다. */
-export function seasonSpans(records: MatchRecord[]): SeasonSpan[] {
+function spansBy(records: MatchRecord[], keyOf: (r: MatchRecord) => string): SeasonSpan[] {
   const m = new Map<string, SeasonSpan>();
   for (const r of records) {
     const d = dateKey(r.dt);
-    const cur = m.get(r.season);
+    const k = keyOf(r);
+    const cur = m.get(k);
     if (!cur) {
-      m.set(r.season, { key: r.season, start: d, end: d, games: 1 });
+      m.set(k, { key: k, start: d, end: d, games: 1 });
       continue;
     }
     if (d < cur.start) cur.start = d;
     if (d > cur.end) cur.end = d;
     cur.games++;
   }
-  return [...m.values()].sort((a, b) => (a.key < b.key ? 1 : a.key > b.key ? -1 : 0));
+  return [...m.values()];
+}
+
+/** 최신 시즌 우선으로 정렬해 돌려준다. */
+export function seasonSpans(records: MatchRecord[]): SeasonSpan[] {
+  return spansBy(records, (r) => r.season).sort((a, b) => (a.key < b.key ? 1 : a.key > b.key ? -1 : 0));
+}
+
+/**
+ * 시즌+버전 단위 구간(예: 'S3-30101'). 화면의 "버전별로 나눠보기"가 고른 버전이
+ * 정확히 언제~언제였는지 보여주는 데 쓴다 — seasonSpans 와 같은 방식,
+ * 키만 game_version 까지 더 자른다.
+ */
+export function versionSpans(records: MatchRecord[]): SeasonSpan[] {
+  return spansBy(records, (r) => `${r.season}-${r.gameVersion}`);
 }
 
 /**
