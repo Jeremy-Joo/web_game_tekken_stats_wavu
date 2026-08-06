@@ -372,6 +372,19 @@ button.ghost,
   border: 1px solid var(--border);
 }
 
+/* 문장 안에 끼워 넣는 버튼(예: .meta 의 "내 계정으로 고정") 전용 축소판.
+   기본 버튼(min-height 42px·padding 1rem)을 그대로 쓰면 좁은 화면에서 텍스트
+   줄과 높이 차이가 커서 글줄이 줄바꿈될 때 버튼만 동떨어진 큰 상자로 보인다
+   (모바일 리포트 화면 피드백, 2026-08). 클래스가 정의돼 있지 않아 그동안
+   기본 크기로 새고 있었다 — 3곳(pin-set·고정 해제·최근 지우기)이 전부 해당. */
+button.small,
+.btn-link.small {
+  min-height: 28px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.78rem;
+  border-radius: 999px;
+}
+
 .mode-switch {
   display: flex;
   gap: 0.4rem;
