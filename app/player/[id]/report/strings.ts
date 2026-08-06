@@ -28,6 +28,13 @@ export const R = {
   backToStats: { ko: '← 전체 통계', en: '← Full stats', ja: '← 全統計' } as S,
   share: { ko: '🔗 공유', en: '🔗 Share', ja: '🔗 共有' } as S,
   print: { ko: '🖨 인쇄 · PDF', en: '🖨 Print · PDF', ja: '🖨 印刷 · PDF' } as S,
+  saveImage: { ko: '🖼 이미지 저장', en: '🖼 Save image', ja: '🖼 画像で保存' } as S,
+  saveImageBusy: { ko: '이미지 만드는 중…', en: 'Rendering…', ja: '画像を作成中…' } as S,
+  saveImageFailed: {
+    ko: '이미지를 만들지 못했습니다. 인쇄 · PDF로 시도해 주세요.',
+    en: "Couldn't create the image. Try Print · PDF instead.",
+    ja: '画像を作成できませんでした。印刷・PDFをお試しください。',
+  } as S,
   shareCopied: { ko: '링크를 복사했습니다', en: 'Link copied', ja: 'リンクをコピーしました' } as S,
   shareFailed: {
     ko: '복사하지 못했습니다. 주소창에서 직접 복사해 주세요.',
@@ -81,7 +88,8 @@ export const R = {
     en: (n: string) => `Season ${n}`,
     ja: (n: string) => `シーズン${n}`,
   } as F<[string]>,
-  // 버전 키는 'S3-30101' 형태라 그대로 노출해도 읽힌다 — 시즌 접두어가 이미 붙어 있다.
+  // 호출부(page.tsx)가 formatVersionKey 로 패치 번호('S3 1.01')로 바꿔서 넘긴다 —
+  // 원본 키('S3-30101')는 사람이 읽기엔 의미가 없다.
   versionLabel: {
     ko: (k: string) => `버전 ${k}`,
     en: (k: string) => `Version ${k}`,
@@ -92,6 +100,8 @@ export const R = {
     en: (n: string) => `${n}`,
     ja: (n: string) => `${n}戦`,
   } as F<[string]>,
+  versionScope: { ko: '버전', en: 'Version', ja: 'バージョン' } as S,
+  selectVersion: { ko: '버전 선택', en: 'Select a version', ja: 'バージョンを選択' } as S,
   period: { ko: '기간', en: 'Period', ja: '期間' } as S,
   last30: { ko: '최근 30일', en: 'Last 30d', ja: '直近30日' } as S,
   last90: { ko: '최근 90일', en: 'Last 90d', ja: '直近90日' } as S,

@@ -6,8 +6,43 @@
 import { useState } from 'react';
 import { R, type Lang } from './strings';
 
+/** 이미지에서 뺄 요소 — 인쇄(@media print, report.css)가 이미 같은 기준으로 뒤로가기
+ * 링크·공유줄·범위 바·CTA 를 뺀다. 조작용 UI 라 종이에도 이미지에도 남길 이유가 없다. */
+const IMAGE_EXCLUDE_CLASSES = ['rp-back', 'rp-share', 'rp-cta', 'rp-scope'];
+
 export default function ShareBar({ name, lang }: { name: string; lang: Lang }) {
   const [msg, setMsg] = useState('');
+  const [imgBusy, setImgBusy] = useState(false);
+
+  const saveImage = async () => {
+    if (imgBusy) return;
+    const node = document.querySelector<HTMLElement>('main.report');
+    if (!node) return;
+    setImgBusy(true);
+    setMsg(R.saveImageBusy[lang]);
+    try {
+      // next/dynamic 대신 동적 import — 리포트를 그냥 보러 온 사람 대다수는
+      // 이 버튼을 안 누른다. 번들에 항상 실어둘 이유가 없다.
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(node, {
+        backgroundColor: getComputedStyle(document.body).backgroundColor || '#0b0d12',
+        pixelRatio: 2,
+        filter: (n) =>
+          !(n instanceof HTMLElement) ||
+          !IMAGE_EXCLUDE_CLASSES.some((c) => n.classList.contains(c)),
+      });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `${name || 'report'}_tekken8.png`;
+      a.click();
+      setMsg('');
+    } catch {
+      setMsg(R.saveImageFailed[lang]);
+      setTimeout(() => setMsg(''), 4000);
+    } finally {
+      setImgBusy(false);
+    }
+  };
 
   const share = async () => {
     // location.href 를 쓰므로 지금 보고 있는 범위·언어가 그대로 공유된다
@@ -38,6 +73,9 @@ export default function ShareBar({ name, lang }: { name: string; lang: Lang }) {
       </button>
       <button className="rp-share-btn" onClick={() => window.print()}>
         {R.print[lang]}
+      </button>
+      <button className="rp-share-btn" onClick={saveImage} disabled={imgBusy}>
+        {imgBusy ? R.saveImageBusy[lang] : R.saveImage[lang]}
       </button>
       {msg && <span className="rp-share-msg">{msg}</span>}
     </div>

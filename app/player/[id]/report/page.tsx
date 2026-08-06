@@ -62,6 +62,10 @@ const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 /** 시즌+버전 키 형식 — 'S3-30101' (models.seasonOf 의 시즌 + game_version). */
 const isVersionKey = (s: string) => /^S\d+-\d+$/.test(s);
 
+/** 범위 바의 버전 칩이 몇 개까지 버튼으로 버티는가 — 조회 화면 나눠보기와 같은 눈금
+ * (app/page.tsx SPLIT_SELECT_THRESHOLD). 이보다 많으면(버전 최대 28개) 셀렉트로 뗀다. */
+const VERSION_CHIP_LIMIT = 12;
+
 /** 오늘 (KST). 레코드의 dt 가 KST 로 shift 된 Date 라 같은 기준으로 맞춘다. */
 const todayKst = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
 
@@ -264,6 +268,45 @@ export default async function ReportPage({ params, searchParams }: Props) {
           </a>
         ))}
       </div>
+
+      {/* 버전 칩 — 예전엔 더 아래 '버전별 성적' 막대까지 스크롤해야 버전을 고를 수
+          있었다. 시즌처럼 상단에서 바로 고르게 한다. 버전은 최신 우선(조회 화면
+          나눠보기와 같은 규칙) — 시즌은 오름차순을 유지하지만 버전은 "지금 패치가
+          어떤지"가 궁금할 때가 많아서 다르다. */}
+      {vSpans.length > 1 && (
+        <div className="rp-scope-row">
+          <span className="rp-scope-tag">{R.versionScope[lang]}</span>
+          {vSpans.length <= VERSION_CHIP_LIMIT ? (
+            [...vSpans]
+              .sort((a, b) => (a.key < b.key ? 1 : a.key > b.key ? -1 : 0))
+              .map((v) => (
+                <a
+                  key={v.key}
+                  className={`rp-pill ${scope.kind === 'version' && scope.key === v.key ? 'on' : ''}`}
+                  href={href({ version: v.key })}
+                >
+                  {formatVersionKey(v.key)}
+                  <em>{R.gamesUnit[lang](v.games.toLocaleString())}</em>
+                </a>
+              ))
+          ) : (
+            <form className="rp-scope-form" method="get" action={base}>
+              {lang !== 'ko' && <input type="hidden" name="lang" value={lang} />}
+              <select name="version" defaultValue={scope.kind === 'version' ? scope.key : ''}>
+                <option value="">{R.selectVersion[lang]}</option>
+                {[...vSpans]
+                  .sort((a, b) => (a.key < b.key ? 1 : a.key > b.key ? -1 : 0))
+                  .map((v) => (
+                    <option key={v.key} value={v.key}>
+                      {formatVersionKey(v.key)} ({v.games.toLocaleString()})
+                    </option>
+                  ))}
+              </select>
+              <button type="submit">{R.apply[lang]}</button>
+            </form>
+          )}
+        </div>
+      )}
 
       <div className="rp-scope-row">
         <span className="rp-scope-tag">{R.period[lang]}</span>

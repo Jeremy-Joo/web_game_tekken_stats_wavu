@@ -582,7 +582,8 @@
   margin-left: 0.2rem;
 }
 
-.rp-scope-form input {
+.rp-scope-form input,
+.rp-scope-form select {
   padding: 0.22rem 0.4rem;
   border: 1px solid var(--border);
   border-radius: 7px;
@@ -627,7 +628,8 @@
     width: 100%;
   }
 
-  .rp-scope-form input {
+  .rp-scope-form input,
+  .rp-scope-form select {
     flex: 1;
     min-width: 0;
   }
