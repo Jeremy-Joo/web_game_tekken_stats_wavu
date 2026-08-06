@@ -107,6 +107,16 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           ...(d != null && d < -3 ? [`승급하고 나서 승률이 ${Math.abs(d)}%p 떨어졌습니다. 원래 다 그렇습니다.`] : []),
           `계급이 올랐습니다. 위에는 더 무서운 사람들이 있습니다.`,
           `올라가셨군요. 내려오는 길도 같은 길입니다.`,
+          // 2026-08-07 사용자 추가 — 강등 쪽 '운영' 소재의 승격 짝. 리그 승격/잔류 비유는
+          // 이 사이트의 단(rank) 구조 자체가 실제로 그런 사다리라 프로/직장 비유와
+          // 달리 단정형으로 써도 "진짜 직장 얘기"로 안 읽힌다(승격·잔류는 이 게임에도
+          // 실재하는 개념). 넷째 줄("운영의 수준을 끌어올리세요")은 다른 멘트보다
+          // 지시형에 가깝지만, 유머 축에 있는 다른 문구들도 종종 그런 톤을 쓴다.
+          `프로 무대에 입성했습니다. 이제는 승격이 아니라 잔류를 고민해야 할 때입니다.`,
+          `승격은 박수를 받지만, 살아남는 건 운영이 결정합니다.`,
+          `상위 리그는 승격을 축하해주지 않습니다. 운영만 평가합니다.`,
+          `승격은 쉬워도 잔류는 어렵습니다. 더 나은 운영, 수준 높은 운영이 필요합니다.`,
+          `승단 축하드립니다. 더 나은 운영이 필요한 순간입니다.`,
         ],
         en: [
           `You ranked up. Congratulations.`,
@@ -114,6 +124,11 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           ...(d != null && d < -3 ? [`Your win rate dropped ${Math.abs(d)}%p after the promotion. That is normal.`] : []),
           `Rank up. Scarier people live up there.`,
           `You went up. The way down is the same road.`,
+          `Welcome to the pro stage. The question now isn't promotion, it's survival.`,
+          `Promotion gets the applause. Staying up is decided by how you play.`,
+          `The upper bracket doesn't celebrate the promotion. It only grades what comes after.`,
+          `Getting promoted is the easy part. Staying up is the hard part, and it takes sharper play.`,
+          `Congratulations on the rank up. Now you need the play to match it.`,
         ],
         ja: [
           `昇格しました。おめでとうございます。`,
@@ -121,6 +136,11 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           ...(d != null && d < -3 ? [`昇格後に勝率が${Math.abs(d)}%p 下がりました。よくあることです。`] : []),
           `ランクが上がりました。上にはもっと怖い人がいます。`,
           `上がりましたね。下りも同じ道です。`,
+          `プロの舞台に上がりました。今問われているのは昇格ではなく残留です。`,
+          `昇格には拍手が来ます。生き残れるかは運営次第です。`,
+          `上位リーグは昇格を祝ってくれません。運営だけを評価します。`,
+          `昇格は簡単でも残留は難しいです。求められるのはより良い、質の高い運営です。`,
+          `昇段おめでとうございます。今度はより良い運営が必要な瞬間です。`,
         ],
       }
     : {
@@ -135,6 +155,27 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           `이 계급의 전세 계약이 끝났습니다. 재계약 조건은 아시는 그대로입니다.`,
           `한 층 아래에서 다시 출발입니다. 엘리베이터가 아니라 계단이었을 뿐입니다.`,
           `내려온 김에 좋은 소식 하나 — 여기서는 당신이 위쪽 손님입니다.`,
+          // 2026-08-07 사용자 추가 — 계급은 떨어져도 '운영(플레이 습관)'은 안 바뀐다는 소재.
+          `계급은 잃었습니다. 하지만 운영 능력까지 함께 잃어버릴 만큼 운이 좋진 않았군요.`,
+          `계급은 내려갔습니다. 운영은 여전히 제자리입니다. 안 좋은 의미로요.`,
+          `하락한 건 계급뿐입니다. 문제의 근원은 아직 그대로입니다.`,
+          `계급은 바뀌어도 운영 방식은 쉽게 바뀌지 않습니다. 그게 이번 결과의 핵심입니다.`,
+          `계급은 초기화될 수 있어도, 운영 습관은 그렇지 않습니다.`,
+          `계급은 떨어졌습니다. 하지만 당신의 운영이 함께 사라질 거라 기대했다면 실망이겠군요.`,
+          `안타깝게도 계급만 내려갔습니다. 운영은 그대로입니다.`,
+          `계급은 하락했지만, 운영은 여전히 익숙한 모습입니다.`,
+          `새로운 계급, 같은 운영. 결과가 달라질 이유는 많지 않습니다.`,
+          `계급은 바뀌었습니다. 운영까지 바뀌었다는 착각은 하지 않는 편이 좋겠습니다.`,
+          // 프로/감독 소재 — 가정법 원칙(jokes.ts 머리말)은 첫 줄만 지킨다.
+          // 나머지 둘은 '당신의 감독'이라 안 박아 일반론으로 읽히게 남겨뒀다.
+          `계급은 떨어졌습니다. 프로 스포츠였다면 감독이 경질됐겠지만, 안타깝게도 당신의 운영 능력까지 함께 교체되진 않았습니다.`,
+          `감독은 바꿀 수 있어도, 운영 습관은 쉽게 바뀌지 않습니다.`,
+          `성적은 떨어졌습니다. 하지만 가장 큰 문제는 아직도 벤치에 그대로 남아 있습니다.`,
+          `감독은 경질될 수 있습니다. 운영 능력은 자동으로 교체되지 않습니다.`,
+          `계급은 떨어졌습니다. 하지만 당신의 운영 능력까지 함께 떨어져 나가진 않았습니다.`,
+          `계급만 바뀌었습니다. 운영은 여전히 당신의 것입니다.`,
+          `강등은 됐습니다. 운영은 그대로입니다. 그것이 더 큰 문제일 수도 있습니다.`,
+          `계급은 초기화됐지만, 운영 습관은 저장되어 있습니다.`,
         ],
         en: [
           `You got demoted. The stats offer no comfort.`,
@@ -145,6 +186,25 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           `The lease on that rank expired. You know the renewal terms.`,
           `Starting again one floor down. It was stairs, not an elevator.`,
           `One upside to coming down: here, you are the visitor from upstairs.`,
+          // 2026-08-07 사용자 추가분의 en 짝 — 번역이 아니라 같은 성격의 다른 문장.
+          `You lost the rank. Lucky for you, your habits didn't come down with it.`,
+          `Rank dropped. Your decision-making stayed exactly where it was.`,
+          `Only the rank fell. The actual problem is still standing.`,
+          `Ranks reset. Habits don't.`,
+          `You can wipe the rank. The habits are save-locked.`,
+          `Rank down. If you were hoping your play would drop with it, sorry to disappoint.`,
+          `Unfortunately, only the rank moved. Everything else held its position.`,
+          `Rank slipped. Your play looks exactly as familiar as before.`,
+          `New rank, same decisions. Don't expect a different outcome.`,
+          `The rank changed. Assuming your play changed with it would be a mistake.`,
+          `Rank dropped. If this were pro sports, the coach would be fired — your instincts, unfortunately, were not.`,
+          `You can fire the coach. Habits don't take the hint.`,
+          `The result dropped. The actual problem is still on the bench.`,
+          `Coaches get replaced. Decision-making does not auto-update.`,
+          `Rank dropped. Your play did not fall with it.`,
+          `Only the rank changed. The play is still yours.`,
+          `Demoted, yes. Unchanged, also yes. That might be the bigger issue.`,
+          `The rank got reset. The habits were autosaved.`,
         ],
         ja: [
           `降格しました。統計は慰めません。`,
@@ -155,6 +215,25 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           `そのランクの賃貸契約が切れました。更新条件はご存じの通りです。`,
           `一階下から再出発です。エレベーターではなく階段だっただけです。`,
           `下りた良い知らせをひとつ — ここではあなたが上の階からの来客です。`,
+          // 2026-08-07 사용자 추가분의 ja 짝 — 번역이 아니라 같은 성격의 다른 문장.
+          `階級は失いました。運営能力まで一緒に失うほど運は良くなかったようです。`,
+          `階級は下がりました。運営は変わらずそのままです。悪い意味で。`,
+          `下がったのは階級だけです。問題の根本はそのままです。`,
+          `階級は変わっても、プレイスタイルはそう簡単には変わりません。それが今回の結果です。`,
+          `階級はリセットできても、プレイの癖はリセットされません。`,
+          `階級は下がりました。あなたの運営まで一緒に消えると思っていたなら残念です。`,
+          `残念ながら階級だけ下がりました。運営はそのままです。`,
+          `階級は下がりましたが、運営は相変わらず見慣れた姿です。`,
+          `新しい階級、同じ運営。結果が変わる理由は多くありません。`,
+          `階級は変わりました。運営まで変わったと思うのは早計です。`,
+          `階級は下がりました。プロの世界なら監督が更迭されるところですが、あなたの運営能力はそのまま残ってしまいました。`,
+          `監督は代えられても、プレイの癖はそう簡単には変わりません。`,
+          `成績は落ちました。でも一番の問題は今もベンチに座ったままです。`,
+          `監督は更迭されることがあります。運営能力は自動では入れ替わりません。`,
+          `階級は下がりました。でもあなたの運営能力まで一緒に落ちたわけではありません。`,
+          `階級だけが変わりました。運営は相変わらずあなたのものです。`,
+          `降格はしました。運営はそのままです。それがより大きな問題かもしれません。`,
+          `階級はリセットされましたが、プレイの癖はセーブされています。`,
         ],
       };
   return p[lang];
