@@ -50,15 +50,14 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
 
 // ── 우선순위 (이 파일의 핵심) ────────────────────────────────────
 {
-  // 전부 동시에 켠다. 마일스톤이 이겨야 한다.
+  // 전부 동시에 켠다(연승·오늘 몰림은 2026-08-07부로 완전히 뺐으므로 fixture에서도
+  // 뺐다 — factPools 가 그 필드들을 아예 안 읽는다). 마일스톤이 이겨야 한다.
   const all = f({
     milestone: 10_000,
     hoursPlayed: 540,
     peakFresh: true,
     rankChange: { up: true, gamesAgo: 1, visits: 3, deltaPp: null },
     comebackDays: 60,
-    winStreak: 9,
-    todaySameChar: { opp: 'Bryan', count: 6 },
     clock: { hour: 3, dow: 1 },
   });
   const top = factPools(all, 'ko', 'cold').events[0];
@@ -72,35 +71,13 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
   const noMile = factPools(f({ ...all, milestone: null }), 'ko', 'cold').events[0];
   ok('마일스톤 없으면 최고 갱신', has(noMile, '최고 레이팅'), JSON.stringify(noMile[0]));
 
-  // 그 다음 복귀 (승단·강등은 더 이상 이 사다리에 없다)
+  // 그 다음 복귀 (승단·강등, 연승, 오늘 몰림은 이 사다리에 없다)
   const noPeak = factPools(f({ ...all, milestone: null, peakFresh: false }), 'ko', 'cold').events[0];
   ok('그 다음은 복귀', has(noPeak, '60일'), JSON.stringify(noPeak[0]));
 
-  // 그 다음 연승
-  const noComeback = factPools(
-    f({ ...all, milestone: null, peakFresh: false, comebackDays: null }),
-    'ko',
-    'cold',
-  ).events[0];
-  ok('그 다음은 연승', has(noComeback, '9연승'), JSON.stringify(noComeback[0]));
-
-  // 그 다음 오늘 몰림
-  const noStreak = factPools(
-    f({
-      ...all,
-      milestone: null,
-      peakFresh: false,
-      comebackDays: null,
-      winStreak: 0,
-    }),
-    'ko',
-    'cold',
-  ).events[0];
-  ok('그 다음은 오늘 몰림', has(noStreak, 'Bryan'), JSON.stringify(noStreak[0]));
-
-  // 시각은 2026-08-06부터 events 사다리에 없다(확률 게이트, jokes.ts CLOCK_EVERY
-  // 참조) — 오늘 몰림 다음엔 더 이상 events 에 걸릴 게 없어야 한다.
-  const clockOnly = factPools(f({ ...all, milestone: null, peakFresh: false, comebackDays: null, winStreak: 0, todaySameChar: null }), 'ko', 'cold');
+  // 복귀까지 끄면 남는 건 시각뿐인데, 시각도 2026-08-06부터 events 사다리에 없다
+  // (확률 게이트, jokes.ts CLOCK_EVERY 참조) — events 는 완전히 비어야 한다.
+  const clockOnly = factPools(f({ ...all, milestone: null, peakFresh: false, comebackDays: null }), 'ko', 'cold');
   ok('시각만 남으면 events 는 빈다', clockOnly.events.length === 0);
   ok('시각은 별도 필드로 채워진다', has(clockOnly.clock, '새벽'));
 }
@@ -127,20 +104,8 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
   );
 }
 
-// ── 연승은 5부터 ─────────────────────────────────────────────────
-{
-  ok('4연승은 소재가 아니다', factPools(f({ winStreak: 4 }), 'ko', 'hot').events.length === 0);
-  ok('5연승부터 열린다', factPools(f({ winStreak: 5 }), 'ko', 'hot').events.length === 1);
-  // 개인 최고와 같으면 문구가 달라진다
-  ok(
-    '최고 기록 타이면 그렇게 말한다',
-    has(factPools(f({ winStreak: 9, bestWinStreak: 9 }), 'ko', 'hot').events[0], '개인 최고 기록'),
-  );
-  ok(
-    '아니면 최고를 알려준다',
-    has(factPools(f({ winStreak: 5, bestWinStreak: 12 }), 'ko', 'hot').events[0], '개인 최고는 12'),
-  );
-}
+// 연승·오늘 몰림 단위 테스트는 2026-08-07 기능 제거와 함께 삭제했다 —
+// winStreak()·todaySameChar() 함수 자체가 fact-jokes.ts 에 더 이상 없다.
 
 // ── 승단·강등 — events 가 아니라 별도 필드다(2026-08-06, 확률 게이트) ────
 // "없는 걸 말하지 않는다" 규칙 자체는 그대로다 — 필드만 옮겼다.

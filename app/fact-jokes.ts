@@ -187,63 +187,13 @@ function comeback(f: QuipFacts, lang: Lang): string[] {
   return p[lang];
 }
 
-/** 연승은 이만큼부터 소재가 된다. 3연승은 흔해서 농담이 안 된다. */
-const WIN_STREAK_MIN = 5;
-
-function winStreak(f: QuipFacts, lang: Lang): string[] {
-  const s = f.winStreak;
-  if (s < WIN_STREAK_MIN) return [];
-  const best = f.bestWinStreak;
-  const tying = s >= best;
-  const p: Pool = {
-    ko: [
-      `${s}연승 중입니다. 지금 끄면 오늘은 전설로 남습니다.`,
-      `${s}연승. 통계가 슬슬 무서워하고 있습니다.`,
-      `${s}연승째. 다음 판을 이기면 자랑이고, 지면 이야기가 됩니다.`,
-      ...(tying ? [`${s}연승 — 개인 최고 기록입니다. 여기서 멈추는 것도 실력입니다.`] : [`${s}연승. 개인 최고는 ${best}입니다.`]),
-    ],
-    en: [
-      `${s} wins in a row. Stop now and today becomes a legend.`,
-      `${s} straight. The stats are getting nervous.`,
-      `${s} in a row. Win the next and it is a brag; lose it and it is a story.`,
-      ...(tying
-        ? [`${s} straight — your personal best. Stopping here is also a skill.`]
-        : [`${s} straight. Your best is ${best}.`]),
-    ],
-    ja: [
-      `${s}連勝中です。今やめれば今日は伝説になります。`,
-      `${s}連勝。統計がそろそろ怖がっています。`,
-      `${s}連勝目。次に勝てば自慢、負ければ物語です。`,
-      ...(tying
-        ? [`${s}連勝 — 自己最高記録です。ここで止めるのも実力です。`]
-        : [`${s}連勝。自己最高は${best}です。`]),
-    ],
-  };
-  return p[lang];
-}
-
-function todaySameChar(f: QuipFacts, lang: Lang): string[] {
-  const t = f.todaySameChar;
-  if (!t) return [];
-  const p: Pool = {
-    ko: [
-      `오늘 만난 상대 중 ${t.count}명이 ${t.opp}였습니다. 유행인가 봅니다.`,
-      `${t.opp}만 ${t.count}번 만나셨습니다. 매칭이 뭔가 알고 있는 걸까요.`,
-      `오늘의 ${t.opp} ${t.count}연벽. 연습은 되셨겠습니다.`,
-    ],
-    en: [
-      `${t.count} of today's opponents were ${t.opp}. Must be trending.`,
-      `You met ${t.opp} ${t.count} times today. Matchmaking knows something.`,
-      `${t.count} rounds of ${t.opp} today. Free matchup practice, at least.`,
-    ],
-    ja: [
-      `今日の相手のうち${t.count}人が${t.opp}でした。流行っているようです。`,
-      `${t.opp}と${t.count}回。マッチングが何か知っているのでしょうか。`,
-      `本日の${t.opp}${t.count}連戦。練習にはなりましたね。`,
-    ],
-  };
-  return p[lang];
-}
+// winStreak·todaySameChar 함수는 2026-08-07 사용자 피드백("이 스타일의 문구는 이제
+// 적용하지마" / "이 문구도 빼자")으로 제거했다. 실측(2026-08-06)상 둘이 event 762개
+// 중 519개(68%)를 차지해서 milestone·peakFresh·comeback 같은 진짜 희귀 사건과
+// 섞여 있는 게 애초에 무리였는데, 확률 게이트로 내리는 대신 아예 껐다 — 사용자가
+// 반복해서 보고 질렸다고 명시했으므로 "가끔 보이게"가 아니라 "안 보이게"가 맞는 조치다.
+// QuipFacts.winStreak/bestWinStreak/todaySameChar 필드 자체는 다른 화면(승단 이력 등)
+// 에서 쓰일 수 있어 quip-facts.ts 쪽은 손대지 않았다 — 이 파일의 소비만 껐다.
 
 function clock(f: QuipFacts, lang: Lang, mood: Mood): string[] {
   const c = f.clock;
@@ -479,8 +429,11 @@ export interface FactPools {
 
 /**
  * 우선순위: 좁은 조건이 이긴다.
- *   마일스톤 > 최고 갱신 > 복귀 > 연승 > 오늘 몰림  (여기까지 events, 무조건)
- *   승단·강등 / 시각                                 (별도 필드, 확률 게이트 — 둘 다 흔한 일이라)
+ *   마일스톤 > 최고 갱신 > 복귀  (여기까지 events, 무조건)
+ *   승단·강등 / 시각             (별도 필드, 확률 게이트 — 둘 다 흔한 일이라)
+ *
+ * 연승·오늘 몰림은 2026-08-07 사용자 피드백으로 아예 껐다(위 winStreak·
+ * todaySameChar 자리의 주석 참조) — 확률로 낮추는 게 아니라 안 보이게.
  *
  * 근거: 위로 갈수록 발화 빈도가 낮다. 자주 참인 축이 앞에 있으면 뒤의 축은 영영
  * 안 나온다 — seed % N 으로 섞으면 드문 사건이 묻히는 정반대 문제가 생긴다
@@ -490,13 +443,7 @@ export interface FactPools {
 export function factPools(f: QuipFacts | null, lang: Lang, mood: Mood): FactPools {
   if (!f) return { events: [], rankChange: [], clock: [], state: [], traits: [] };
   return {
-    events: [
-      milestone(f, lang),
-      peakFresh(f, lang),
-      comeback(f, lang),
-      winStreak(f, lang),
-      todaySameChar(f, lang),
-    ].filter((p) => p.length > 0),
+    events: [milestone(f, lang), peakFresh(f, lang), comeback(f, lang)].filter((p) => p.length > 0),
     rankChange: rankChange(f, lang),
     clock: clock(f, lang, mood),
     state: divergePool(f, lang),

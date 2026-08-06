@@ -14,6 +14,17 @@ export const LANG_KEY = 'tkwavu_lang';
 
 type Entry = Record<Lang, string>;
 
+/**
+ * 안정적인 씨앗으로 여러 표현 중 하나 고르기 (app/jokes.ts 의 pick 과 같은 원칙 —
+ * Math.random 을 쓰지 않는다. 같은 조회는 항상 같은 문장을 내야 한다).
+ * 세션 조언 문구(adviceStop* 계열)가 2026-08-07부터 이 방식을 쓴다 — 사용자가
+ * "이 문구말고 다른 멘트는 없어? 계속 보니 지루해"라고 피드백한 게 계기다.
+ */
+function pick<T>(pool: T[], seed: number): T {
+  const i = ((Math.trunc(seed) % pool.length) + pool.length) % pool.length;
+  return pool[i];
+}
+
 const D = {
   title: { ko: '철권8 전적 통계', en: 'Tekken 8 Match Stats', ja: '鉄拳8 戦績スタッツ' },
   // sub / footer1 / footer2 는 지웠다.
@@ -144,13 +155,42 @@ const D = {
   minGames: { ko: '최소 경기', en: 'Min games', ja: '最低試合数' },
   showTop: { ko: '보여줄 수', en: 'Show top', ja: '表示人数' },
   // ── 권장 판수 (lib/tekken/advice.ts) ──
+  // 2026-08-07: 아래 다섯 키는 문구가 하나뿐이라 매번 똑같이 보였다("계속 보니
+  // 지루해" 피드백). app/jokes.ts 와 같은 방식(seed % pool.length)으로 여러 표현
+  // 중 하나를 고르게 바꿨다 — 값은 그대로, 말투만 바뀐다. 호출부(app/page.tsx)가
+  // seed 를 첫 인자로 넘긴다.
   adviceStop: {
-    ko: (good: number, stop: number) =>
-      `한 세션 ${good}판까지는 평균 이상이었고, ${stop}판을 넘기면 성적이 꺾였습니다.`,
-    en: (good: number, stop: number) =>
-      `Up to ${good} games per session you were above your average; past ${stop} it dropped.`,
-    ja: (good: number, stop: number) =>
-      `1セッション${good}試合までは平均以上、${stop}試合を超えると成績が落ちました。`,
+    ko: (seed: number, good: number, stop: number) =>
+      pick(
+        [
+          (g: number, s: number) => `한 세션 ${g}판까지는 평균 이상이었고, ${s}판을 넘기면 성적이 꺾였습니다.`,
+          (g: number, s: number) => `${g}판까지는 괜찮았는데, ${s}판부터 그래프가 고개를 숙입니다.`,
+          (g: number, s: number) => `이 세션은 ${g}판이 분기점입니다. 그 뒤로는 내리막이었습니다.`,
+          (g: number, s: number) => `${s}판을 넘기면서부터 성적이 흔들렸습니다. ${g}판까지는 흔들리지 않았고요.`,
+          (g: number, s: number) => `${g}판째까지 버티던 폼이 ${s}판째부터 무너집니다.`,
+        ],
+        seed,
+      )(good, stop),
+    en: (seed: number, good: number, stop: number) =>
+      pick(
+        [
+          (g: number, s: number) => `Up to ${g} games per session you were above your average; past ${s} it dropped.`,
+          (g: number, s: number) => `The line holds until game ${g}, then bends downward past ${s}.`,
+          (g: number, s: number) => `Game ${s} is where this session turns — everything before it was solid.`,
+          (g: number, s: number) => `Solid through ${g}, shaky after ${s}.`,
+        ],
+        seed,
+      )(good, stop),
+    ja: (seed: number, good: number, stop: number) =>
+      pick(
+        [
+          (g: number, s: number) => `1セッション${g}試合までは平均以上、${s}試合を超えると成績が落ちました。`,
+          (g: number, s: number) => `${g}試合目までは持ちこたえていた調子が、${s}試合目から崩れます。`,
+          (g: number, s: number) => `このセッションの分岐点は${g}試合目。そこから先は下り坂でした。`,
+          (g: number, s: number) => `${s}試合を境に成績が揺らぎました。${g}試合目まではそうではなかったのですが。`,
+        ],
+        seed,
+      )(good, stop),
   },
   adviceNoDrop: {
     ko: (good: number) =>
@@ -163,40 +203,137 @@ const D = {
   // 꺾이는 폭에 따라 나눈다. 3%p 나 8%p 나 같은 문장이면 숫자를 보여주는 의미가 없다.
   // (실측 4명: 3.6 / 3.7 / 4.4 / 7.6%p — 6%p 를 경계로 잡으면 실제로 갈린다)
   adviceStopMild: {
-    ko: (good: number, stop: number, pp: number) =>
-      `한 세션 ${good}판까지는 평균 이상이었고, ${stop}판을 넘기면 ${pp}%p 내려갑니다. 폭이 작아 오차에 가깝습니다.`,
-    en: (good: number, stop: number, pp: number) =>
-      `Above your average through ${good} games; past ${stop} it slips ${pp}%p — small enough to be noise.`,
-    ja: (good: number, stop: number, pp: number) =>
-      `1セッション${good}試合までは平均以上、${stop}試合を超えると${pp}%p 下がります。幅が小さく誤差に近い範囲です。`,
+    ko: (seed: number, good: number, stop: number, pp: number) =>
+      pick(
+        [
+          (g: number, s: number, p: number) => `한 세션 ${g}판까지는 평균 이상이었고, ${s}판을 넘기면 ${p}%p 내려갑니다. 폭이 작아 오차에 가깝습니다.`,
+          (g: number, s: number, p: number) => `${s}판부터 ${p}%p 떨어지긴 하는데, 이 정도면 오차 범위 안입니다.`,
+          (g: number, s: number, p: number) => `${g}판까지 좋았고 ${s}판 이후 ${p}%p 빠집니다 — 신경 쓸 정도는 아닙니다.`,
+          (g: number, s: number, p: number) => `${p}%p. ${s}판째부터 살짝 흔들리지만, 문제 삼을 폭은 아닙니다.`,
+          (g: number, s: number, p: number) => `${g}판까지는 흔들림이 없었고, ${s}판을 넘긴 뒤로 ${p}%p 정도 내려갑니다. 눈에 띌 정도는 아니고요.`,
+        ],
+        seed,
+      )(good, stop, pp),
+    en: (seed: number, good: number, stop: number, pp: number) =>
+      pick(
+        [
+          (g: number, s: number, p: number) => `Above your average through ${g} games; past ${s} it slips ${p}%p — small enough to be noise.`,
+          (g: number, s: number, p: number) => `Down ${p}%p after game ${s}, but that's within noise.`,
+          (g: number, s: number, p: number) => `Solid through ${g}, then a ${p}%p dip past ${s} — nothing to act on.`,
+          (g: number, s: number, p: number) => `${p}%p softer after ${s} games. Barely worth mentioning.`,
+        ],
+        seed,
+      )(good, stop, pp),
+    ja: (seed: number, good: number, stop: number, pp: number) =>
+      pick(
+        [
+          (g: number, s: number, p: number) => `1セッション${g}試合までは平均以上、${s}試合を超えると${p}%p 下がります。幅が小さく誤差に近い範囲です。`,
+          (g: number, s: number, p: number) => `${s}試合目から${p}%p 下がりますが、これは誤差の範囲内です。`,
+          (g: number, s: number, p: number) => `${g}試合までは好調、${s}試合を超えると${p}%p ほど落ちます。気にするほどではありません。`,
+          (g: number, s: number, p: number) => `${p}%p。${s}試合目からわずかに揺らぎますが、問題にする幅ではありません。`,
+        ],
+        seed,
+      )(good, stop, pp),
   },
   adviceStopSharp: {
-    ko: (good: number, stop: number, pp: number) =>
-      `한 세션 ${good}판까지는 평균 이상이었고, ${stop}판을 넘기면 ${pp}%p 급락합니다. 뚜렷한 한계선입니다.`,
-    en: (good: number, stop: number, pp: number) =>
-      `Above your average through ${good} games; past ${stop} it drops ${pp}%p. That is a hard ceiling.`,
-    ja: (good: number, stop: number, pp: number) =>
-      `1セッション${good}試合までは平均以上、${stop}試合を超えると${pp}%p 急落します。明確な限界線です。`,
+    ko: (seed: number, good: number, stop: number, pp: number) =>
+      pick(
+        [
+          (g: number, s: number, p: number) => `한 세션 ${g}판까지는 평균 이상이었고, ${s}판을 넘기면 ${p}%p 급락합니다. 뚜렷한 한계선입니다.`,
+          (g: number, s: number, p: number) => `${s}판이 선입니다. 넘기면 ${p}%p가 그대로 빠집니다.`,
+          (g: number, s: number, p: number) => `${p}%p. ${s}판을 넘긴 대가치고는 꽤 큽니다.`,
+          (g: number, s: number, p: number) => `${g}판까지는 버티다가 ${s}판째부터 ${p}%p 뚝 떨어집니다. 우연으로 보기엔 폭이 큽니다.`,
+          (g: number, s: number, p: number) => `${s}판이 그날의 한계였습니다. 그 뒤로 ${p}%p를 두고 왔습니다.`,
+        ],
+        seed,
+      )(good, stop, pp),
+    en: (seed: number, good: number, stop: number, pp: number) =>
+      pick(
+        [
+          (g: number, s: number, p: number) => `Above your average through ${g} games; past ${s} it drops ${p}%p. That is a hard ceiling.`,
+          (g: number, s: number, p: number) => `Game ${s} is the wall. Past it, you give back ${p}%p.`,
+          (g: number, s: number, p: number) => `${p}%p. That's a steep price for playing past ${s}.`,
+          (g: number, s: number, p: number) => `Held up through ${g}, then a ${p}%p cliff right after ${s}.`,
+        ],
+        seed,
+      )(good, stop, pp),
+    ja: (seed: number, good: number, stop: number, pp: number) =>
+      pick(
+        [
+          (g: number, s: number, p: number) => `1セッション${g}試合までは平均以上、${s}試合を超えると${p}%p 急落します。明確な限界線です。`,
+          (g: number, s: number, p: number) => `${s}試合目が壁です。超えると${p}%p がそのまま消えます。`,
+          (g: number, s: number, p: number) => `${p}%p。${s}試合を超えた代償にしては大きいです。`,
+          (g: number, s: number, p: number) => `${g}試合目までは持ちこたえ、${s}試合目から${p}%p 一気に落ちます。偶然にしては幅が大きいです。`,
+        ],
+        seed,
+      )(good, stop, pp),
   },
   // 첫 구간부터 평균 이하 — 예전에는 stopAfter===0 이 falsy 라
   // "꺾이는 지점이 없었습니다"(정반대 말)가 나갔다.
   adviceFromStart: {
-    ko: (pp: number) =>
-      `세션 길이 문제가 아닙니다. 첫 5판부터 평균보다 ${pp}%p 낮습니다 — 시작이 안 풀리는 쪽입니다.`,
-    en: (pp: number) =>
-      `This is not about session length. The first 5 games already sit ${pp}%p below your average — you start cold.`,
-    ja: (pp: number) =>
-      `試合数の問題ではありません。最初の5戦から平均より${pp}%p 低いです — 立ち上がりが課題です。`,
+    ko: (seed: number, pp: number) =>
+      pick(
+        [
+          (p: number) => `세션 길이 문제가 아닙니다. 첫 5판부터 평균보다 ${p}%p 낮습니다 — 시작이 안 풀리는 쪽입니다.`,
+          (p: number) => `판수는 문제가 아닙니다. 시작부터 평균보다 ${p}%p 낮았습니다.`,
+          (p: number) => `첫 5판이 이미 ${p}%p 밑입니다. 몸이 덜 풀린 채로 시작하는 쪽이군요.`,
+          (p: number) => `길게 하는 게 문제가 아니라 시작이 문제입니다. 첫 5판부터 ${p}%p 낮게 출발합니다.`,
+        ],
+        seed,
+      )(pp),
+    en: (seed: number, pp: number) =>
+      pick(
+        [
+          (p: number) => `This is not about session length. The first 5 games already sit ${p}%p below your average — you start cold.`,
+          (p: number) => `Not a length problem — you start ${p}%p below average from game one.`,
+          (p: number) => `The first 5 games are already down ${p}%p. The slow part is the start, not the stretch.`,
+        ],
+        seed,
+      )(pp),
+    ja: (seed: number, pp: number) =>
+      pick(
+        [
+          (p: number) => `試合数の問題ではありません。最初の5戦から平均より${p}%p 低いです — 立ち上がりが課題です。`,
+          (p: number) => `試合数ではなく立ち上がりの問題です。最初から平均より${p}%p 低いです。`,
+          (p: number) => `最初の5戦がすでに${p}%p 下です。ウォームアップ不足のまま始めるタイプですね。`,
+        ],
+        seed,
+      )(pp),
   },
   // 승률은 평균 이상인데 레이팅은 안 붙는 구간. avgDelta 는 계산만 되고
   // 아무도 안 쓰던 값이었다 — 승률만 봐서는 절대 안 보이는 정보다.
   adviceNoGain: {
-    ko: (from: number, to: number) =>
-      `${from}~${to}판째는 승률만 보면 잘하고 있는 걸로 보이지만, 실제로는 이겨도 레이팅이 남는 게 없는 구간입니다.`,
-    en: (from: number, to: number) =>
-      `Games ${from}–${to}: your win rate makes it look fine, but you're winning without actually gaining rating.`,
-    ja: (from: number, to: number) =>
-      `${from}〜${to}戦目は勝率だけ見ると順調に見えますが、実際は勝ってもレートが増えない区間です。`,
+    ko: (seed: number, from: number, to: number) =>
+      pick(
+        [
+          (a: number, b: number) => `${a}~${b}판째는 승률만 보면 잘하고 있는 걸로 보이지만, 실제로는 이겨도 레이팅이 남는 게 없는 구간입니다.`,
+          (a: number, b: number) => `${a}~${b}판째, 이기긴 이기는데 레이팅은 그대로입니다. 승률만 보면 못 잡아내는 구간입니다.`,
+          (a: number, b: number) => `${a}~${b}판째는 승수만 쌓이고 레이팅은 안 쌓입니다.`,
+          (a: number, b: number) => `이 구간(${a}~${b}판)은 승률로는 안 보입니다 — 이겨도 남는 게 없었습니다.`,
+          (a: number, b: number) => `${a}~${b}판째. 승리는 기록되는데 레이팅은 기록을 안 남깁니다.`,
+        ],
+        seed,
+      )(from, to),
+    en: (seed: number, from: number, to: number) =>
+      pick(
+        [
+          (a: number, b: number) => `Games ${a}–${b}: your win rate makes it look fine, but you're winning without actually gaining rating.`,
+          (a: number, b: number) => `${a}–${b}: wins pile up, rating doesn't. Win rate alone won't show you this.`,
+          (a: number, b: number) => `This stretch (${a}–${b}) is invisible in the win-rate column — you win, but nothing sticks.`,
+          (a: number, b: number) => `Games ${a}–${b}: the wins are real, the rating gain isn't.`,
+        ],
+        seed,
+      )(from, to),
+    ja: (seed: number, from: number, to: number) =>
+      pick(
+        [
+          (a: number, b: number) => `${a}〜${b}戦目は勝率だけ見ると順調に見えますが、実際は勝ってもレートが増えない区間です。`,
+          (a: number, b: number) => `${a}〜${b}戦目、勝ちは積み重なるのにレートは積み重なりません。`,
+          (a: number, b: number) => `この区間(${a}〜${b}戦)は勝率には出ません — 勝っても残らなかった区間です。`,
+          (a: number, b: number) => `${a}〜${b}戦目。勝利は記録されても、レートは記録を残しません。`,
+        ],
+        seed,
+      )(from, to),
   },
   // 표본이 없는 '이유'를 나눈다. 경기가 많은데 뒷구간이 빈 건 실패가 아니라
   // '짧게 자주 하는 사람'이라는 정보다 — 알고 있는 걸 모른다고 말하면 안 된다.

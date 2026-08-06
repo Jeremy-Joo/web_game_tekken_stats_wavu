@@ -2772,9 +2772,6 @@ export default function Home() {
                         )}
                       </p>
                     )}
-                    {/* 무드 멘트의 근거 — 최근 승패를 시간 순서의 띠로. 멘트를 꺼도
-                        남긴다(조언과 같은 방침 — 이건 유머가 아니라 데이터다). */}
-                    {single.barcode && <WinLossCode seq={single.barcode} lang={lang} />}
                     {/* 조언은 유머와 독립이다 — 유머를 꺼도 이건 볼 수 있어야 한다 */}
                     {showCoach && (
                       <p className="advice-coach">
@@ -2794,21 +2791,31 @@ export default function Home() {
                     )}
                     {single.advice.reliable ? (
                       <>
-                        {/* 판정 갈래마다 문장이 하나씩 대응한다 — 여기서는 씨앗을 쓰지 않는다.
-                            같은 데이터에 두 문장이 후보로 남는 순간 분석문이 농담이 된다.
+                        {/* 판정 갈래(꺾임 없음/완만/급락/시작부터)는 씨앗을 안 쓴다 — 그 갈래
+                            자체가 데이터로 정해지므로 두 갈래가 동시에 후보로 남을 일이 없다.
+                            다만 같은 갈래 안에서 어떤 "표현"을 쓸지는 2026-08-07부터 씨앗으로
+                            고른다(app/i18n.ts adviceStop* 참조) — 매번 똑같은 문장만 보여서
+                            지루하다는 피드백. 조회마다 다르되 같은 조회는 항상 같은 문장이도록
+                            recordCount+stopAfter 로 고정한다(농담 씨앗과는 다른 값 — 위 코치
+                            씨앗 주석과 같은 이유).
                             dropsFromStart 를 불리언으로 받는 이유: stopAfter===0 이 falsy 라
                             예전에는 "꺾이는 지점이 없었습니다"(정반대)로 조용히 떨어졌다. */}
                         <p className="advice-main">
                           {single.advice.dropsFromStart
-                            ? t('adviceFromStart')(single.advice.dropPp ?? 0)
+                            ? t('adviceFromStart')(
+                                single.recordCount + (single.advice.stopAfter ?? 0),
+                                single.advice.dropPp ?? 0,
+                              )
                             : single.advice.stopAfter
                               ? (single.advice.dropPp ?? 0) >= 6
                                 ? t('adviceStopSharp')(
+                                    single.recordCount + single.advice.stopAfter,
                                     single.advice.goodUpTo ?? single.advice.stopAfter,
                                     single.advice.stopAfter,
                                     single.advice.dropPp ?? 0,
                                   )
                                 : t('adviceStopMild')(
+                                    single.recordCount + single.advice.stopAfter,
                                     single.advice.goodUpTo ?? single.advice.stopAfter,
                                     single.advice.stopAfter,
                                     single.advice.dropPp ?? 0,
@@ -2820,11 +2827,18 @@ export default function Home() {
                         {single.advice.noGainBands.length > 0 && (
                           <p className="advice-main advice-sub">
                             {t('adviceNoGain')(
+                              single.recordCount + single.advice.noGainBands[0].from,
                               single.advice.noGainBands[0].from,
                               single.advice.noGainBands[0].to,
                             )}
                           </p>
                         )}
+                        {/* 무드 멘트의 근거 — 최근 승패를 시간 순서의 띠로. 멘트를 꺼도
+                            남긴다(조언과 같은 방침 — 이건 유머가 아니라 데이터다).
+                            2026-08-07: 멘트 바로 아래에서 텍스트 조언들 다음, 그래프 바로
+                            위로 옮겼다 — "이 근거들 다음에 이 증거"라는 순서가 더 자연스럽다는
+                            사용자 피드백. */}
+                        {single.barcode && <WinLossCode seq={single.barcode} lang={lang} />}
                         {/* 구간 12개를 텍스트로 나열하면 화면을 넘어가고 꺾이는
                             지점이 안 보인다. 같은 값을 납작한 선 그래프로 낸다. */}
                         <AdviceChart
@@ -2835,11 +2849,16 @@ export default function Home() {
                         />
                       </>
                     ) : (
-                      <p className="advice-main">
-                        {single.advice.thinReason === 'short'
-                          ? t('adviceThinShort')(single.recordCount)
-                          : t('adviceThin')}
-                      </p>
+                      <>
+                        <p className="advice-main">
+                          {single.advice.thinReason === 'short'
+                            ? t('adviceThinShort')(single.recordCount)
+                            : t('adviceThin')}
+                        </p>
+                        {/* 그래프를 못 그리는 표본(reliable=false)에서도 바코드는 그래프의
+                            대체물로 남긴다 — 멘트를 꺼도 남기는 것과 같은 방침. */}
+                        {single.barcode && <WinLossCode seq={single.barcode} lang={lang} />}
+                      </>
                     )}
                     <p className="hint">{t('adviceCaveat')}</p>
                     {(showQuips || showCoach) && (
