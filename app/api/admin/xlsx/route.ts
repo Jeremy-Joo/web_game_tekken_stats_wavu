@@ -9,6 +9,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { playerViews, dailyTotals, trafficSources, GaError } from '@/lib/ga';
 import { tabsToXlsx } from '@/lib/tekken/xlsx';
 import type { TabData } from '@/lib/tekken/compute';
+import { isAdminRangeDays, adminRangeLabel, ADMIN_RANGE_ALL_DAYS } from '@/lib/admin-ranges';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '비밀번호가 틀렸습니다.' }, { status: 401 });
   }
 
-  const days = [7, 28, 90, 365].includes(Number(body.days)) ? Number(body.days) : 28;
+  const days = isAdminRangeDays(Number(body.days)) ? Number(body.days) : 28;
 
   try {
     const [players, daily, sources] = await Promise.all([
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     const buf = await tabsToXlsx(tabs, {
       title: '철권8 전적 통계 — 관리자 리포트',
-      subtitle: `최근 ${days === 365 ? '1년' : `${days}일`} · 출처 Google Analytics`,
+      subtitle: `${days === ADMIN_RANGE_ALL_DAYS ? '전체 기간' : `최근 ${adminRangeLabel(days)}`} · 출처 Google Analytics`,
     });
 
     const filename = `tekken8stats_admin_${days}d_${stamp()}.xlsx`;

@@ -130,8 +130,8 @@ export interface PlayerView {
    */
   views: number;
   users: number;
-  firstDate: string; // 'yyyy-MM-dd' — 이 기간에 처음 조회된 날
-  lastDate: string; // 마지막으로 조회된 날
+  firstDate: string; // 'yyyy-MM-dd HH시' — 이 기간에 처음 조회된 날짜+시간대
+  lastDate: string; // 마지막으로 조회된 날짜+시간대
   daysSeen: number; // 조회된 날의 수 (1이면 하루만 보고 끝난 ID)
 }
 
@@ -185,14 +185,15 @@ async function lookupCounts(days: number): Promise<Map<string, number>> {
  * 조회 건수(lookups)와 탐색 깊이(views)는 원천이 다르다 — 위 lookupCounts 주석 참조.
  */
 export async function playerViews(days: number): Promise<PlayerView[]> {
-  // date 를 함께 뽑아 '언제 조회됐는지'까지 안다. 행이 (플레이어 × 날짜)로 늘어나므로
-  // limit 을 넉넉히 준다 — 200 이면 활동이 많은 기간에 뒤쪽 플레이어가 잘려 나간다.
-  // 서로 독립이라 같이 던진다. 하나가 실패하면 전체가 실패하는 편이 낫다 —
-  // 조용히 0 으로 채우면 '조회가 없었다'와 구별되지 않는다.
+  // dateHour 를 함께 뽑아 '언제 조회됐는지'를 날짜+시간대까지 안다(전에는 date 라
+  // 날짜만 나왔다 — 2026-08 피드백으로 시간대를 추가했다). date 보다 24배까지
+  // 행이 늘 수 있어 limit 을 넉넉히 준다 — 200 이면 활동이 많은 기간에 뒤쪽
+  // 플레이어가 잘려 나간다. 서로 독립이라 같이 던진다. 하나가 실패하면 전체가
+  // 실패하는 편이 낫다 — 조용히 0 으로 채우면 '조회가 없었다'와 구별되지 않는다.
   const [rows, lookups] = await Promise.all([
     runReport({
     dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
-    dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }, { name: 'date' }],
+    dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }, { name: 'dateHour' }],
     metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }],
     dimensionFilter: {
       filter: {
@@ -206,17 +207,21 @@ export async function playerViews(days: number): Promise<PlayerView[]> {
     lookupCounts(days),
   ]);
 
-  // 같은 플레이어라도 쿼리(?tab=...)·날짜가 다르면 행이 갈라지므로 식별코드로 합친다
+  // 같은 플레이어라도 쿼리(?tab=...)·시간대가 다르면 행이 갈라지므로 식별코드로 합친다
   const byId = new Map<string, PlayerView>();
   const daysById = new Map<string, Set<string>>();
   for (const r of rows) {
     const path = r.dimensionValues?.[0]?.value ?? '';
     const title = r.dimensionValues?.[1]?.value ?? '';
+    // GA4 dateHour 형식: 'yyyyMMddHH' (10자리, property 설정 시간대 기준).
     const rawDate = r.dimensionValues?.[2]?.value ?? '';
     const date =
-      rawDate.length === 8
-        ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6)}`
+      rawDate.length === 10
+        ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)} ${rawDate.slice(8, 10)}시`
         : rawDate;
+    // daysSeen(조회된 '날'의 수)은 시간대까지 섞으면 하루가 여러 개로 쪼개지므로
+    // 날짜 부분만 따로 뗀다 — date 는 'yyyy-MM-dd HH시'라 앞 10자가 곧 날짜다.
+    const dayOnly = date.slice(0, 10);
     const views = Number(r.metricValues?.[0]?.value ?? 0);
     const users = Number(r.metricValues?.[1]?.value ?? 0);
     // 리포트(/player/<id>/report)는 별도 페이지다. 여기에 섞으면 조회 화면을
@@ -225,9 +230,9 @@ export async function playerViews(days: number): Promise<PlayerView[]> {
     const m = /^\/player\/([A-Za-z0-9-]+)/.exec(path);
     if (!m) continue;
     const id = m[1].replace(/-/g, '');
-    if (date) {
+    if (dayOnly) {
       if (!daysById.has(id)) daysById.set(id, new Set());
-      daysById.get(id)!.add(date);
+      daysById.get(id)!.add(dayOnly);
     }
 
     // 제목은 "이름 (식별코드) — 철권8 …" 형식일 때만 이름으로 인정한다.

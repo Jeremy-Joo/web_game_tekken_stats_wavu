@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { TAB_LABELS } from '../i18n';
 import { FEATURE_EVENTS, type FeatureEvent } from '@/lib/ga-events';
+import { ADMIN_RANGES, ADMIN_RANGE_ALL_DAYS, adminRangeLabel } from '@/lib/admin-ranges';
 
 interface PlayerRow {
   id: string;
@@ -103,7 +104,6 @@ function BarList({
 }
 
 const PW_KEY = 'tkwavu_admin_pw';
-const RANGES = [7, 28, 90, 365];
 
 /** GA4 deviceCategory 값. 그 외 값이 오면 원문 그대로 보여준다. */
 const DEVICE_KO: Record<string, string> = {
@@ -383,12 +383,18 @@ export default function AdminPage() {
 
         <label style={{ marginTop: '0.8rem' }}>기간</label>
         <div className="mode-switch period">
-          {RANGES.map((r) => (
+          {ADMIN_RANGES.map((r) => (
             <button key={r} className={days === r ? 'on' : ''} onClick={() => pickRange(r)}>
-              {r === 365 ? '1년' : `${r}일`}
+              {adminRangeLabel(r)}
             </button>
           ))}
         </div>
+        {days === ADMIN_RANGE_ALL_DAYS && (
+          <p className="hint" style={{ marginTop: '0.3rem' }}>
+            &lsquo;전체&rsquo;는 최근 10년을 불러옵니다 — 사이트 나이보다 넉넉히 커서
+            사실상 서비스 시작부터입니다. 기간이 넓을수록 응답이 느릴 수 있습니다.
+          </p>
+        )}
 
         {err && <p className="error">{err}</p>}
         {setupHelp && (
@@ -421,7 +427,9 @@ export default function AdminPage() {
             <div className="sum-block">
               <span className="sum-label">기간</span>
               <span className="sum-value sum-date">
-                최근 {data.days === 365 ? '1년' : `${data.days}일`}
+                {data.days === ADMIN_RANGE_ALL_DAYS
+                  ? '전체 기간'
+                  : `최근 ${adminRangeLabel(data.days)}`}
               </span>
             </div>
           </div>
