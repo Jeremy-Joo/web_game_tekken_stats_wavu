@@ -10,6 +10,7 @@ import { playerViews, dailyTotals, trafficSources, lookupLangByPlayer, GaError }
 import { tabsToXlsx } from '@/lib/tekken/xlsx';
 import type { TabData } from '@/lib/tekken/compute';
 import { isAdminRangeDays, adminRangeLabel, ADMIN_RANGE_ALL_DAYS } from '@/lib/admin-ranges';
+import { fetchPlayerIndex, mainCharByPlayer } from '@/lib/tekken/player-index';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -53,6 +54,9 @@ export async function POST(req: NextRequest) {
     // 늘 실패한다(lib/ga.ts lookupLangByPlayer 주석 참조). 실패해도 엑셀 자체는
     // 만들어져야 하므로 catch 해서 null 로 떨어뜨린다.
     const langByPlayer = await lookupLangByPlayer(days).catch(() => null);
+    // 메인 캐릭터 — /api/admin/stats 와 같은 방식(플레이어 인덱스, 500판 이상만).
+    // 못 받아와도 엑셀 자체는 만들어져야 하므로 catch 해서 빈 맵으로 떨어뜨린다.
+    const mainChars = await fetchPlayerIndex().then(mainCharByPlayer).catch(() => new Map<string, { mainChar: string; mainCharGames: number }>());
     const langLabel = (id: string): string => {
       const rec = langByPlayer?.get(id);
       if (!rec) return '';
@@ -69,11 +73,11 @@ export async function POST(req: NextRequest) {
         key: 'players',
         label: '조회된 플레이어',
         columns: [
-          '#', '마지막 조회', '이름', '식별코드', '조회', '페이지뷰', '깊이', '비율(%)',
+          '#', '마지막 조회', '이름', '메인', '식별코드', '조회', '페이지뷰', '깊이', '비율(%)',
           '사용자', '첫 조회', '조회일 수', '패턴', '언어',
         ],
         rows: players.map((p, i) => [
-          i + 1, p.lastDate, p.name || '', p.id, p.lookups,
+          i + 1, p.lastDate, p.name || '', mainChars.get(p.id)?.mainChar ?? '', p.id, p.lookups,
           p.views,
           // 조회 1건당 화면을 몇 번 만졌나. 조회가 0 인 과거 기간에는 낼 수 없다.
           p.lookups > 0 ? Number((p.views / p.lookups).toFixed(1)) : '',
