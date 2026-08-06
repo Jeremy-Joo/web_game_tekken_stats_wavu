@@ -2299,7 +2299,14 @@ export default function Home() {
             {single.filtered?.start || single.filtered?.end
               ? ` (${single.filtered?.start ?? ''} ~ ${single.filtered?.end ?? ''}, ${t('totalSuffix')} ${single.totalCount})`
               : ''}
-            {single.firstDt ? ` · ${single.firstDt.slice(0, 10)} ~ ${single.lastDt?.slice(0, 10)}` : ''}
+            {single.firstDt && (
+              // 날짜 범위는 통째로 다음 줄로 넘어가야 한다 — nowrap 이 없으면
+              // 좁은 화면에서 "~" 뒤에서 끊겨 시작일과 종료일이 서로 다른 줄에
+              // 놓인다(모바일 피드백, 2026-08).
+              <span className="meta-daterange">
+                {' '}· {single.firstDt.slice(0, 10)} ~ {single.lastDt?.slice(0, 10)}
+              </span>
+            )}
             {/* 방금 조회한 사람을 그 자리에서 고정한다. 비교 모드에는 안 나온다. */}
             {pinned?.id === single.polarisId ? (
               <span className="pin-state">{t('pinnedHere')}</span>
