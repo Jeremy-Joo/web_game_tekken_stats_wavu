@@ -40,10 +40,18 @@ const REGION_LABEL: Record<PoolRegion, Record<Lang, string>> = {
 export default function RandomPlayer({
   lang,
   onPick,
+  compact,
 }: {
   lang: Lang;
   /** 뽑힌 식별코드로 평소 조회 흐름을 태운다. */
   onPick: (id: string) => void;
+  /**
+   * 조회 결과가 이미 떠 있을 때 켠다. 발견 경로로서의 역할은 조회 전에나
+   * 필요하고, 결과를 보는 중에는 폼과 표 사이에 낀 무관한 상자가 된다
+   * (docs/ui-period-analysis.md P6). 안내문을 줄이고 상자를 좁혀
+   * 스크롤 몫을 줄인다 — 기능은 그대로 남긴다(지역 선택도 유지).
+   */
+  compact?: boolean;
 }) {
   const [region, setRegion] = useState<PoolRegion>('all');
   const [busy, setBusy] = useState(false);
@@ -68,12 +76,17 @@ export default function RandomPlayer({
   };
 
   return (
-    <section className="random">
+    <section className={`random${compact ? ' random-compact' : ''}`}>
       <div className="random-body">
-        <p className="hint" style={{ margin: 0 }}>
-          {TXT.note[lang]}
-        </p>
-        <div className="row" style={{ marginTop: '0.5rem' }}>
+        {/* compact 에서는 안내문을 뺀다 — 결과를 보는 중인 사람은 이미 이 기능을
+            안다(첫 화면에서 봤거나, 지금 보는 결과 자체가 이걸로 왔을 수도 있다).
+            지역 선택·버튼은 기능이라 그대로 둔다. */}
+        {!compact && (
+          <p className="hint" style={{ margin: 0 }}>
+            {TXT.note[lang]}
+          </p>
+        )}
+        <div className="row" style={{ marginTop: compact ? 0 : '0.5rem' }}>
           {POOL_REGIONS.map((r) => (
             <button
               key={r}

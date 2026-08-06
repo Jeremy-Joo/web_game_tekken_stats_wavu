@@ -147,6 +147,10 @@ interface PlayerResponse {
   selectedChar?: string | null;
   stats?: { total: number; kept: number; dropped: number; dupes: number };
   seasons?: SeasonInfo[]; // 이 플레이어가 실제로 뛴 시즌들 (전체 이력 기준)
+  versions?: SeasonInfo[]; // 시즌+버전 단위 구간 (기간별 탭 경계용, 전체 이력 기준)
+  /** 나눠보기 힌트용 — 위 둘과 달리 **조회 기간 필터 적용 후** 기준 (route.ts 참조). */
+  seasonsFiltered?: SeasonInfo[];
+  versionsFiltered?: SeasonInfo[];
   advice?: {
     baselineWinRate: number;
     bands: { from: number; to: number; games: number; winRate: number; avgDelta: number; enough: boolean }[];
@@ -180,6 +184,21 @@ interface PlayerResponse {
   roundByOpp?: TabData | null;
   /** 시즌 탭을 game_version 별로 묶은 것 (같은 탭 안의 보기 전환용). */
   seasonByVersion?: TabData | null;
+  /** 캐릭터·강점·약점 매치업 탭을 시즌별/버전별로 묶은 것 (같은 탭 안의 보기 전환용). */
+  totalBySeason?: TabData | null;
+  totalByVersion?: TabData | null;
+  strongBySeason?: TabData | null;
+  strongByVersion?: TabData | null;
+  weakBySeason?: TabData | null;
+  weakByVersion?: TabData | null;
+  stageBySeason?: TabData | null;
+  stageByVersion?: TabData | null;
+  pivotBySeason?: TabData | null;
+  pivotByVersion?: TabData | null;
+  vsRatingBySeason?: TabData | null;
+  vsRatingByVersion?: TabData | null;
+  roundBySeason?: TabData | null;
+  roundByVersion?: TabData | null;
   /** 서버 지역과 거기서 추정한 현지 시간대. lib/wavu/region.ts 참조. */
   timezone?: {
     region: { code: string; label: string } | null;
@@ -197,13 +216,21 @@ interface CompareResponse {
   players: { polarisId: string; name: string; count: number }[];
   tabs: TabData[];
   seasons?: SeasonInfo[];
+  versions?: SeasonInfo[];
   filtered?: { start: string | null; end: string | null; season?: string | null };
   cache?: { stale?: boolean };
   error?: string;
 }
 
 type Mode = 'single' | 'compare';
-type PeriodMode = 'all' | 'month' | 'year' | 'custom' | 'season';
+// 상단 '조회 기간' UI 는 2026-08-06 에 제거했다 (PeriodMode/RecentYears 타입도 함께).
+// 조회는 항상 전체 이력으로 하고, 기간을 좁히는 일은 탭 안에서 한다 —
+// 시즌/버전 나눠보기(7개 탭), 기간별 탭의 집계 단위, 상대전적의 '날짜로 지정'.
+// 이유: 상단 필터는 바꿀 때마다 서버 왕복+전체 재계산이 드는데, 어차피 서버는
+// 항상 전체 이력을 받아 캐시 위에서 자르고 있었다(wavu 가 부분 조회를 지원하지
+// 않는다). 같은 일을 탭 안에서는 재요청 없이 즉시 할 수 있으니 기간 기능을
+// 그쪽으로 일원화했다(docs/ui-period-analysis.md 참조). 서버 API 의
+// start/end/season 파라미터는 그대로 남겨뒀다 — 리포트 페이지와 외부 사용자용.
 
 /** 서버가 데이터에서 뽑아준 시즌 구간 (lib/tekken/seasons.ts). */
 interface SeasonInfo {
@@ -213,15 +240,6 @@ interface SeasonInfo {
   games: number;
 }
 
-// 조회 **전에만** 쓰는 시즌 버튼 목록 — 표시용 기본값이다.
-//
-// 예전에는 여기에 시즌 경계 날짜를 적어두고 그 날짜로 필터링했다. 그러면 S4 가 열려도
-// 아무도 손대지 않는 한 S4 는 영영 안 나타나고, 시즌 탭(game_version 기준)과 답이 갈렸다.
-// 지금은 필터가 날짜가 아니라 season 키로 나가고(서버가 game_version 으로 판정),
-// 버튼도 조회 직후 서버가 준 실제 목록으로 갈아끼운다.
-// 그래서 새 시즌은 **첫 조회 즉시** 나타난다 — 이 상수를 고칠 필요가 없다.
-const FALLBACK_SEASONS = ['S1', 'S2', 'S3'];
-
 /** 닉네임 검색 결과 항목. */
 interface Favorite {
   id: string;
@@ -230,6 +248,16 @@ interface Favorite {
 
 /** 서버가 받는 비교 인원 상한 (api/compare 의 MAX_PLAYERS 와 같아야 한다). */
 const MAX_COMPARE = 4;
+
+/** 시즌·버전 나눠보기에서 "표본이 적다"고 보는 눈금. 리포트 페이지의 THIN_GAMES 와 같다. */
+const THIN_SPLIT_GAMES = 30;
+
+/** 캐릭터 칩을 접기 전까지 보여줄 개수. 41종 전부 펼치면 표가 3~4줄 밀린다. */
+const CHAR_CHIP_LIMIT = 12;
+
+/** 나눠보기 하위 선택지가 이보다 많으면 버튼 대신 셀렉트로 낸다 — 버전이 28개면
+    버튼 3~4줄이 표를 밀어낸다(모바일에서 특히). 시즌(서너 개)은 버튼 그대로다. */
+const SPLIT_SELECT_THRESHOLD = 12;
 
 const WIN_LOSS_COLS = new Set(['result', 'result_for_a']);
 const ROW_CHUNK = 100; // 긴 표는 이 단위로 끊어 보여준다
@@ -248,18 +276,6 @@ function cellClass(col: string, v: string | number | null): string | undefined {
   if (v === 'W') return 'win';
   if (v === 'L') return 'loss';
   return undefined;
-}
-
-/** 현재 KST 기준 'YYYY-MM'. */
-function currentMonth(): string {
-  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
-}
-
-/** 'YYYY-MM' → [1일, 말일]. */
-function monthRange(ym: string): [string, string] {
-  const [y, m] = ym.split('-').map(Number);
-  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return [`${ym}-01`, `${ym}-${String(last).padStart(2, '0')}`];
 }
 
 /** CSV 문자열 생성 (BOM 포함 → 엑셀에서 한글 정상). */
@@ -330,7 +346,7 @@ function downloadBlob(content: string, mime: string, filename: string): void {
    일별 rows: [Date, my_char, Games, W, L, WinRate(%), RatingDelta, EndRating]
    를 기간 키로 다시 묶는다. 합산은 W/L/Δ, EndRating 은 기간 내 마지막 날 값. */
 
-type DailyGran = 'day' | 'month' | 'quarter' | 'half' | 'year' | 'season';
+type DailyGran = 'day' | 'month' | 'quarter' | 'half' | 'year' | 'season' | 'version';
 
 /** 일별 탭의 그래프 보기. 'heat' 만 DailyChart 가 아니라 ActivityHeatmap 이 그린다. */
 type DailyView = DailyStyle | 'heat';
@@ -350,13 +366,20 @@ const GRAN_LABEL: Record<DailyGran, Record<Lang, string>> = {
   half: { ko: '반기별', en: 'Half-yearly', ja: '半期' },
   year: { ko: '연별', en: 'Yearly', ja: '年別' },
   season: { ko: '시즌별', en: 'By season', ja: 'シーズン別' },
+  version: { ko: '버전별', en: 'By version', ja: 'バージョン別' },
 };
 
-function periodKey(date: string, g: DailyGran, seasons: SeasonInfo[]): string {
+function periodKey(
+  date: string,
+  g: DailyGran,
+  seasons: SeasonInfo[],
+  versions: SeasonInfo[] = [],
+): string {
   if (g === 'day') return date;
-  if (g === 'season') {
+  if (g === 'season' || g === 'version') {
     // 경계는 서버가 데이터에서 뽑아준 구간을 그대로 쓴다 — 날짜 하드코딩 없음.
-    for (const s of seasons) if (date >= s.start && date <= s.end) return s.key;
+    const spans = g === 'season' ? seasons : versions;
+    for (const s of spans) if (date >= s.start && date <= s.end) return s.key;
     return '?';
   }
   const y = date.slice(0, 4);
@@ -368,11 +391,11 @@ function periodKey(date: string, g: DailyGran, seasons: SeasonInfo[]): string {
 }
 
 /** 일별 데이터가 걸친 범위에 맞는 집계 단위만 제시 (2개 그룹 이상 생길 때만). */
-function granOptions(tab: TabData, seasons: SeasonInfo[]): DailyGran[] {
+function granOptions(tab: TabData, seasons: SeasonInfo[], versions: SeasonInfo[] = []): DailyGran[] {
   const dates = tab.rows.map((r) => String(r[0]));
   const opts: DailyGran[] = ['day'];
-  for (const g of ['month', 'quarter', 'half', 'year', 'season'] as DailyGran[]) {
-    if (new Set(dates.map((d) => periodKey(d, g, seasons))).size >= 2) opts.push(g);
+  for (const g of ['month', 'quarter', 'half', 'year', 'season', 'version'] as DailyGran[]) {
+    if (new Set(dates.map((d) => periodKey(d, g, seasons, versions))).size >= 2) opts.push(g);
   }
   return opts;
 }
@@ -441,6 +464,8 @@ function filterH2h(
   min: number,
   days: number,
   view: H2hView,
+  /** 직접입력 범위 — 있으면 days 대신 이걸 쓴다(둘 중 하나라도 채워졌으면). */
+  customRange?: { start: string; end: string },
 ): TabData {
   const gi = tab.columns.indexOf('Games');
   const wi = tab.columns.indexOf('WinRate(%)');
@@ -448,7 +473,14 @@ function filterH2h(
   if (gi < 0 || wi < 0) return tab;
 
   let rows = min > 0 ? tab.rows.filter((r) => Number(r[gi]) >= min) : tab.rows;
-  if (days !== 0 && li >= 0) {
+  if (customRange && (customRange.start || customRange.end) && li >= 0) {
+    rows = rows.filter((r) => {
+      const last = String(r[li]).slice(0, 10);
+      if (customRange.start && last < customRange.start) return false;
+      if (customRange.end && last > customRange.end) return false;
+      return true;
+    });
+  } else if (days !== 0 && li >= 0) {
     // KST 기준 날짜 문자열끼리 비교 (LastPlayed 도 KST 'yyyy-MM-dd HH:mm:ss')
     const cutoff = new Date(Date.now() + 9 * 3600_000 - Math.abs(days) * 86400_000)
       .toISOString()
@@ -500,7 +532,12 @@ function pickUnit(tab: TabData, unit: string): TabData {
   };
 }
 
-function rollupDaily(tab: TabData, g: DailyGran, seasons: SeasonInfo[]): TabData {
+function rollupDaily(
+  tab: TabData,
+  g: DailyGran,
+  seasons: SeasonInfo[],
+  versions: SeasonInfo[] = [],
+): TabData {
   if (g === 'day') return tab;
   interface Agg {
     period: string;
@@ -516,7 +553,7 @@ function rollupDaily(tab: TabData, g: DailyGran, seasons: SeasonInfo[]): TabData
     const [date, char, , w, l, , delta, end] = r as [
       string, string, number, number, number, number, number, number,
     ];
-    const p = periodKey(date, g, seasons);
+    const p = periodKey(date, g, seasons, versions);
     const k = `${p}|${char}`;
     let x = m.get(k);
     if (!x) m.set(k, (x = { period: p, char, w: 0, l: 0, delta: 0, end: 0, lastDate: '' }));
@@ -755,8 +792,9 @@ function DataTable({
                             v
                           )}
                         </td>
-                        {/* 나와 비교 — 누르면 비교 목록에 담기만 한다(화면은 그대로).
-                            다 고르면 검색칸 아래 목록에서 새 창으로 열거나 복사한다. */}
+                        {/* 나와 비교 — 누르면 그 자리에서 1:1 비교가 새 창으로 즉시 열린다
+                            (화면은 그대로). 목록에도 같이 담겨서, 여러 명을 모아 한 번에
+                            비교하고 싶으면 검색칸 아래 목록에서 새 창으로 열거나 복사한다. */}
                         {cmpCol && j === polIdx && (
                           <td className="cmp-col">
                             {pol && (
@@ -801,12 +839,14 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>('single');
   const [id, setId] = useState('');
   const [ids, setIds] = useState(''); // 비교 모드: 쉼표/공백 구분
-  const [periodMode, setPeriodMode] = useState<PeriodMode>('all');
-  const [seasonSel, setSeasonSel] = useState(''); // 'S1' | 'S2' | ... (periodMode==='season')
   const [xlsxBusy, setXlsxBusy] = useState(false);
   const [xlsxMsg, setXlsxMsg] = useState('');
   const [h2hMin, setH2hMin] = useState(0); // 상대전적: 최소 경기수
   const [h2hDays, setH2hDays] = useState(0); // 상대전적: 만난 시기
+  // 상대전적 '만난 시기' 직접입력. 켜져 있으면 h2hDays 대신 이 범위를 쓴다.
+  const [h2hCustomOn, setH2hCustomOn] = useState(false);
+  const [h2hStart, setH2hStart] = useState('');
+  const [h2hEnd, setH2hEnd] = useState('');
   const [h2hTop, setH2hTop] = useState(0); // 상대전적: 상위 N명만 (0=전체)
   const [timeView, setTimeView] = useState<TimeView>('시간대');
   // 시간대 탭의 시각 기준. 조회 대상이 외국이면 '현지'가 기본이다 —
@@ -818,16 +858,22 @@ export default function Home() {
   // 시즌 탭 보기. 기본은 '시즌별' — 지금까지의 동작을 그대로 둔다.
   // 버전별은 같은 시즌 안의 밸런스 패치까지 갈라 보고 싶을 때만 쓴다.
   const [seasonView, setSeasonView] = useState<'season' | 'version'>('season');
+  // 캐릭터·강점·약점 매치업 탭 보기. 기본은 '전체'(지금까지의 동작) — 세 탭이
+  // 하나의 상태를 공유한다(한 번에 한 탭만 보이므로 안전하고, 탭을 옮겨도
+  // "시즌별로 보던 중"이 유지되는 편이 자연스럽다).
+  const [splitView, setSplitView] = useState<'all' | 'season' | 'version'>('all');
+  // 캐릭터 칩 접힘 상태 — 사람이 바뀌어도 유지한다(펼쳐두고 여러 명을 도는 사용을 방해하지 않게).
+  const [charChipsOpen, setCharChipsOpen] = useState(false);
+  // 시즌별/버전별 보기에서 고른 시즌(예: 'S2')·버전(예: 'S2-20500') 하나. 목록에
+  // 없는 값이면(탭을 옮겼거나 시즌/버전으로 전환을 막 했을 때) 첫 항목으로
+  // 대체한다(아래 effSplitSel) — 그래서 여기 빈 문자열로 둬도 안전하다.
+  const [splitSel, setSplitSel] = useState('');
   // 상대전적에서 눌러 담은 비교 대상 (나는 제외 — 목록을 만들 때 앞에 붙인다)
   const [picked, setPicked] = useState<Favorite[]>([]);
   const [pickMsg, setPickMsg] = useState('');
   const [h2hView, setH2hView] = useState<H2hView>('all');
   // 비교 표에서 표본 미달(5경기 미만) 행 숨기기 — 3판 100% 가 39판 55% 위에 뜨는 걸 막는다
   const [hideThin, setHideThin] = useState(true);
-  const [month, setMonth] = useState(currentMonth());
-  const [year, setYear] = useState(String(new Date().getFullYear()));
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
   const [loading, setLoading] = useState(false);
 
   /**
@@ -1017,45 +1063,6 @@ export default function Home() {
 
 
   /**
-   * 기간 상태 → **공유 URL** 파라미터 (서버 쿼리가 아니라 화면 상태 복원용).
-   * 주소창 동기화와 '즉시 비교(새 창)'가 같은 형식을 쓰도록 한 곳에 모았다 —
-   * 갈라지면 새 창만 기간이 초기화되는 식으로 조용히 어긋난다.
-   */
-  const periodShareParams = useCallback((): URLSearchParams => {
-    const sp = new URLSearchParams();
-    if (periodMode === 'all') return sp;
-    sp.set('pm', periodMode);
-    if (periodMode === 'month') sp.set('mo', month);
-    if (periodMode === 'year') sp.set('yr', year);
-    if (periodMode === 'season') sp.set('sn', seasonSel);
-    if (periodMode === 'custom') {
-      if (start) sp.set('st', start);
-      if (end) sp.set('en', end);
-    }
-    return sp;
-  }, [periodMode, month, year, seasonSel, start, end]);
-
-  /** 기간 모드 → 실제 start/end 쿼리. */
-  const periodQuery = useCallback((): URLSearchParams => {
-    const q = new URLSearchParams();
-    if (periodMode === 'month' && month) {
-      const [s, e] = monthRange(month);
-      q.set('start', s);
-      q.set('end', e);
-    } else if (periodMode === 'year' && year) {
-      q.set('start', `${year}-01-01`);
-      q.set('end', `${year}-12-31`);
-    } else if (periodMode === 'custom') {
-      if (start) q.set('start', start);
-      if (end) q.set('end', end);
-    } else if (periodMode === 'season' && seasonSel) {
-      // 날짜가 아니라 시즌 키로 보낸다 — 서버가 game_version 으로 판정한다.
-      q.set('season', seasonSel);
-    }
-    return q;
-  }, [periodMode, month, year, start, end, seasonSel]);
-
-  /**
    * 조회. 입력칸의 각 항목(식별코드 또는 닉네임)을 resolveToken 으로 해석한 뒤 실행.
    * 닉네임이 여러 명과 일치하면 칩을 띄우고 멈춘다 — 칩 선택 시 해당 항목만 바꿔 재실행.
    * setState 반영 전에 재실행할 수 있도록 override 인자를 받는다.
@@ -1090,7 +1097,8 @@ export default function Home() {
             return;
           }
           if (r.id !== tok) setId(r.id); // 닉네임 → 찾은 식별코드를 입력칸에 반영
-          const q = periodQuery();
+          // 조회는 항상 전체 이력 — 기간을 좁히는 일은 탭 안에서 한다 (상단 주석 참조).
+          const q = new URLSearchParams();
           if (charFilter) q.set('char', charFilter);
           let res = await fetch(`/api/replays/${encodeURIComponent(r.id)}?${q}`);
 
@@ -1143,7 +1151,7 @@ export default function Home() {
           }
           const joined = resolved.join(', ');
           if (joined !== inputIds.trim()) setIds(joined); // 해석된 식별코드로 입력칸 갱신
-          const q = periodQuery();
+          const q = new URLSearchParams();
           q.set('ids', resolved.join(','));
           const res = await fetch(`/api/compare?${q}`);
           const data = await readJson<CompareResponse>(res);
@@ -1166,7 +1174,7 @@ export default function Home() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mode, id, ids, charSel, periodQuery, lang, inclHistory],
+    [mode, id, ids, charSel, lang, inclHistory],
   );
 
   /** 캐릭터 칩 선택 → 그 캐릭터 경기만으로 전 탭 재집계 (''=전체). */
@@ -1176,41 +1184,15 @@ export default function Home() {
   };
 
   /**
-   * 기간(시즌·월·연·직접입력)을 바꾸면 **자동으로 다시 조회한다.**
+   * 표의 '나와 비교' 를 눌렀을 때 — **그 자리에서 바로 결과가 나온다.**
    *
-   * 예전에는 S2 를 눌러도 화면이 그대로라 조회 버튼을 또 눌러야 했다.
-   * 버튼을 눌렀는데 아무 일도 안 일어나면 고장으로 보인다.
-   *
-   * 주의한 것들:
-   *  - 조회 결과가 없으면(첫 조회 전) 아무것도 하지 않는다. 빈 입력으로 요청이 나간다.
-   *  - 400ms 묶어서 보낸다. 직접입력은 시작일·종료일을 연달아 고르는데,
-   *    그때마다 조회하면 요청이 두 번 나간다.
-   *  - 이미 조회 중이면 건너뛴다(loadingRef — 타임아웃 안에서 loading 은 옛 값이다).
-   */
-  const loadingRef = useRef(false);
-  loadingRef.current = loading;
-  const periodSig = `${periodMode}|${month}|${year}|${seasonSel}|${start}|${end}`;
-  const periodFirstRef = useRef(true);
-  useEffect(() => {
-    if (periodFirstRef.current) {
-      periodFirstRef.current = false;
-      return;
-    }
-    if (mode === 'single' ? !single : !compare) return;
-    const t = setTimeout(() => {
-      if (!loadingRef.current) run();
-    }, 400);
-    return () => clearTimeout(t);
-    // periodSig 하나만 본다 — run/single 을 넣으면 조회할 때마다 다시 조회한다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodSig]);
-
-  /**
-   * 표의 '나와 비교' 를 눌렀을 때 — **비교 목록에 담기만 한다.**
-   *
-   * 예전에는 곧바로 비교 조회로 넘어갔는데, 보던 상대전적 표가 사라지고
-   * 한 명하고만 비교할 수 있었다. 표를 그대로 둔 채 여러 명을 골라 담고,
-   * 다 고르면 새 창에서 열거나 복사해 쓰는 편이 실제 흐름에 맞는다.
+   * 새 창으로 연다 — 보던 표(상대전적 등)를 잃지 않으면서 결과를 즉시 볼 수
+   * 있다. 예전에는(2026-08 이전) 같은 창에서 넘어가 표가 사라졌던 걸 새 창으로
+   * 고쳤었고, 그 뒤로는 '담기만 하고 나중에 한 번에 비교'였다 — 그런데 매번
+   * 두 번 눌러야(담기 → 새 창에서 열기) 해서 오히려 느려졌다. 지금은 둘을
+   * 합친다: 목록에도 담아서(여러 명 모아 한 번에 비교하고 싶을 때 계속 쓸 수
+   * 있게) '복사'/'새 창에서 열기'가 여전히 동작하되, 클릭 자체는 그 한 명과의
+   * 1:1 비교를 즉시 새 창으로 띄운다.
    */
   const addPick = (oppPolaris: string, oppName: string) => {
     const me = single?.polarisId;
@@ -1218,15 +1200,17 @@ export default function Home() {
     const label = oppName ? `${oppName} (${oppPolaris})` : oppPolaris;
     if (picked.some((p) => p.id === oppPolaris)) {
       setPickMsg(t('already')(oppName || oppPolaris));
-      return;
-    }
-    // 서버 상한이 4명이고 그중 한 자리는 '나'가 쓴다
-    if (picked.length + 1 >= MAX_COMPARE) {
+    } else if (picked.length + 1 >= MAX_COMPARE) {
+      // 서버 상한이 4명이고 그중 한 자리는 '나'가 쓴다 — 목록에는 더 못 담지만
+      // 1:1 즉시비교는 상한과 무관하므로 아래에서 그대로 연다.
       setPickMsg(t('pickFull')(MAX_COMPARE));
-      return;
+    } else {
+      setPicked((prev) => [...prev, { id: oppPolaris, name: oppName }]);
+      setPickMsg(t('added')(label));
     }
-    setPicked((prev) => [...prev, { id: oppPolaris, name: oppName }]);
-    setPickMsg(t('added')(label));
+    const sp = new URLSearchParams();
+    sp.set('ids', [me, oppPolaris].join(','));
+    window.open(`/?${sp}`, '_blank', 'noopener');
   };
 
   /** 표의 '나와 비교' 버튼이 이미 담긴 행을 알아보는 데 쓴다. */
@@ -1249,14 +1233,19 @@ export default function Home() {
   /** 새 창에서 비교 — 지금 화면(상대전적)을 유지한 채 결과를 따로 본다. */
   const openCompare = () => {
     if (!single || picked.length === 0) return;
-    const sp = periodShareParams();
+    const sp = new URLSearchParams();
     sp.set('ids', pickedIds.join(','));
     window.open(`/?${sp}`, '_blank', 'noopener');
   };
 
-  // ── 공유 URL: 조회 상태(모드·기간·캐릭터·탭)를 주소에 싣고, 열릴 때 복원한다 ──
+  // ── 공유 URL: 조회 상태(모드·캐릭터·탭)를 주소에 싣고, 열릴 때 복원한다 ──
   // 복원은 2단계: (1) 파라미터 → 상태 반영, (2) 상태가 커밋된 다음 렌더에서 run().
-  // (같은 이펙트에서 바로 run() 하면 periodQuery 가 이전 상태를 캡처하기 때문)
+  // (같은 이펙트에서 바로 run() 하면 상태 반영 전 값을 캡처하기 때문)
+  //
+  // 기간 파라미터(pm/mo/yr/ry/sn/st/en)는 더 이상 읽지 않는다 — 상단 조회 기간
+  // UI 를 없앴기 때문이다(파일 상단 주석 참조). 옛 공유 링크에 pm= 이 남아
+  // 있어도 조용히 무시되고 전체 조회로 열린다 — 필터된 상태로 열어주면 그걸
+  // 풀 버튼이 화면에 없다.
   const bootRef = useRef(false);
   const [bootRun, setBootRun] = useState(false);
   useEffect(() => {
@@ -1274,24 +1263,6 @@ export default function Home() {
     } else if (qid) {
       setId(qid);
     }
-    const pmRaw = sp.get('pm');
-    // 예전 공유 링크는 시즌을 pm=s1|s2|s3 로 실었다. 계속 열리게 받아준다.
-    if (pmRaw && /^s\d+$/i.test(pmRaw)) {
-      setPeriodMode('season');
-      setSeasonSel(pmRaw.toUpperCase());
-    } else {
-      const pm = pmRaw as PeriodMode | null;
-      if (pm && ['all', 'month', 'year', 'custom', 'season'].includes(pm)) {
-        setPeriodMode(pm);
-        if (pm === 'month' && sp.get('mo')) setMonth(sp.get('mo')!);
-        if (pm === 'year' && sp.get('yr')) setYear(sp.get('yr')!);
-        if (pm === 'season' && sp.get('sn')) setSeasonSel(sp.get('sn')!);
-        if (pm === 'custom') {
-          if (sp.get('st')) setStart(sp.get('st')!);
-          if (sp.get('en')) setEnd(sp.get('en')!);
-        }
-      }
-    }
     if (sp.get('ch')) setCharSel(sp.get('ch')!);
     if (sp.get('tab')) setActiveTab(sp.get('tab')!);
     // 값을 대조해서 넣는다 — 주소는 남이 고칠 수 있고, 모르는 값이 들어오면
@@ -1299,6 +1270,7 @@ export default function Home() {
     if (sp.get('rv') === 'opp') setRoundView('opp');
     if (sp.get('tz') === 'kst') setTzView('kst');
     if (sp.get('sv') === 'version') setSeasonView('version');
+    if (sp.get('xv') === 'season' || sp.get('xv') === 'version') setSplitView(sp.get('xv') as 'season' | 'version');
     setBootRun(true);
   }, []);
 
@@ -1314,22 +1286,12 @@ export default function Home() {
     // 현재 모드의 결과가 있을 때만 쓴다 — 결과 표시 중 모드만 토글하면
     // (mode 는 바뀌었는데 그 모드의 결과는 없음) URL 의 id/ids 가 지워지는 것을 방지
     if (mode === 'single' ? !single : !compare) return;
-    const sp = periodShareParams();
+    const sp = new URLSearchParams();
     // 단일은 /player/<식별코드> 를 기본 주소로 쓴다 (wavu·tknow 와 같은 형식).
     // 비교는 대상이 여럿이라 쿼리로 유지한다.
     const single1 = mode === 'single' && single;
     if (!single1 && mode === 'compare' && compare)
       sp.set('ids', compare.players.map((p) => p.polarisId).join(','));
-    if (periodMode !== 'all') {
-      sp.set('pm', periodMode);
-      if (periodMode === 'month') sp.set('mo', month);
-      if (periodMode === 'year') sp.set('yr', year);
-      if (periodMode === 'season') sp.set('sn', seasonSel);
-      if (periodMode === 'custom') {
-        if (start) sp.set('st', start);
-        if (end) sp.set('en', end);
-      }
-    }
     if (mode === 'single' && charSel) sp.set('ch', charSel);
     if (activeTab) sp.set('tab', activeTab);
     // 탭 안의 보기 전환도 싣는다. tab 을 실으면서 이걸 빼면, "라운드 탭 보라"는
@@ -1339,6 +1301,7 @@ export default function Home() {
     if (roundView === 'opp') sp.set('rv', 'opp');
     if (tzView === 'kst') sp.set('tz', 'kst');
     if (seasonView === 'version') sp.set('sv', 'version');
+    if (splitView !== 'all') sp.set('xv', splitView);
     const qs = sp.toString();
     const path = single1
       ? `/player/${encodeURIComponent(single.polarisId)}`
@@ -1387,15 +1350,10 @@ export default function Home() {
     mode,
     activeTab,
     charSel,
-    periodMode,
-    month,
-    year,
-    start,
-    end,
-    seasonSel,
     roundView,
     tzView,
     seasonView,
+    splitView,
   ]);
 
   /** 비교 목록에 식별코드 추가 (중복 제외). */
@@ -1483,7 +1441,7 @@ export default function Home() {
   };
 
   const xlsxHref = (() => {
-    const q = periodQuery();
+    const q = new URLSearchParams();
     if (mode === 'single' && single) {
       if (charSel) q.set('char', charSel);
       return `/api/xlsx/${encodeURIComponent(single.polarisId)}?${q}`;
@@ -1515,13 +1473,14 @@ export default function Home() {
       : (compare?.players.reduce((s, p) => s + p.count, 0) ?? 0);
   const xlsxEtaSec = Math.round(xlsxGames / 1100);
 
-  // 시즌 목록 — 조회 결과가 있으면 그것이 정답(데이터에서 파생), 없으면 표시용 기본값.
+  // 시즌 구간 목록 — 기간별 탭의 시즌 경계·차트 표시용 (데이터에서 파생).
   const seasons: SeasonInfo[] =
     (mode === 'single' ? single?.seasons : compare?.seasons) ?? [];
-  const seasonList = seasons.length ? seasons.map((s) => s.key) : FALLBACK_SEASONS;
+  const versionSpansList: SeasonInfo[] =
+    (mode === 'single' ? single?.versions : compare?.versions) ?? [];
 
-  // 일별 탭: 조회 범위가 넓으면 월/분기/반기/연 집계 단위 제공
-  const dailyOpts = current?.key === 'daily' ? granOptions(current, seasons) : null;
+  // 기간별 탭: 조회 범위가 넓으면 월/분기/반기/연/시즌/버전 집계 단위 제공
+  const dailyOpts = current?.key === 'daily' ? granOptions(current, seasons, versionSpansList) : null;
   const effGran: DailyGran =
     dailyOpts && dailyOpts.includes(dailyGran) ? dailyGran : 'day';
 
@@ -1531,7 +1490,13 @@ export default function Home() {
   const effH2hMin = h2hOpts && h2hOpts.includes(h2hMin) ? h2hMin : 0;
   const h2hFiltered =
     current?.key === 'h2h' && h2hOpts
-      ? filterH2h(current, effH2hMin, h2hDays, h2hView)
+      ? filterH2h(
+          current,
+          effH2hMin,
+          h2hDays,
+          h2hView,
+          h2hCustomOn ? { start: h2hStart, end: h2hEnd } : undefined,
+        )
       : null;
   const h2hTopOpts = h2hFiltered ? h2hTopOptions(h2hFiltered.rows.length) : null;
   const effH2hTop = h2hTopOpts?.includes(h2hTop) ? h2hTop : 0;
@@ -1550,9 +1515,69 @@ export default function Home() {
       ? (single?.seasonByVersion ?? null)
       : null;
 
+  // 캐릭터·강점·약점 매치업의 시즌별/버전별 보기 — season 탭과 같은 방식으로
+  // '탭 안에서 표만 갈아끼운다'. 시즌이 하나뿐이면(seasonTab 1행) 시즌별 토글을,
+  // 버전이 하나뿐이면(seasonVersionTab 없음) 버전별 토글을 안 그린다 — 갈아껴봐야
+  // 같은 표라서다. 두 신호를 season/seasonByVersion 탭에서 그대로 재사용한다
+  // (따로 계산하면 두 토글이 서로 다른 기준으로 나타났다 사라졌다 할 수 있다).
+  const seasonTabRows = mode === 'single' ? (single?.tabs.find((tb) => tb.key === 'season')?.rows.length ?? 0) : 0;
+  const hasMultiSeason = seasonTabRows > 1;
+  const hasMultiVersion = seasonVersionTab !== null;
+  const splitTabs: Record<string, { season: TabData | null; version: TabData | null }> =
+    mode === 'single'
+      ? {
+          total: { season: single?.totalBySeason ?? null, version: single?.totalByVersion ?? null },
+          strong: { season: single?.strongBySeason ?? null, version: single?.strongByVersion ?? null },
+          weak: { season: single?.weakBySeason ?? null, version: single?.weakByVersion ?? null },
+          stage: { season: single?.stageBySeason ?? null, version: single?.stageByVersion ?? null },
+          pivot: { season: single?.pivotBySeason ?? null, version: single?.pivotByVersion ?? null },
+          vs_rating: { season: single?.vsRatingBySeason ?? null, version: single?.vsRatingByVersion ?? null },
+          // 'round' 는 roundView==='my' 일 때만 쓴다 — roundView==='opp' 면 그 표로
+          // 갈아끼우는 분기가 displayTab 에서 먼저 걸린다(위 주석 참조).
+          round: { season: single?.roundBySeason ?? null, version: single?.roundByVersion ?? null },
+        }
+      : {};
+
+  // 시즌별/버전별 표는 맨 앞 열(Season/Version)로 여러 시즌을 이어붙인 원본이다
+  // (엑셀은 이 통짜 표가 맞다 — 시트 하나로 다 훑어야 하니까). 화면은 다르다 —
+  // S1·S2·S3 가 한 표에 같이 있으면 오히려 안 읽힌다는 피드백(2026-08)을 받아,
+  // 화면에서는 시즌/버전마다 **별도 버튼**을 만들고 고른 것만 보여준다 —
+  // '전체' 볼 때처럼 깔끔한 한 표가 되게, 구분 열은 지운다.
+  const rawSplitTab = current && splitView !== 'all' ? (splitTabs[current.key]?.[splitView] ?? null) : null;
+  const splitLabels = rawSplitTab
+    ? [...new Set(rawSplitTab.rows.map((r) => String(r[0])))]
+    : [];
+  const effSplitSel = splitLabels.includes(splitSel) ? splitSel : (splitLabels[0] ?? '');
+  // 고른 시즌·버전이 실제로 언제~언제인지. **필터 적용 후** spans 를 쓴다 —
+  // 나눠보기 표가 필터된 레코드로 계산되므로 힌트도 같은 모집단이어야 한다.
+  // 전체 이력 spans(seasons/versions)를 쓰면 상단에서 기간을 좁혔을 때
+  // 분자>분모가 돼 100%를 넘는 %가 나온다(docs/ui-period-analysis.md P1).
+  const effSplitSpan =
+    splitView === 'season'
+      ? (single?.seasonsFiltered?.find((s) => s.key === effSplitSel) ?? null)
+      : splitView === 'version'
+        ? (single?.versionsFiltered?.find((s) => s.key === effSplitSel) ?? null)
+        : null;
+  // 이 시즌·버전이 지금 보는 전체(필터 적용 후)에서 몇 %를 차지하나 + 표본이
+  // 너무 적어 숫자를 그대로 믿기 어려운 구간인가. THIN_SPLIT_GAMES 는 리포트
+  // 페이지의 THIN_GAMES(30)와 같은 기준 — 이 사이트 전반에서 "표본 얇음"의 눈금이다.
+  const effSplitTotal = single?.recordCount ?? 0;
+  const effSplitPct =
+    effSplitSpan && effSplitTotal > 0
+      ? Math.round((effSplitSpan.games / effSplitTotal) * 1000) / 10
+      : null;
+  const effSplitThin = effSplitSpan != null && effSplitSpan.games < THIN_SPLIT_GAMES;
+  const splitFilteredTab: TabData | null = rawSplitTab
+    ? {
+        ...rawSplitTab,
+        columns: rawSplitTab.columns.slice(1),
+        rows: rawSplitTab.rows.filter((r) => r[0] === effSplitSel).map((r) => r.slice(1)),
+      }
+    : null;
+
   const displayTab =
     current?.key === 'daily'
-      ? rollupDaily(current, effGran, seasons)
+      ? rollupDaily(current, effGran, seasons, versionSpansList)
       : h2hFiltered
         ? effH2hTop > 0
           ? { ...h2hFiltered, rows: h2hFiltered.rows.slice(0, effH2hTop) }
@@ -1569,7 +1594,11 @@ export default function Home() {
             : // 시즌도 같은 방식 — game_version 별 표로 갈아끼운다.
               current?.key === 'season' && seasonView === 'version' && seasonVersionTab
               ? seasonVersionTab
-              : current;
+              : // 캐릭터·강점·약점 매치업 — 시즌별/버전별 표로 갈아끼운다.
+                //  선택된 시즌/버전 하나만, 구분 열 없이 '전체'와 같은 모양으로.
+                splitFilteredTab
+                ? splitFilteredTab
+                : current;
 
   // 비교 표(캐릭터·상대 캐릭·공통 상대)에서 표본이 얇은 행을 걸러낼 수 있는가.
   // 실측: 39행 중 3행이 5경기 미만이었고 그중 둘이 '3전 100%' 였다.
@@ -1870,13 +1899,6 @@ export default function Home() {
       setXlsxBusy(false);
     }
   };
-
-  const yearOptions = (() => {
-    const now = new Date().getFullYear();
-    const ys: string[] = [];
-    for (let y = now; y >= 2024; y--) ys.push(String(y)); // 철권8 데이터는 2024-03부터
-    return ys;
-  })();
 
   /**
    * 메인(초기 화면)으로 — 결과를 닫고 맨 위로. 입력값과 즐겨찾기는 유지.
@@ -2211,94 +2233,9 @@ export default function Home() {
           </div>
         )}
 
-        <label style={{ marginTop: '0.8rem' }}>{t('period')}</label>
-        <div className="mode-switch period">
-          {(
-            [
-              ['all', t('periodAll')],
-              ['month', t('periodMonth')],
-              ['year', t('periodYear')],
-              ['custom', t('periodCustom')],
-            ] as [PeriodMode, string][]
-          ).map(([k, label]) => (
-            <button
-              key={k}
-              className={periodMode === k ? 'on' : ''}
-              onClick={() => setPeriodMode(k)}
-            >
-              {label}
-            </button>
-          ))}
-          {/* 시즌 버튼은 조회 결과가 알려준 실제 시즌으로 만든다.
-              조회 전에는 표시용 기본 목록. 새 시즌이 열리면 첫 조회 즉시 나타난다. */}
-          {seasonList.map((s) => (
-            <button
-              key={s}
-              className={periodMode === 'season' && seasonSel === s ? 'on' : ''}
-              onClick={() => {
-                setPeriodMode('season');
-                setSeasonSel(s);
-              }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-
-        {periodMode === 'month' && (
-          <div className="row">
-            <input
-              type="month"
-              value={month}
-              min="2024-03"
-              max={currentMonth()}
-              onChange={(e) => setMonth(e.target.value)}
-            />
-          </div>
-        )}
-        {periodMode === 'year' && (
-          <div className="row">
-            <select value={year} onChange={(e) => setYear(e.target.value)}>
-              {yearOptions.map((y) => (
-                <option key={y} value={y}>
-                  {y}년
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        {periodMode === 'season' && seasonSel && (
-          <p className="hint" style={{ marginTop: '0.2rem' }}>
-            {(() => {
-              const s = seasons.find((x) => x.key === seasonSel);
-              return s
-                ? `${s.start} ~ ${s.end} (${s.games.toLocaleString()}${t('games')})`
-                : seasonSel;
-            })()}
-          </p>
-        )}
-        {periodMode === 'custom' && (
-          <div className="row">
-            <span>
-              <label htmlFor="start">{t('startDate')}</label>
-              <input
-                id="start"
-                type="date"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-              />
-            </span>
-            <span>
-              <label htmlFor="end">{t('endDate')}</label>
-              <input
-                id="end"
-                type="date"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-              />
-            </span>
-          </div>
-        )}
+        {/* 조회 기간 버튼 줄은 2026-08-06 에 뺐다 — 조회는 항상 전체 이력이고,
+            기간을 좁히는 일은 탭 안(나눠보기·기간별 탭·상대전적 날짜 지정)에서
+            한다. 파일 상단 Mode 타입 옆 주석 참조. */}
 
         {error && <p className="error">{error}</p>}
         {/* wavu 수집 실패 → 지난 사본으로 버티는 중. 예전에는 이때 사이트가 통째로 멈췄다. */}
@@ -2393,15 +2330,40 @@ export default function Home() {
               >
                 {t('charAll')}
               </button>
-              {single.charCounts.map((c) => (
-                <button
-                  key={c.name}
-                  className={`chip${charSel === c.name ? ' on' : ''}`}
-                  onClick={() => pickChar(c.name)}
-                >
-                  {c.name} <span className="chip-id">{c.games}</span>
-                </button>
-              ))}
+              {/* 41종 전부 펼치면 칩이 3~4줄을 차지해 실제 데이터(탭)가 밀린다
+                  (docs/ui-period-analysis.md P6). 랭크 배지의 '더 보기'와 같은
+                  패턴으로 상위 CHAR_CHIP_LIMIT 개만 보이고 접는다. 접힌 상태에서
+                  선택 중인 캐릭터가 뒷순위면 그것만 끝에 덧붙인다 — 고른 게
+                  화면에서 사라지면 해제할 방법이 없다. */}
+              {(() => {
+                const counts = single.charCounts;
+                const folded = !charChipsOpen && counts.length > CHAR_CHIP_LIMIT;
+                const visible = folded ? counts.slice(0, CHAR_CHIP_LIMIT) : counts;
+                const shown =
+                  folded && charSel && !visible.some((c) => c.name === charSel)
+                    ? [...visible, ...counts.filter((c) => c.name === charSel)]
+                    : visible;
+                return (
+                  <>
+                    {shown.map((c) => (
+                      <button
+                        key={c.name}
+                        className={`chip${charSel === c.name ? ' on' : ''}`}
+                        onClick={() => pickChar(c.name)}
+                      >
+                        {c.name} <span className="chip-id">{c.games}</span>
+                      </button>
+                    ))}
+                    {counts.length > CHAR_CHIP_LIMIT && (
+                      <button className="chip chip-fold" onClick={() => setCharChipsOpen(!charChipsOpen)}>
+                        {charChipsOpen
+                          ? `${t('chipsFold')} ▲`
+                          : `${t('riMore')(counts.length - CHAR_CHIP_LIMIT)} ▼`}
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </>
@@ -2436,9 +2398,12 @@ export default function Home() {
       )}
 
       {/* 랜덤 조회 — 곁가지라 조회 폼 아래에 접어둔다.
-          모드까지 넘기는 이유: 비교 모드에서 눌렀을 때도 한 명 조회로 가야 한다. */}
+          모드까지 넘기는 이유: 비교 모드에서 눌렀을 때도 한 명 조회로 가야 한다.
+          결과가 이미 떠 있으면 compact — 폼과 표 사이에 낀 무관한 상자가 되지
+          않게 안내문을 줄인다(docs/ui-period-analysis.md P6). */}
       <RandomPlayer
         lang={lang}
+        compact={!!(single || compare)}
         onPick={(rid) => {
           setId(rid);
           setIds('');
@@ -2661,13 +2626,44 @@ export default function Home() {
                       {H2H_DAYS.map((d) => (
                         <button
                           key={d}
-                          className={h2hDays === d ? 'on' : ''}
-                          onClick={() => setH2hDays(d)}
+                          className={!h2hCustomOn && h2hDays === d ? 'on' : ''}
+                          onClick={() => {
+                            setH2hCustomOn(false);
+                            setH2hDays(d);
+                          }}
                         >
                           {H2H_DAY_LABEL(d, lang)}
                         </button>
                       ))}
+                      <button
+                        className={h2hCustomOn ? 'on' : ''}
+                        onClick={() => setH2hCustomOn(true)}
+                      >
+                        {t('metSinceCustom')}
+                      </button>
                     </div>
+                    {h2hCustomOn && (
+                      <div className="row">
+                        <span>
+                          <label htmlFor="h2hStart">{t('startDate')}</label>
+                          <input
+                            id="h2hStart"
+                            type="date"
+                            value={h2hStart}
+                            onChange={(e) => setH2hStart(e.target.value)}
+                          />
+                        </span>
+                        <span>
+                          <label htmlFor="h2hEnd">{t('endDate')}</label>
+                          <input
+                            id="h2hEnd"
+                            type="date"
+                            value={h2hEnd}
+                            onChange={(e) => setH2hEnd(e.target.value)}
+                          />
+                        </span>
+                      </div>
+                    )}
                     <div className="mode-switch period">
                       {(['all', 'strong', 'weak'] as H2hView[]).map((v) => (
                         <button
@@ -2860,6 +2856,97 @@ export default function Home() {
                       {t('seasonByVersion')}
                     </button>
                   </div>
+                )}
+
+                {/* 캐릭터·강점·약점 매치업·스테이지·상대 캐릭·레이팅대·라운드(내 캐릭터
+                    기준) — 시즌별/버전별 나눠보기. 시즌 탭과 같은 신호(hasMultiSeason/
+                    hasMultiVersion)로 켜고 끈다 — 시즌이 하나뿐인 사람에게 '시즌별'
+                    버튼을 보여줘봐야 전체와 같은 표다. */}
+                {Object.keys(splitTabs).includes(current.key) && (hasMultiSeason || hasMultiVersion) && (
+                  <div className="mode-switch period">
+                    {/* 그룹 라벨 — '전체' 버튼이 화면의 다른 '전체'들과 헷갈리지 않게
+                        (P5). 라벨이 뜻을 지므로 버튼은 짧아진다('버전별'). */}
+                    <span className="ctl-label">{t('splitBy')}</span>
+                    <button
+                      className={splitView === 'all' ? 'on' : ''}
+                      onClick={() => setSplitView('all')}
+                    >
+                      {t('splitAll')}
+                    </button>
+                    {hasMultiSeason && (
+                      <button
+                        className={splitView === 'season' ? 'on' : ''}
+                        onClick={() => {
+                          if (splitView !== 'season') gaEvent('matchup_by_season');
+                          setSplitView('season');
+                        }}
+                      >
+                        {t('seasonBySeason')}
+                      </button>
+                    )}
+                    {hasMultiVersion && (
+                      <button
+                        className={splitView === 'version' ? 'on' : ''}
+                        onClick={() => {
+                          if (splitView !== 'version') gaEvent('matchup_by_version');
+                          setSplitView('version');
+                        }}
+                      >
+                        {t('splitByVersion')}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* 시즌별/버전별을 골랐으면, 그중 어느 시즌·버전인지 하나 더 고른다.
+                    S1·S2·S3 를 한 표에 다 몰아 보여주면 오히려 안 읽힌다는 피드백
+                    (2026-08)을 받아, 여기서 하나로 좁히고 표는 '전체'처럼 깔끔하게 낸다. */}
+                {splitView !== 'all' && splitLabels.length > 0 && (
+                  <>
+                    <div className="mode-switch period split-sub">
+                      {/* 선택지가 많으면(버전이 28개까지 간다) 버튼 대신 셀렉트 —
+                          버튼 3~4줄이 표를 밀어낸다. 모바일에서 특히(P8). */}
+                      {splitLabels.length > SPLIT_SELECT_THRESHOLD ? (
+                        <select
+                          className="split-select"
+                          value={effSplitSel}
+                          onChange={(e) => setSplitSel(e.target.value)}
+                        >
+                          {splitLabels.map((label) => (
+                            <option key={label} value={label}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        splitLabels.map((label) => (
+                          <button
+                            key={label}
+                            className={effSplitSel === label ? 'on' : ''}
+                            onClick={() => setSplitSel(label)}
+                          >
+                            {label}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                    {effSplitSpan && (
+                      <p className="hint split-span" style={{ marginTop: '0.2rem' }}>
+                        {effSplitSpan.start === effSplitSpan.end
+                          ? effSplitSpan.start
+                          : `${effSplitSpan.start} ~ ${effSplitSpan.end}`}
+                        {' · '}
+                        {effSplitPct != null
+                          ? t('splitComposition')(effSplitSpan.games, effSplitPct)
+                          : `${effSplitSpan.games.toLocaleString()}${t('games')}`}
+                      </p>
+                    )}
+                    {effSplitThin && (
+                      <p className="hint split-span split-thin">
+                        {t('splitThin')(THIN_SPLIT_GAMES)}
+                      </p>
+                    )}
+                  </>
                 )}
 
                 {/* 시각 기준 전환 — 조회 대상이 외국일 때만 나온다.
