@@ -722,14 +722,28 @@ button.small,
   margin-top: 0.6rem;
 }
 
+/* 조회 직후 첫 줄(이름·판수·기간) — 예전엔 배경 없는 문단이라 존재감이 약했다
+   (모바일 피드백, 2026-08). 요약 카드(.sum-card)와 같은 톤으로 영역을 주고
+   글자도 키운다 — 이 줄이 "지금 누굴 보고 있나"를 답하는 자리라서다. */
 .meta {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
   margin: 0.4rem 0 0.8rem;
 }
 
 .meta b {
   color: var(--text);
+}
+
+/* 이름(맨 앞 <b>)만 한 단계 더 키운다 — 판수·기간 같은 부가 정보와
+   위계가 갈려야 "누굴 보고 있는지"가 한눈에 들어온다. */
+.meta b:first-child {
+  font-size: 1.3rem;
 }
 
 /* 비교 상단: 대결 구도가 한눈에 보이게 크게 */
