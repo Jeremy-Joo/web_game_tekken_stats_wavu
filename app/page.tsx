@@ -2294,16 +2294,20 @@ export default function Home() {
           <p className="meta">
             <b>{single.myName || single.polarisId}</b>
             {single.selectedChar ? <b> — {single.selectedChar}</b> : null} ·{' '}
-            {single.filtered?.count}
-            {t('games')}
+            {/* 숫자+단위(예: "1811경기")도 한 덩어리다 — 한글은 공백 없이도
+                아무 글자 사이에서 줄바꿈될 수 있어서, nowrap 이 없으면 "1811경"
+                "기" 처럼 글자 중간이 끊긴다(모바일 피드백, 2026-08). */}
+            <span className="meta-nowrap">
+              {single.filtered?.count}
+              {t('games')}
+            </span>
             {single.filtered?.start || single.filtered?.end
               ? ` (${single.filtered?.start ?? ''} ~ ${single.filtered?.end ?? ''}, ${t('totalSuffix')} ${single.totalCount})`
               : ''}
             {single.firstDt && (
-              // 날짜 범위는 통째로 다음 줄로 넘어가야 한다 — nowrap 이 없으면
-              // 좁은 화면에서 "~" 뒤에서 끊겨 시작일과 종료일이 서로 다른 줄에
-              // 놓인다(모바일 피드백, 2026-08).
-              <span className="meta-daterange">
+              // 날짜 범위도 통째로 다음 줄로 넘어가야 한다 — 없으면 "~" 뒤에서
+              // 끊겨 시작일과 종료일이 서로 다른 줄에 놓인다.
+              <span className="meta-nowrap">
                 {' '}· {single.firstDt.slice(0, 10)} ~ {single.lastDt?.slice(0, 10)}
               </span>
             )}
