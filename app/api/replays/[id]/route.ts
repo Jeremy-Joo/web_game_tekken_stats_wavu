@@ -15,7 +15,7 @@ import { getRecords } from '@/lib/wavu/cache';
 import { filterByDate } from '@/lib/wavu/normalize';
 import { computeFromRecords } from '@/lib/tekken/compute';
 import { buildBarcodeSeq } from '@/lib/tekken/barcode';
-import { seasonSpans } from '@/lib/tekken/seasons';
+import { seasonSpans, versionSpans } from '@/lib/tekken/seasons';
 import { sessionAdvice } from '@/lib/tekken/advice';
 import { dateKey, type MatchRecord } from '@/lib/tekken/models';
 import { buildQuipFacts } from '@/lib/tekken/quip-facts';
@@ -112,6 +112,14 @@ export async function GET(
       stats,
       // 시즌 목록·구간은 전체 이력에서 뽑는다 — 기간 필터를 바꿔도 버튼이 흔들리지 않게.
       seasons: seasonSpans(records),
+      // 기간별 탭의 버전 단위 경계용. 경계는 날짜 범위라 전체 이력 기준이 맞다
+      // (필터로 좁힌 날짜도 전체 구간 안에 떨어진다).
+      versions: versionSpans(records),
+      // 나눠보기의 기간·구성 힌트용 — 이쪽은 **필터 적용 후** 기준이어야 한다.
+      // 나눠보기 표 자체가 filtered 로 계산되므로, 힌트가 전체 이력 값을 말하면
+      // 분자(전체 이력)>분모(필터 후)로 100%를 넘는 %가 나온다(실제 버그였다).
+      seasonsFiltered: seasonSpans(filtered),
+      versionsFiltered: versionSpans(filtered),
       // 권장 판수는 '지금 보고 있는 범위' 기준이라 필터된 데이터로 계산한다.
       // 셋째 인자는 '마지막 경기로부터 지난 날짜' — 오래 쉰 사람의 최근 20판을
       // 현재 폼으로 단정하지 않게 하는 값이다(advice.ts 의 STALE_DAYS).

@@ -9,7 +9,7 @@ import { normalizePolarisId, WavuError } from '@/lib/wavu/client';
 import { getRecords } from '@/lib/wavu/cache';
 import { filterByDate } from '@/lib/wavu/normalize';
 import { computeCompare, type ComparePlayer } from '@/lib/tekken/compare';
-import { seasonSpans, mergeSeasonSpans, type SeasonSpan } from '@/lib/tekken/seasons';
+import { seasonSpans, versionSpans, mergeSeasonSpans, type SeasonSpan } from '@/lib/tekken/seasons';
 
 export const runtime = 'nodejs';
 // 순차 수집이라 인원수만큼 시간이 는다. 4명 × 수 초 대비.
@@ -70,6 +70,7 @@ export async function GET(req: NextRequest) {
 
   const players: ComparePlayer[] = [];
   const spans: SeasonSpan[][] = []; // 시즌 버튼용 — 사람별 요약만 모은다(레코드 아님)
+  const versionSpansArr: SeasonSpan[][] = []; // 버전별 나눠보기용 — 위와 같은 이유로 요약만
   let anyStale = false;
   let totalGames = 0;
   try {
@@ -114,6 +115,7 @@ export async function GET(req: NextRequest) {
           : filterByDate(records, start, end),
       });
       spans.push(seasonSpans(records));
+      versionSpansArr.push(versionSpans(records));
     }
   } catch (e) {
     if (e instanceof WavuError) {
@@ -144,6 +146,7 @@ export async function GET(req: NextRequest) {
     })),
     tabs: computeCompare(players),
     seasons: mergeSeasonSpans(spans),
+    versions: mergeSeasonSpans(versionSpansArr),
     filtered: { start: start ?? null, end: end ?? null, season: season ?? null },
     cache: { stale: anyStale },
   });

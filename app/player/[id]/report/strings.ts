@@ -81,6 +81,12 @@ export const R = {
     en: (n: string) => `Season ${n}`,
     ja: (n: string) => `シーズン${n}`,
   } as F<[string]>,
+  // 버전 키는 'S3-30101' 형태라 그대로 노출해도 읽힌다 — 시즌 접두어가 이미 붙어 있다.
+  versionLabel: {
+    ko: (k: string) => `버전 ${k}`,
+    en: (k: string) => `Version ${k}`,
+    ja: (k: string) => `バージョン${k}`,
+  } as F<[string]>,
   gamesUnit: {
     ko: (n: string) => `${n}판`,
     en: (n: string) => `${n}`,
@@ -250,6 +256,15 @@ export const R = {
     ja: 'シーズン名を押すと、そのシーズンだけを表示できます。',
   } as S,
   seasonBest: { ko: '최고 승률', en: 'best', ja: '最高勝率' } as S,
+
+  // ── 버전별 (시즌별의 대칭 — 같은 시즌 안 밸런스 패치까지 갈라 본다) ──
+  secVersions: { ko: '버전별 성적', en: 'By version', ja: 'バージョン別成績' } as S,
+  versionsNote: {
+    ko: '버전 이름을 누르면 그 버전만 따로 볼 수 있습니다. 같은 시즌이라도 밸런스 패치로 갈립니다.',
+    en: 'Click a version to scope the whole report to it — even within one season, balance patches split it.',
+    ja: 'バージョン名を押すと、そのバージョンだけを表示できます。同じシーズンでもバランス調整で分かれます。',
+  } as S,
+  versionBest: { ko: '최고 승률', en: 'best', ja: '最高勝率' } as S,
 
   // ── 시간대 ──
   // '가장 강한/약한' 은 네 항목에 반복되면 길다. 강세·약세로 줄이면 표가 정돈되고
