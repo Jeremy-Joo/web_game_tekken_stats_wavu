@@ -43,6 +43,7 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
 {
   const p = factPools(base, 'ko', 'steady');
   ok('아무 축도 없으면 events 비어 있다', p.events.length === 0);
+  ok('rankChange 도 비어 있다', p.rankChange.length === 0);
   ok('traits 도 비어 있다', p.traits.length === 0);
   ok('facts 가 null 이면 둘 다 빈다', factPools(null, 'ko', 'steady').events.length === 0);
 }
@@ -63,25 +64,21 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
   const top = factPools(all, 'ko', 'cold').events[0];
   ok('전부 켜지면 마일스톤이 이긴다', has(top, '10,000판'), JSON.stringify(top[0]));
 
+  // 승단·강등은 2026-08-06부터 events 가 아니라 별도 필드다(확률 게이트, jokes.ts
+  // RANKCHANGE_EVERY 참조) — events 사다리와 무관하게 항상 채워져 있어야 한다.
+  ok('rankChange 는 events 와 별개로 항상 채워진다', has(factPools(all, 'ko', 'cold').rankChange, '승급'));
+
   // 마일스톤을 끄면 최고 갱신
   const noMile = factPools(f({ ...all, milestone: null }), 'ko', 'cold').events[0];
   ok('마일스톤 없으면 최고 갱신', has(noMile, '최고 레이팅'), JSON.stringify(noMile[0]));
 
-  // 그 다음 승단
+  // 그 다음 복귀 (승단·강등은 더 이상 이 사다리에 없다)
   const noPeak = factPools(f({ ...all, milestone: null, peakFresh: false }), 'ko', 'cold').events[0];
-  ok('그 다음은 승단', has(noPeak, '승급'), JSON.stringify(noPeak[0]));
-
-  // 그 다음 복귀
-  const noRank = factPools(
-    f({ ...all, milestone: null, peakFresh: false, rankChange: null }),
-    'ko',
-    'cold',
-  ).events[0];
-  ok('그 다음은 복귀', has(noRank, '60일'), JSON.stringify(noRank[0]));
+  ok('그 다음은 복귀', has(noPeak, '60일'), JSON.stringify(noPeak[0]));
 
   // 그 다음 연승
   const noComeback = factPools(
-    f({ ...all, milestone: null, peakFresh: false, rankChange: null, comebackDays: null }),
+    f({ ...all, milestone: null, peakFresh: false, comebackDays: null }),
     'ko',
     'cold',
   ).events[0];
@@ -93,7 +90,6 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
       ...all,
       milestone: null,
       peakFresh: false,
-      rankChange: null,
       comebackDays: null,
       winStreak: 0,
     }),
@@ -102,30 +98,32 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
   ).events[0];
   ok('그 다음은 오늘 몰림', has(noStreak, 'Bryan'), JSON.stringify(noStreak[0]));
 
-  // 마지막이 시각
-  const onlyClock = factPools(f({ clock: { hour: 3, dow: 1 } }), 'ko', 'cold').events[0];
-  ok('마지막은 시각', has(onlyClock, '새벽'), JSON.stringify(onlyClock[0]));
+  // 시각은 2026-08-06부터 events 사다리에 없다(확률 게이트, jokes.ts CLOCK_EVERY
+  // 참조) — 오늘 몰림 다음엔 더 이상 events 에 걸릴 게 없어야 한다.
+  const clockOnly = factPools(f({ ...all, milestone: null, peakFresh: false, comebackDays: null, winStreak: 0, todaySameChar: null }), 'ko', 'cold');
+  ok('시각만 남으면 events 는 빈다', clockOnly.events.length === 0);
+  ok('시각은 별도 필드로 채워진다', has(clockOnly.clock, '새벽'));
 }
 
-// ── 시각 축 — 시간대를 모르면 침묵 (제1 규칙) ────────────────────
+// ── 시각 축 — 시간대를 모르면 침묵 (제1 규칙) ─── (2026-08-06: 별도 필드로 이동) ──
 {
-  ok('clock 이 null 이면 시각 축 없음', factPools(f({ clock: null }), 'ko', 'cold').events.length === 0);
-  ok('새벽 3시는 열린다', factPools(f({ clock: { hour: 3, dow: 1 } }), 'ko', 'cold').events.length === 1);
+  ok('clock 이 null 이면 시각 축 없음', factPools(f({ clock: null }), 'ko', 'cold').clock.length === 0);
+  ok('새벽 3시는 열린다', factPools(f({ clock: { hour: 3, dow: 1 } }), 'ko', 'cold').clock.length > 0);
   ok(
     '일요일 밤 열린다',
-    has(factPools(f({ clock: { hour: 22, dow: 0 } }), 'ko', 'cold').events[0] ?? [], '일요일'),
+    has(factPools(f({ clock: { hour: 22, dow: 0 } }), 'ko', 'cold').clock, '일요일'),
   );
   ok(
     '금요일 밤 hot 은 다른 문구',
-    has(factPools(f({ clock: { hour: 22, dow: 5 } }), 'ko', 'hot').events[0] ?? [], '주말이 위험'),
+    has(factPools(f({ clock: { hour: 22, dow: 5 } }), 'ko', 'hot').clock, '주말이 위험'),
   );
   ok(
     '점심시간 열린다',
-    has(factPools(f({ clock: { hour: 12, dow: 3 } }), 'ko', 'cold').events[0] ?? [], '점심'),
+    has(factPools(f({ clock: { hour: 12, dow: 3 } }), 'ko', 'cold').clock, '점심'),
   );
   ok(
     '평일 저녁 8시는 아무것도 안 연다',
-    factPools(f({ clock: { hour: 20, dow: 3 } }), 'ko', 'cold').events.length === 0,
+    factPools(f({ clock: { hour: 20, dow: 3 } }), 'ko', 'cold').clock.length === 0,
   );
 }
 
@@ -144,12 +142,13 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
   );
 }
 
-// ── 승단 — 없는 걸 말하지 않는다 ─────────────────────────────────
+// ── 승단·강등 — events 가 아니라 별도 필드다(2026-08-06, 확률 게이트) ────
+// "없는 걸 말하지 않는다" 규칙 자체는 그대로다 — 필드만 옮겼다.
 {
   // 재방문이 적으면 '문지방' 문구가 없어야 한다
-  const few = factPools(f({ rankChange: { up: true, gamesAgo: 1, visits: 2, deltaPp: null } }), 'ko', 'steady').events[0];
+  const few = factPools(f({ rankChange: { up: true, gamesAgo: 1, visits: 2, deltaPp: null } }), 'ko', 'steady').rankChange;
   ok('재방문이 적으면 문지방 문구 없음', !has(few, '문지방'));
-  const many = factPools(f({ rankChange: { up: true, gamesAgo: 1, visits: 9, deltaPp: null } }), 'ko', 'steady').events[0];
+  const many = factPools(f({ rankChange: { up: true, gamesAgo: 1, visits: 9, deltaPp: null } }), 'ko', 'steady').rankChange;
   ok('재방문이 많으면 횟수를 그대로 말한다', has(many, '9번째'));
   // 전후 비교가 null 이면 그 문구가 없어야 한다
   ok('deltaPp 가 null 이면 승률 하락 문구 없음', !has(many, '%p 떨어졌'));
@@ -157,20 +156,21 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
     f({ rankChange: { up: true, gamesAgo: 1, visits: 2, deltaPp: -12 } }),
     'ko',
     'steady',
-  ).events[0];
+  ).rankChange;
   ok('deltaPp 가 있으면 인용한다', has(withDelta, '12%p 떨어졌'));
   // 하락이 작으면 말하지 않는다 (노이즈)
   const small = factPools(
     f({ rankChange: { up: true, gamesAgo: 1, visits: 2, deltaPp: -1 } }),
     'ko',
     'steady',
-  ).events[0];
+  ).rankChange;
   ok('하락이 작으면 인용 안 함', !has(small, '%p 떨어졌'));
   // 강등은 다른 문구
   ok(
     '강등은 강등이라고 말한다',
-    has(factPools(f({ rankChange: { up: false, gamesAgo: 0, visits: 2, deltaPp: null } }), 'ko', 'steady').events[0], '강등'),
+    has(factPools(f({ rankChange: { up: false, gamesAgo: 0, visits: 2, deltaPp: null } }), 'ko', 'steady').rankChange, '강등'),
   );
+  ok('rankChange 없으면 필드가 빈다', factPools(base, 'ko', 'steady').rankChange.length === 0);
 }
 
 // ── 마일스톤 — 시간 값이 없으면 시간 얘기를 안 한다 ──────────────

@@ -83,6 +83,20 @@ const TRAIT_EVERY = 5;
  * 의도된 순서다. 어긋남은 조회자 데이터에서 나온 정보고 계절은 달력에서 나온 인사다.
  */
 const STATE_EVERY = 2;
+/**
+ * 승단·강등 문구가 나올 확률(1/N). 예전엔 무조건 우선(events)이었다 — 실측
+ * (2026-08-06, 2,204명 스냅샷)으로 단독 40.4% 잠식이 확인돼 확률 게이트로 내렸다.
+ * 3 이면 대략 13%대로 줄어 기본 풀을 굶기지 않으면서도 여전히 자주 보인다.
+ * fact-jokes.ts 의 FactPools.rankChange 주석 참조.
+ */
+const RANKCHANGE_EVERY = 3;
+/**
+ * 시각 문구가 나올 확률(1/N). rankChange 를 빼고 재검증(2026-08-06, 425명)했더니
+ * 시각이 새 1위로 튀어나왔다 — 커버 시간대가 한 주의 34%(새벽+주말밤+점심)라
+ * "드문 사건"이 아니었다. rankChange 와 같은 이유로 같은 처방을 쓴다.
+ * fact-jokes.ts 의 FactPools.clock 주석 참조.
+ */
+const CLOCK_EVERY = 3;
 
 /** pp = 최근 폼 편차(%p, 부호 있음), streak = 현재 연패 수 */
 type JokeFn = (pp: number, streak: number) => string;
@@ -2835,24 +2849,37 @@ export function pickJoke(
   season?: Season | null,
   facts?: QuipFacts | null,
 ): string {
-  // ── 우선순위 사다리 (2026-08-05 재검토) ──────────────────────────
-  // 갈래가 넷이다. 각각 성격이 달라서 취급도 다르다:
-  //   사건(events)  드물게 한 번 참 → **무조건 우선.** 놓치면 다시 안 온다.
-  //   상태(state)   25판쯤 지속     → **1/2 로 우선.** 지속되는 동안 두어 번은 보이되
-  //                                   기본 풀을 질식시키지 않는다.
-  //   계절(season)  몇 달 지속      → 1/4. 달력이 근거라 정보 가치가 상태보다 낮다.
-  //   특성(traits)  늘 참           → 1/5. 우선하면 기본 풀이 영영 안 나온다.
+  // ── 우선순위 사다리 (2026-08-06 재검토, 2차) ──────────────────────
+  // 갈래가 여섯이다. 각각 성격이 달라서 취급도 다르다:
+  //   사건(events)     드물게 한 번 참  → **무조건 우선.** 놓치면 다시 안 온다.
+  //   승단·강등        12판에 한 번꼴   → **1/3 로 우선.** 흔한 일이라 무조건 우선하면
+  //                                       (실측 40.4%) 기본 풀을 통째로 굶긴다.
+  //   시각             한 주의 34%      → **1/3 로 우선.** rankChange 를 뺀 뒤 재검증하니
+  //                                       이게 새 1위였다 — 마찬가지로 "드문 사건"이 아니었다.
+  //   상태(state)      25판쯤 지속      → **1/2 로 우선.** 지속되는 동안 두어 번은 보이되
+  //                                       기본 풀을 질식시키지 않는다.
+  //   계절(season)     몇 달 지속       → 1/4. 달력이 근거라 정보 가치가 상태보다 낮다.
+  //   특성(traits)     늘 참            → 1/5. 우선하면 기본 풀이 영영 안 나온다.
   //
-  //   사다리: 사건 > 상태(1/2) > 계절(1/4) > 특성(1/5) > 기본(mood)
+  //   사다리: 사건 > 승단·강등(1/3) > 시각(1/3) > 상태(1/2) > 계절(1/4) > 특성(1/5) > 기본(mood)
   //
   // 겹침 검토 — seed 가 4의 배수면 상태·계절 조건이 동시에 참인데 상태가 먼저 잡는다
   // (의도: 조회자 데이터 > 달력). 홀수 seed 는 상태·계절을 다 지나 특성(5,15,25…)과
   // 기본으로 떨어지므로 어떤 조합에서도 기본 풀이 굶지 않는다.
   // 상태 셋(winNoGain·loseButGain·flatEven)은 quip-facts 의 판정이 상호배타라
   // 풀이 섞일 일이 없고, '강등'이라는 단어는 상태 풀이 쓰지 않는다 —
-  // 강등은 단(myRank)이 실제로 떨어졌을 때 사건(rankChange)만 말할 수 있다.
-  const { events, state, traits } = factPools(facts ?? null, lang, mood);
+  // 강등은 단(myRank)이 실제로 떨어졌을 때 rankChange 풀만 말할 수 있다.
+  const { events, rankChange, clock, state, traits } = factPools(facts ?? null, lang, mood);
   if (events.length > 0) return pick(events[0], seed); // 빈 pool 은 factPools 가 이미 걸렀다
+
+  // 승단·강등 — 흔한 일이라 사건에서 뺐다(위 사다리 주석 참조). 확률로만 끼워 넣는다.
+  if (rankChange.length > 0 && seed % RANKCHANGE_EVERY === 0) return pick(rankChange, seed);
+
+  // 시각 — 한 주의 34% 를 커버해 마찬가지로 흔하다. 승단·강등과 같은 확률로 끼워 넣는다.
+  // seed 가 홀수(예: 3)면 RANKCHANGE_EVERY 와 겹칠 수 있지만, 두 필드가 동시에
+  // 값을 가지는 경우 자체가 드물어(단이 막 바뀐 순간이 하필 새벽/점심일 때) 실질적
+  // 충돌은 미미하다 — rankChange 가 앞에 있으므로 그럴 땐 rankChange 가 이긴다.
+  if (clock.length > 0 && seed % CLOCK_EVERY === 0) return pick(clock, seed);
 
   // 승률·레이팅 어긋남 — 승률 표만 봐서는 절대 안 보이는 정보라 계절보다 앞선다.
   if (state.length > 0 && seed % STATE_EVERY === 0) return pick(state, seed);

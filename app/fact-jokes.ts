@@ -451,6 +451,24 @@ export interface FactPools {
   /** 우선순위 순. 앞에서부터 비어 있지 않은 첫 pool 이 이긴다. */
   events: string[][];
   /**
+   * 승단·강등. 예전엔 events 안에 있었다 — **실측(2026-08-06, 2,204명 스냅샷)으로
+   * 뺐다.** 단 변화는 "12판에 한 번꼴"(quip-facts.ts RANK_RECENT 주석)로 흔해서
+   * events 취급을 받으면 전체의 40.4% 를 이게 혼자 잠식했다(milestone·comeback 같은
+   * 진짜 희귀 사건과 같은 등급이 아니었다). state 처럼 확률 게이트를 준다 —
+   * jokes.ts 의 pickJoke, RANKCHANGE_EVERY 참조.
+   */
+  rankChange: string[];
+  /**
+   * 시각(새벽/일요일밤/금요일밤/점심). 예전엔 events 안에 있었다 — **실측
+   * (2026-08-06, 425명 재검증)으로 뺐다.** 조건이 커버하는 시간대가 새벽 0~4시
+   * (매일 5시간) + 일요일 밤 + 금요일 밤 + 점심 1~2시로, 한 주 168시간 중 약
+   * 57시간(34%)이나 된다 — "드물게 참"이 아니라 "3번에 1번꼴로 참"이라 events
+   * 취급을 받으면 milestone·comeback 같은 진짜 희귀 사건을 밀어내며 기본 풀을
+   * 잠식했다(rankChange 를 뺀 뒤에도 이게 새 1위로 튀어나왔다). rankChange 와
+   * 같은 이유로 같은 방식(확률 게이트)을 쓴다 — jokes.ts 의 CLOCK_EVERY 참조.
+   */
+  clock: string[];
+  /**
    * 승률·레이팅 어긋남(diverge-jokes.ts). 사건도 특성도 아닌 **상태**다 —
    * 25판쯤 지속되다 사라진다. 사다리에서의 취급은 jokes.ts 의 pickJoke 주석 참조.
    */
@@ -461,24 +479,26 @@ export interface FactPools {
 
 /**
  * 우선순위: 좁은 조건이 이긴다.
- *   마일스톤 > 최고 갱신 > 승단·강등 > 복귀 > 연승 > 오늘 몰림 > 시각
+ *   마일스톤 > 최고 갱신 > 복귀 > 연승 > 오늘 몰림  (여기까지 events, 무조건)
+ *   승단·강등 / 시각                                 (별도 필드, 확률 게이트 — 둘 다 흔한 일이라)
  *
  * 근거: 위로 갈수록 발화 빈도가 낮다. 자주 참인 축이 앞에 있으면 뒤의 축은 영영
  * 안 나온다 — seed % N 으로 섞으면 드문 사건이 묻히는 정반대 문제가 생긴다
- * (10,000판 달성은 평생 한 번인데 25% 확률로 밀리면 안 된다).
+ * (10,000판 달성은 평생 한 번인데 25% 확률로 밀리면 안 된다). 승단·강등과 시각은
+ * 이 논리가 안 맞아서(둘 다 흔한 일이라) events 에서 뺐다 — 위 필드 주석 참조.
  */
 export function factPools(f: QuipFacts | null, lang: Lang, mood: Mood): FactPools {
-  if (!f) return { events: [], state: [], traits: [] };
+  if (!f) return { events: [], rankChange: [], clock: [], state: [], traits: [] };
   return {
     events: [
       milestone(f, lang),
       peakFresh(f, lang),
-      rankChange(f, lang),
       comeback(f, lang),
       winStreak(f, lang),
       todaySameChar(f, lang),
-      clock(f, lang, mood),
     ].filter((p) => p.length > 0),
+    rankChange: rankChange(f, lang),
+    clock: clock(f, lang, mood),
     state: divergePool(f, lang),
     traits: traits(f, lang),
   };
