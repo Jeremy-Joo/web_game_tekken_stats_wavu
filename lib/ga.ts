@@ -130,8 +130,8 @@ export interface PlayerView {
    */
   views: number;
   users: number;
-  firstDate: string; // 'yyyy-MM-dd HH시' — 이 기간에 처음 조회된 날짜+시간대
-  lastDate: string; // 마지막으로 조회된 날짜+시간대
+  firstDate: string; // 'yyyy-MM-dd HH:mm' — 이 기간에 처음 조회된 날짜+시각
+  lastDate: string; // 마지막으로 조회된 날짜+시각
   daysSeen: number; // 조회된 날의 수 (1이면 하루만 보고 끝난 ID)
 }
 
@@ -185,15 +185,18 @@ async function lookupCounts(days: number): Promise<Map<string, number>> {
  * 조회 건수(lookups)와 탐색 깊이(views)는 원천이 다르다 — 위 lookupCounts 주석 참조.
  */
 export async function playerViews(days: number): Promise<PlayerView[]> {
-  // dateHour 를 함께 뽑아 '언제 조회됐는지'를 날짜+시간대까지 안다(전에는 date 라
-  // 날짜만 나왔다 — 2026-08 피드백으로 시간대를 추가했다). date 보다 24배까지
-  // 행이 늘 수 있어 limit 을 넉넉히 준다 — 200 이면 활동이 많은 기간에 뒤쪽
-  // 플레이어가 잘려 나간다. 서로 독립이라 같이 던진다. 하나가 실패하면 전체가
-  // 실패하는 편이 낫다 — 조용히 0 으로 채우면 '조회가 없었다'와 구별되지 않는다.
+  // dateHourMinute 을 함께 뽑아 '언제 조회됐는지'를 분 단위까지 안다(처음엔 date,
+  // 그다음 dateHour 로 갔다가 — 2026-08 피드백으로 "정확히 몇 시 몇 분"까지
+  // 원한다고 해서 분 단위로 올렸다). date 보다 최대 1440배까지 행이 늘 수 있어
+  // limit 을 넉넉히 준다 — 200 이면 활동이 많은 기간에 뒤쪽 플레이어가 잘려
+  // 나간다. **'전체'(10년) 처럼 아주 넓은 기간에 조회량이 많으면 이 limit 도
+  // 넘겨 뒤쪽이 잘릴 수 있다** — 그때는 dateHour(시 단위)로 한 단계 낮추는 게
+  // 다음 대응이다. 서로 독립이라 같이 던진다. 하나가 실패하면 전체가 실패하는
+  // 편이 낫다 — 조용히 0 으로 채우면 '조회가 없었다'와 구별되지 않는다.
   const [rows, lookups] = await Promise.all([
     runReport({
     dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
-    dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }, { name: 'dateHour' }],
+    dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }, { name: 'dateHourMinute' }],
     metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }],
     dimensionFilter: {
       filter: {
@@ -207,20 +210,20 @@ export async function playerViews(days: number): Promise<PlayerView[]> {
     lookupCounts(days),
   ]);
 
-  // 같은 플레이어라도 쿼리(?tab=...)·시간대가 다르면 행이 갈라지므로 식별코드로 합친다
+  // 같은 플레이어라도 쿼리(?tab=...)·시각이 다르면 행이 갈라지므로 식별코드로 합친다
   const byId = new Map<string, PlayerView>();
   const daysById = new Map<string, Set<string>>();
   for (const r of rows) {
     const path = r.dimensionValues?.[0]?.value ?? '';
     const title = r.dimensionValues?.[1]?.value ?? '';
-    // GA4 dateHour 형식: 'yyyyMMddHH' (10자리, property 설정 시간대 기준).
+    // GA4 dateHourMinute 형식: 'yyyyMMddHHmm' (12자리, property 설정 시간대 기준).
     const rawDate = r.dimensionValues?.[2]?.value ?? '';
     const date =
-      rawDate.length === 10
-        ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)} ${rawDate.slice(8, 10)}시`
+      rawDate.length === 12
+        ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)} ${rawDate.slice(8, 10)}:${rawDate.slice(10, 12)}`
         : rawDate;
-    // daysSeen(조회된 '날'의 수)은 시간대까지 섞으면 하루가 여러 개로 쪼개지므로
-    // 날짜 부분만 따로 뗀다 — date 는 'yyyy-MM-dd HH시'라 앞 10자가 곧 날짜다.
+    // daysSeen(조회된 '날'의 수)은 시각까지 섞으면 하루가 여러 개로 쪼개지므로
+    // 날짜 부분만 따로 뗀다 — date 는 'yyyy-MM-dd HH:mm'라 앞 10자가 곧 날짜다.
     const dayOnly = date.slice(0, 10);
     const views = Number(r.metricValues?.[0]?.value ?? 0);
     const users = Number(r.metricValues?.[1]?.value ?? 0);
@@ -259,7 +262,7 @@ export async function playerViews(days: number): Promise<PlayerView[]> {
   for (const [id, p] of byId) p.daysSeen = daysById.get(id)?.size ?? 0;
 
   // 가장 최근에 조회한 사람이 맨 위로 온다(2026-08 요청) — lastDate 는
-  // 'yyyy-MM-dd HH시'라 문자열 비교만으로 시간 순서가 그대로 맞는다.
+  // 'yyyy-MM-dd HH:mm'이라 문자열 비교만으로 시간 순서가 그대로 맞는다.
   // 시각까지 똑같이 겹치는 드문 경우엔 예전 기준(조회 수, 없으면 페이지뷰)으로
   // 갈라 순서가 매번 흔들리지 않게 한다.
   const anyLookup = [...byId.values()].some((p) => p.lookups > 0);
