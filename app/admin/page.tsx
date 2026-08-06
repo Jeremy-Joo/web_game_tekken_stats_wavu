@@ -62,6 +62,12 @@ interface Stats {
   audience: Audience | null;
   features: FeatureRow[] | null;
   reports: { views: number; users: number } | null;
+  /**
+   * 식별코드별 조회를 UI 언어(ko/en/ja)로 가른 것. null = GA4 맞춤 측정기준
+   * (customEvent:ui_lang)을 아직 등록 안 했거나 리포트가 실패했다는 뜻 —
+   * 등록 방법은 화면 안내문 참조.
+   */
+  langByPlayer: Record<string, Record<string, number>> | null;
   error?: string;
   setup?: boolean; // true = 환경변수/권한 등 설정이 덜 된 상태
 }
@@ -287,13 +293,13 @@ export default function AdminPage() {
   const downloadCsv = () => {
     if (!data) return;
     const lines = [
-      '#,마지막 조회,이름,식별코드,조회,페이지뷰,깊이,비율(%),사용자,첫 조회,조회일 수,패턴',
+      '#,마지막 조회,이름,식별코드,조회,페이지뷰,깊이,비율(%),사용자,첫 조회,조회일 수,패턴,언어',
     ];
     data.players.forEach((p, i) => {
       lines.push(
         [
           i + 1, p.lastDate, p.name || '', p.id, p.lookups, p.views, depth(p), pct(p.views),
-          p.users, p.firstDate, p.daysSeen, pattern(p),
+          p.users, p.firstDate, p.daysSeen, pattern(p), langLabel(p.id),
         ].map(csvCell).join(','),
       );
     });
@@ -372,6 +378,18 @@ export default function AdminPage() {
   /** 조회 1건당 화면을 몇 번 만졌나. 조회 수가 0(과거 기간)이면 낼 수 없다. */
   const depth = (p: PlayerRow): string =>
     p.lookups > 0 ? (p.views / p.lookups).toFixed(1) : '—';
+
+  /**
+   * 이 ID 가 어느 UI 언어로 조회됐는지. 언어별 조회 수를 큰 순서로 나열한다
+   * (예: "ko 3 · en 1"). langByPlayer 가 null 이면(맞춤 측정기준 미등록)
+   * 표 전체가 '—'로 남는다 — 위 안내문이 이유를 설명한다.
+   */
+  const langLabel = (id: string): string => {
+    const rec = data?.langByPlayer?.[id];
+    if (!rec) return '—';
+    const entries = Object.entries(rec).sort((a, b) => b[1] - a[1]);
+    return entries.length ? entries.map(([l, c]) => `${l} ${c}`).join(' · ') : '—';
+  };
 
   // ── 표 정렬 ──────────────────────────────────────────────────────
   // 여러 방법으로 훑어보고 싶다는 요청 — 헤더를 눌러 기준을 바꾼다.
@@ -713,6 +731,9 @@ export default function AdminPage() {
                   <SortTh sortKey="firstDate" label="첫 조회" {...sortProps} />
                   <SortTh sortKey="daysSeen" label="조회일" {...sortProps} />
                   <SortTh sortKey="pattern" label="패턴" {...sortProps} />
+                  <th title="어느 UI 언어(한국어/English/日本語)로 조회했나 — 언어별 조회 수, 많은 순">
+                    언어
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -738,6 +759,7 @@ export default function AdminPage() {
                     <td>{p.firstDate?.slice(5) ?? ''}</td>
                     <td>{p.daysSeen}</td>
                     <td>{pattern(p)}</td>
+                    <td>{langLabel(p.id)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -745,6 +767,17 @@ export default function AdminPage() {
           </div>
           {data.players.length === 0 && (
             <p className="hint">이 기간에 조회된 플레이어가 없습니다.</p>
+          )}
+          {data.langByPlayer === null && (
+            <p className="hint" style={{ lineHeight: 1.7 }}>
+              &lsquo;언어&rsquo; 열은 GA4 맞춤 측정기준을 등록해야 나옵니다:
+              <br />
+              GA4 → 관리 → 맞춤 정의 → 맞춤 측정기준 → 만들기 — 측정기준 이름은
+              자유(예: UI Language), 범위는 <b>이벤트</b>, 이벤트 매개변수는{' '}
+              <code>ui_lang</code>로 등록하세요.
+              <br />
+              등록한 시점부터 쌓이는 조회만 반영됩니다(예전 기록은 소급되지 않습니다).
+            </p>
           )}
 
           <h2 className="admin-h2">유입 경로</h2>

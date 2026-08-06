@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
-import { playerViews, dailyTotals, trafficSources, GaError } from '@/lib/ga';
+import { playerViews, dailyTotals, trafficSources, lookupLangByPlayer, GaError } from '@/lib/ga';
 import { tabsToXlsx } from '@/lib/tekken/xlsx';
 import type { TabData } from '@/lib/tekken/compute';
 import { isAdminRangeDays, adminRangeLabel, ADMIN_RANGE_ALL_DAYS } from '@/lib/admin-ranges';
@@ -49,6 +49,18 @@ export async function POST(req: NextRequest) {
       dailyTotals(days),
       trafficSources(days),
     ]);
+    // 곁다리 — customEvent:ui_lang 을 GA4 에서 맞춤 측정기준으로 등록하기 전에는
+    // 늘 실패한다(lib/ga.ts lookupLangByPlayer 주석 참조). 실패해도 엑셀 자체는
+    // 만들어져야 하므로 catch 해서 null 로 떨어뜨린다.
+    const langByPlayer = await lookupLangByPlayer(days).catch(() => null);
+    const langLabel = (id: string): string => {
+      const rec = langByPlayer?.get(id);
+      if (!rec) return '';
+      return Object.entries(rec)
+        .sort((a, b) => b[1] - a[1])
+        .map(([l, c]) => `${l} ${c}`)
+        .join(' · ');
+    };
     const totalViews = daily.reduce((s, d) => s + d.views, 0);
     const pct = (n: number) => (totalViews ? Math.round((n * 10000) / totalViews) / 100 : 0);
 
@@ -58,7 +70,7 @@ export async function POST(req: NextRequest) {
         label: '조회된 플레이어',
         columns: [
           '#', '마지막 조회', '이름', '식별코드', '조회', '페이지뷰', '깊이', '비율(%)',
-          '사용자', '첫 조회', '조회일 수', '패턴',
+          '사용자', '첫 조회', '조회일 수', '패턴', '언어',
         ],
         rows: players.map((p, i) => [
           i + 1, p.lastDate, p.name || '', p.id, p.lookups,
@@ -77,6 +89,7 @@ export async function POST(req: NextRequest) {
                 : p.views >= 10
                   ? '1명 정독'
                   : '1회성',
+          langLabel(p.id),
         ]),
       },
       {

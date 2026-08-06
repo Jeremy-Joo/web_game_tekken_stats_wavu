@@ -179,6 +179,64 @@ async function lookupCounts(days: number): Promise<Map<string, number>> {
 }
 
 /**
+ * 식별코드별 조회를 UI 언어(ko/en/ja)로 가른다. "이 ID 를 어느 언어로
+ * 조회했나"를 보고 싶다는 요청(2026-08)에서 나왔다.
+ *
+ * lookupCounts 와 달리 **맞춤 이벤트 파라미터**(customEvent:ui_lang)를 쓴다 —
+ * GA4 표준 dimension 중엔 "이 사이트에서 고른 언어"에 대응하는 게 없다
+ * (표준 language 는 브라우저 설정, audience() 주석 참조). 그래서 이 함수는
+ * lookupCounts 와 분리해 곁다리로만 쓴다: GA4 관리화면에서 이 파라미터를
+ * 맞춤 측정기준으로 등록하기 전에는 GA API 가 이 dimension 이름 자체를
+ * 모른다며 요청을 통째로 실패시킨다 — 그걸 핵심 조회 수 집계까지 끌고 가면
+ * 등록 전엔 관리자 화면 전체가 죽는다. 호출부(route.ts)에서 allSettled 로
+ * 감싸 이 리포트만 실패하게 한다.
+ *
+ * **등록 전 기간은 영영 안 나온다** — player_lookup 자체가 그렇듯, 등록 시점
+ * 이후에 쌓인 데이터만 커버한다.
+ */
+export async function lookupLangByPlayer(
+  days: number,
+): Promise<Map<string, Record<string, number>>> {
+  const rows = await runReport({
+    dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+    dimensions: [{ name: 'pagePath' }, { name: 'customEvent:ui_lang' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: {
+      andGroup: {
+        expressions: [
+          {
+            filter: {
+              fieldName: 'eventName',
+              stringFilter: { matchType: 'EXACT', value: 'player_lookup' },
+            },
+          },
+          {
+            filter: {
+              fieldName: 'pagePath',
+              stringFilter: { matchType: 'BEGINS_WITH', value: '/player/' },
+            },
+          },
+        ],
+      },
+    },
+    limit: 20000,
+  });
+
+  const out = new Map<string, Record<string, number>>();
+  for (const r of rows) {
+    const m = /^\/player\/([A-Za-z0-9-]+)/.exec(r.dimensionValues?.[0]?.value ?? '');
+    if (!m) continue;
+    const id = m[1].replace(/-/g, '');
+    const lang = r.dimensionValues?.[1]?.value || '(unknown)';
+    const count = Number(r.metricValues?.[0]?.value ?? 0);
+    const cur = out.get(id) ?? {};
+    cur[lang] = (cur[lang] ?? 0) + count;
+    out.set(id, cur);
+  }
+  return out;
+}
+
+/**
  * /player/<식별코드> 페이지뷰 → 조회된 플레이어 목록.
  * 이름은 페이지 제목에서 뽑는다 — 제목이 "이름 (식별코드) — …" 형식이라 그대로 쓸 수 있다.
  *

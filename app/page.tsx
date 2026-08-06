@@ -1350,6 +1350,12 @@ export default function Home() {
       window.gtag?.('event', 'player_lookup', {
         page_title: document.title,
         page_location: window.location.href,
+        // 관리자 화면에서 "이 ID 를 어느 UI 언어로 조회했나"를 보려면 필요하다
+        // (2026-08 요청). GA4 표준 language 측정기준은 브라우저 설정이라 이
+        // 사이트에서 고른 언어와 다르다(lib/ga.ts audience() 주석 참조) — 그래서
+        // 맞춤 이벤트 파라미터로 직접 보낸다. GA4 관리화면에서 이 파라미터를
+        // 맞춤 측정기준(customEvent:ui_lang)으로 등록해야 Data API 로 읽힌다.
+        ui_lang: lang,
       });
     }
   }, [
