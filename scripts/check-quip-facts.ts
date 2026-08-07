@@ -119,6 +119,60 @@ eq('마일스톤 미만이면 아래 단계', facts(make([{ n: 520 }]))!.milesto
   eq('그러면 방금 갱신 아님', facts(down)!.peakFresh, false);
 }
 
+// ── 최저점 대비 회복 ─────────────────────────────────────────────
+// make() 는 승리 +5 / 패배 -5 로 레이팅을 움직인다. 최고점(+500) → 낙폭 →
+// 회복 폭을 판수로 만들어 경계(RECOVERY_DIP=150, RECOVERY_UP=100)를 못박는다.
+{
+  // 상승 100판(+500, 최고 2000) → 하락 40판(-200, 최저 1800) → 회복 30판(+150, 현재 1950)
+  const v = make([
+    { n: 100, winRate: 100 },
+    { n: 40, winRate: 0 },
+    { n: 30, winRate: 100 },
+  ]);
+  const r = facts(v)!.recovery;
+  eq('V자면 회복이 잡힌다 (최저점)', r?.troughRating, 1800);
+  eq('  올라온 폭', r?.up, 150);
+  eq('  최고점까지 남은 폭', r?.toPeak, 50);
+
+  // 낙폭이 150 미만이면(-100) 회복이라 부르지 않는다
+  const shallowDip = make([
+    { n: 100, winRate: 100 },
+    { n: 20, winRate: 0 },
+    { n: 30, winRate: 100 },
+  ]);
+  eq('낙폭이 작으면 null', facts(shallowDip)!.recovery, null);
+
+  // 바닥에서 100 미만(+50) 올라온 건 회복이 아니다
+  const smallUp = make([
+    { n: 100, winRate: 100 },
+    { n: 40, winRate: 0 },
+    { n: 10, winRate: 100 },
+  ]);
+  eq('회복 폭이 작으면 null', facts(smallUp)!.recovery, null);
+
+  // 최고점을 넘어서면 recovery 는 침묵하고 peakFresh 가 이어받는다
+  const surpassed = make([
+    { n: 100, winRate: 100 },
+    { n: 40, winRate: 0 },
+    { n: 60, winRate: 100 },
+  ]);
+  eq('최고점을 넘으면 null', facts(surpassed)!.recovery, null);
+  eq('  그 순간은 peakFresh 가 잡는다', facts(surpassed)!.peakFresh, true);
+
+  // '올라오는 중'은 현재형 — 지난 범위를 보면(isCurrent=false) 말하지 않는다
+  const past = facts(v.slice(0, 150), { allRecords: v });
+  eq('isCurrent 아니면 null', past!.recovery, null);
+
+  // 최저점이 오래됐으면(200판 초과) 회복이 아니라 세월이다 — 실측 100% 발화 사고의 재발 방지
+  const staleTrough = make([
+    { n: 100, winRate: 100 },
+    { n: 40, winRate: 0 },
+    { n: 30, winRate: 100 },
+    { n: 300, winRate: 50 }, // 회복 후 오래 평탄 — 바닥이 330판 전으로 밀려난다
+  ]);
+  eq('최저점이 오래되면 null', facts(staleTrough)!.recovery, null);
+}
+
 // ── 단 변화 ──────────────────────────────────────────────────────
 {
   const recent = make([{ n: 200, rank: 24 }, { n: 5, rank: 25 }]);

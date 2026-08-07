@@ -137,6 +137,11 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `이 정도면 자랑해도 됩니다. 딱 오늘까지만요.`,
       () => `어디까지 가나 보고 싶은데, 보고 싶은 마음이 드는 순간이 꺾이는 자리입니다.`,
       () => `통계가 할 말을 잃었습니다. 좋은 쪽으로요.`,
+      // 도박 소재 — 카지노·화투·섯다·투기. 실제 돈 얘기는 항상 가정법("~였으면")으로
+      // 감싼다(딴 돈이 아니라 게임 승률이라는 게 핵심). 놀리는 대상은 "돈이 안 되는
+      // 취미"라는 사실이지, 도박 자체를 권하거나 미화하지 않는다.
+      () => `카지노였으면 지금쯤 보안요원이 옆에 붙었을 승률입니다.`,
+      () => `섯다판이었으면 오늘로 은퇴 선언 하기 딱 좋은 패입니다.`,
     ],
     en: [
       () => `This is not form. This is an incident. The good kind.`,
@@ -157,6 +162,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `This is worth bragging about. Strictly today.`,
       () => `I want to see how far it goes — and wanting that is exactly where it breaks.`,
       () => `The stats have nothing to say. In a good way.`,
+      // Gambling material — casino/poker/crypto. Real money is always hypothetical
+      // ("if this were..."); the joke is that the win doesn't pay out, not gambling itself.
+      () => `At a casino, security would be watching you by now.`,
+      () => `In poker, this is the hand you retire on.`,
     ],
     ja: [
       () => `これは調子ではなく事故です。良いほうの事故ですが。`,
@@ -177,6 +186,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `これは自慢していい数字です。今日限りで。`,
       () => `どこまで行くか見たいのですが、見たくなった時点がもう折れ目です。`,
       () => `統計が言葉を失いました。良い意味で。`,
+      // 賭け事ネタ — カジノ・パチンコ・仮想通貨。実際のお金は常に仮定法("〜だったら")で
+      // 包む。笑いどころは「勝っても現金化できない」であって、賭け事そのものではない。
+      () => `カジノだったら、そろそろ警備員に見られている頃です。`,
+      () => `パチンコなら大当たりを通り越して出玉制限がかかる数字です。`,
     ],
   },
 
@@ -347,6 +360,47 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `실력이 는 건 아니고 절대 아니고, 오늘 상대들이 좀 그랬던 것 같아요.`,
       () => `단정하긴 어렵지만 오늘은 운이 실력을 덮어준 날입니다.`,
       () => `기록해 두세요. 다음에 이런 날 오면 그때 또 기록하시고요.`,
+      // 도박 소재 — 카지노·화투·섯다·투기. "~였으면"으로 감싼 가정법만 쓴다 —
+      // 실제로 돈을 딴 게 아니라 승률 얘기라는 걸 문장 구조로도 분명히 한다.
+      () => `이게 카지노였으면 오늘 큰돈 만졌을 텐데, 여긴 철권이라 통장엔 안 남습니다.`,
+      () => `섯다판이었으면 오늘 판돈을 다 쓸어 담았습니다. 아쉽게도 여긴 철권입니다.`,
+      () => `화투판이었으면 이 흐름에 다들 슬슬 자리를 접었을 겁니다.`,
+      () => `이 승률을 투기 종목에 넣었으면 지금쯤 손 떨리는 인터뷰를 하고 있을 겁니다.`,
+      () => `코인이었으면 지금쯤 존버 대신 익절을 고민하고 있을 겁니다.`,
+      () => `카지노 칩이었다면 옆에서 따라 걸었을 흐름입니다.`,
+      () => `섯다로 치면 광 팔고도 남는 패입니다.`,
+      // 낚시·건설·항해·병원 (2026-08-07 사용자 요청). 지킬 선:
+      //  낚시 — 기존 바다 규칙 그대로(낚시까지 OK, 익사 계열 금지).
+      //  건설 — 붕괴·사고는 실제 참사와 겹쳐 쓰지 않는다. 공기·도면·준공까지만.
+      //  항해 — 침몰·조난·표류 금지(기존 바다 규칙과 같은 선). 항로·바람·항구까지만.
+      //  병원 — **환자는 사람이 아니라 승률이다.** 사망·임종·말기 금지(사용자 지시),
+      //         살린다·입원·처방·경과는 OK.
+      // 은유는 **주어(승률)나 틀("~로 치면")을 문장 안에서 밝힌다** — 2026-08-07
+      // 피드백: 틀만 던지면("경과가 어제만 못합니다") 무슨 얘긴지 못 알아듣는다.
+      // 도박 멘트의 "섯다로 치면 ~" 앵커 방식을 전 주제로 확장한 것.
+      () => `낚시로 치면 던지는 족족 입질이 오는 날입니다. 만선이네요.`,
+      () => `낚시였으면 오늘 어망이 모자랐을 겁니다.`,
+      () => `공사로 치면 공정률이 예정보다 앞서가는 현장입니다. 이런 날은 드뭅니다.`,
+      () => `승률이 설계도대로 올라가는 날입니다. 준공이 앞당겨지겠는데요.`,
+      () => `항해로 치면 항로가 정확한 날입니다. 해도 없이도 항구가 보입니다.`,
+      () => `오늘 항해엔 등대가 필요 없습니다. 배가 알아서 갑니다.`,
+      () => `승률이 완쾌 판정을 받았습니다. 퇴원해도 되겠는데요.`,
+      () => `승률의 경과가 이 정도면 주치의가 자랑하고 다닙니다.`,
+      // 농사 (2026-08-07 추가) — 풍년·작황·수확까지만. 흉년의 실제 고통(굶주림)은
+      // 소재로 안 쓴다(실제로 힘든 주제 금지 규칙과 같은 선).
+      () => `농사로 치면 풍년입니다. 곳간 자리부터 알아보셔야겠는데요.`,
+      () => `농사로 치면 심는 족족 자라는 날입니다. 밭이 알아서 일하네요.`,
+      // 2차 확장 (2026-08-07 "멘트를 더 늘려줘") — 주제당 2개씩 추가.
+      () => `낚시로 치면 놓아준 고기까지 다시 무는 날입니다.`,
+      () => `낚시로 치면 포인트를 옮길 필요가 없는 날입니다. 앉은 자리가 명당입니다.`,
+      () => `공사로 치면 오늘 하루로 한 주치 공정을 뽑았습니다.`,
+      () => `공사로 치면 검수 없이 통과되는 시공입니다. 오늘 솜씨가 그렇습니다.`,
+      () => `항해로 치면 순풍에 물때까지 맞은 날입니다. 이런 날 항구에 있으면 아깝죠.`,
+      () => `항해로 치면 키를 놓아도 항로를 지키는 배입니다.`,
+      () => `승률 검진 결과가 다 정상입니다. 이런 차트는 오랜만입니다.`,
+      () => `오늘 승률은 재검진이 필요 없습니다. 다음 환자 들어오세요.`,
+      () => `농사로 치면 심지 않은 데서도 나는 날입니다.`,
+      () => `승률 밭에 오늘은 잡초 하나 없습니다. 김맬 일이 없네요.`,
     ],
     en: [
       (pp) => `If only stocks moved like this — last 20 games are ${pp}%p above your usual.`,
@@ -499,6 +553,40 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `Your skill did not improve — absolutely not. Today's opponents just were what they were.`,
       () => `Hard to be certain, but today luck covered for skill.`,
       () => `Write it down. And write it down again next time one of these comes around.`,
+      // Gambling material — casino/poker/crypto, always hypothetical ("if this were...").
+      () => `At a casino, this is the night you'd have walked out with real money — instead it's Tekken, so it stays a number.`,
+      () => `At the poker table, you'd have scooped every pot tonight. Shame it's Tekken.`,
+      () => `If this were stocks, people would be asking for your entry point.`,
+      () => `Put this win rate in crypto and you'd be debating early retirement, not holding.`,
+      () => `At the blackjack table, the pit boss would be watching you by now.`,
+      () => `Everyone at the table would be copying your bets on a night like this.`,
+      // Fishing/construction/sailing/hospital (2026-08-07). Rules: no drowning or
+      // shipwreck (existing sea rule), no building collapse, and the hospital
+      // patient is the WIN RATE, never a person — no death imagery (user's rule).
+      // Metaphors name their subject (the win rate) or their frame ("in ... terms") —
+      // same anchoring rule as the ko pool (2026-08-07 feedback).
+      () => `Every cast gets a bite today. The cooler is full.`,
+      () => `Only the big ones are biting today.`,
+      () => `In construction terms: ahead of schedule, nothing to redo. Rare site.`,
+      () => `The win rate is going up exactly as drawn. Right on blueprint.`,
+      () => `Your course is true — you could find the harbor without a chart tonight.`,
+      () => `No lighthouse needed tonight. The ship knows the way.`,
+      () => `The win rate got a clean bill of health. Discharge papers are ready.`,
+      () => `Your win rate is the kind of patient doctors brag about.`,
+      // Farming — bumper crops and harvests only; real hardship (hunger) is off limits.
+      () => `In farming terms, this is a bumper crop. Start looking for a bigger barn.`,
+      () => `Everything you plant today grows. The field is doing the work.`,
+      // Second expansion — two more per theme.
+      () => `In fishing terms, even the ones that got away are biting again.`,
+      () => `No need to move spots today — you are sitting on the honey hole.`,
+      () => `In construction terms, you built a week's worth in one day.`,
+      () => `Work like today's passes inspection without a second look.`,
+      () => `Fair wind and a favorable tide. A shame to spend a day like this in port.`,
+      () => `The ship holds her course even with your hands off the wheel.`,
+      () => `The win rate's check-up came back all clear. Charts like this are rare.`,
+      () => `No follow-up needed for this win rate. Next patient, please.`,
+      () => `In farming terms, things are sprouting where you never planted.`,
+      () => `Not a weed in the win-rate field today. Nothing to hoe.`,
     ],
     ja: [
       (pp) => `株もこう上がってほしい… 直近20試合が平均より${pp}%p 高いです。`,
@@ -648,6 +736,38 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `実力が上がったのではなく、絶対に違いますし、今日の相手がそうだっただけかと。`,
       () => `断定は難しいですが、今日は運が実力を覆ってくれた日です。`,
       () => `記録しておきましょう。次にこういう日が来たらまた記録して。`,
+      // 賭け事ネタ — カジノ・パチンコ・仮想通貨。常に仮定法("〜だったら")で包む。
+      () => `カジノだったら今夜は本物のお金を持ち帰っていました。鉄拳なので数字止まりです。`,
+      () => `パチンコなら今夜は台を独占できていました。鉄拳なのが惜しいところです。`,
+      () => `株だったら、今のタイミングを聞かれる側になっています。`,
+      () => `仮想通貨にこの勝率を入れていたら、握り続けるか悩む前に引退の相談をしています。`,
+      () => `ブラックジャックなら、そろそろディーラーに見られている頃です。`,
+      // 釣り・建設・航海・病院 (2026-08-07)。守る線: 溺れる・沈没・遭難は使わない
+      // (既存の海ルール)、建物の倒壊も使わない、病院の患者は人ではなく勝率 —
+      // 死の表現は禁止(ユーザー指示)。
+      // 比喩は主語(勝率)か枠組み(「〜で言えば」)を文中で明かす — ko側と同じルール。
+      () => `釣りで言えば、投げるたびに当たりが来る日です。大漁ですね。`,
+      () => `大物だけが食いつく日です。`,
+      () => `工事で言えば、工程が前倒しで進む現場です。こんな日は滅多にありません。`,
+      () => `勝率が図面どおりに組み上がる日です。竣工が早まりそうですね。`,
+      () => `航海で言えば、航路が正確な日です。海図なしでも港が見えます。`,
+      () => `今夜の航海に灯台は要りません。船が勝手に進みます。`,
+      () => `勝率が全快の判定をもらいました。退院してもよさそうです。`,
+      () => `勝率の経過がこれなら、主治医が自慢して回ります。`,
+      // 農業 — 豊作・収穫まで。飢えなど実際の苦しみは素材にしない。
+      () => `農業で言えば豊作です。蔵の場所を探しておきましょう。`,
+      () => `植えるそばから育つ日です。畑が勝手に働いてくれます。`,
+      // 第2次拡張 — テーマごとに2本ずつ追加。
+      () => `釣りで言えば、逃した魚まで戻って食いつく日です。`,
+      () => `今日はポイントを移す必要がありません。座った場所が一級ポイントです。`,
+      () => `工事で言えば、一日で一週間分の工程を進めた現場です。`,
+      () => `今日の出来なら検査なしで通る施工です。`,
+      () => `順風に潮まで合った日です。こんな日に港にいるのはもったいない。`,
+      () => `舵から手を離しても航路を守る船です。`,
+      () => `勝率の健診結果はすべて正常です。こんなカルテは久しぶりです。`,
+      () => `この勝率に再検査は要りません。次の患者さんどうぞ。`,
+      () => `農業で言えば、植えていない所からも芽が出る日です。`,
+      () => `勝率の畑に今日は雑草一本ありません。草取りの仕事がないですね。`,
     ],
   },
 
@@ -790,6 +910,19 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `늘고 있다는 근거를 이 데이터에서는 못 찾겠습니다. 어 없다는 건 아니고요.`,
       () => `나쁘진 않아요. 좋다고는 아무도 안 했고요.`,
       () => `단정하긴 어렵지만 이 정도가 본인 자리인 것 같습니다.`,
+      // 낚시·건설·항해·병원 (2026-08-07). 규칙은 hot 쪽 주석 참조 —
+      // steady 는 '변화 없음'이 소재라 각 주제의 무풍·정체 쪽 표현을 쓴다.
+      () => `낚시로 치면 입질은 꾸준한데 월척이 없는 날입니다. 어획량은 평년 수준.`,
+      () => `공사로 치면 공정률 예정대로, 특이사항 없음. 현장은 이런 날이 제일 좋은 날입니다.`,
+      () => `항해로 치면 무풍 구간입니다. 밀리지도, 나아가지도 않습니다.`,
+      () => `승률은 경과 관찰 중, 특이사항 없음. 다음 진료는 다음 조회 때 보겠습니다.`,
+      () => `농사로 치면 평년작입니다. 풍년도 흉년도 아니고, 밥은 나옵니다.`,
+      // 2차 확장 — 주제당 1개씩 추가.
+      () => `낚시로 치면 어제 잡히던 만큼 오늘도 잡힙니다. 조황은 안정입니다.`,
+      () => `공사로 치면 도면 수정 없이 가는 구간입니다. 밋밋한 게 정상입니다.`,
+      () => `항해로 치면 정속 항해 중입니다. 일지에 적을 게 없습니다.`,
+      () => `승률 정기검진 결과 — 지난번과 동일. 생활 습관 유지하세요.`,
+      () => `농사로 치면 물 주고 기다리는 구간입니다. 밭은 원래 조용합니다.`,
     ],
     en: [
       () => `No swings. Generously: consistent. Honestly: not improving either.`,
@@ -926,6 +1059,18 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `I cannot find evidence of improvement in this data. Not that there is none.`,
       () => `Not bad. Nobody said good.`,
       () => `Hard to be certain, but this looks like your level.`,
+      // Fishing/construction/sailing/hospital, flat-day versions.
+      () => `Steady bites, no trophies. An average day on the water.`,
+      () => `Construction on schedule, nothing to report. The best kind of site.`,
+      () => `Dead calm at sea. Not drifting back, not making way.`,
+      () => `The win rate is under observation, no changes. Next check-up at your next lookup.`,
+      () => `In farming terms, an average year. Nothing to brag about, nothing to worry about.`,
+      // Second expansion — one more per theme.
+      () => `Catching today what you caught yesterday. A stable forecast on the water.`,
+      () => `No blueprint revisions this stretch. Boring is what a good site looks like.`,
+      () => `Cruising at a steady knot. Nothing to write in the log.`,
+      () => `Routine check-up for the win rate: same as last time. Keep the current habits.`,
+      () => `In farming terms, you water and you wait. Fields are quiet by design.`,
     ],
     ja: [
       () => `波がありません。よく言えば安定、悪く言えば伸びもなし。`,
@@ -1062,6 +1207,18 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `伸びている根拠がこのデータからは見つかりません。ないとは言いませんが。`,
       () => `悪くはないです。良いとは誰も言っていませんが。`,
       () => `断定は難しいですが、この辺りがご自身の位置かと。`,
+      // 釣り・建設・航海・病院 — 変化なしの日バージョン。
+      () => `当たりは来ますが大物がいません。今日の釣果は平年並みです。`,
+      () => `工程は予定どおり、特記事項なし。現場はこういう日が一番です。`,
+      () => `航海で言えば無風です。流されもせず、進みもせず。`,
+      () => `勝率は経過観察中、変化なし。次の診察は次の照会で。`,
+      () => `農業で言えば平年作です。豊作でも凶作でもなく、食べてはいけます。`,
+      // 第2次拡張 — テーマごとに1本ずつ追加。
+      () => `昨日釣れた分だけ今日も釣れています。釣況は安定です。`,
+      () => `図面の修正なしで進む区間です。地味なのが正常です。`,
+      () => `定速航行中です。航海日誌に書くことがありません。`,
+      () => `勝率の定期健診 — 前回と同じです。生活習慣はこのままで。`,
+      () => `農業で言えば、水をやって待つ区間です。畑は本来静かなものです。`,
     ],
   },
 
@@ -1214,6 +1371,26 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `한 30%만 실력입니다. 나머지는 지금 말씀드리면 기분 상하실 것 같고요.`,
       () => `입이 근질근질한데 아직은 참겠습니다. 조금만 더 하시면 못 참을 것 같고요.`,
       () => `단정하긴 어렵지만 여기서 더 하면 오늘이 그 날이 됩니다.`,
+      // 도박 소재 — cold보다 한 단계 약하게. "다행"이라고 단정하기엔 이르고,
+      // 슬슬 걱정되기 시작하는 정도로 톤을 낮춘다.
+      () => `화투판이었으면 슬슬 눈치를 보기 시작했을 흐름입니다.`,
+      () => `투기 종목이었으면 손절까진 아니고, 일단 지켜보는 구간입니다.`,
+      // 낚시·건설·항해·병원 (2026-08-07). 규칙은 hot 쪽 주석 참조 —
+      // cooling 은 '아직 심각하진 않음'이라 각 주제의 초기 경고 표현까지만.
+      // 주어(승률)·틀("~로 치면")을 밝힌다 — "경과가 어제만 못합니다"처럼 틀 없이
+      // 던지면 무슨 얘긴지 못 알아듣는다는 피드백(2026-08-07). '공기(工期)'도
+      // 일반 독자에겐 空氣로 읽혀서 '일정'으로 바꿨다.
+      () => `낚시로 치면 입질이 뜸해지는 시간입니다. 포인트를 옮기든가, 오늘은 접든가요.`,
+      () => `공사로 치면 일정이 살짝 밀리기 시작한 현장입니다. 아직 보고할 단계는 아니고요.`,
+      () => `항해로 치면 역풍 구간입니다. 지금은 속도보다 항로 유지가 우선입니다.`,
+      () => `오늘 회진 소견 — 승률이라는 환자의 차도가 어제만 못합니다. 처방을 바꿀 정도는 아직 아니고요.`,
+      () => `농사로 치면 가뭄 초입입니다. 아직 흉년을 말할 단계는 아니고요.`,
+      // 2차 확장 — 주제당 1개씩 추가.
+      () => `낚시로 치면 미끼만 따먹히는 시간입니다. 챔질 타이밍을 다시 보세요.`,
+      () => `공사로 치면 자재가 어긋나기 시작한 현장입니다. 오늘은 무리하게 안 올리는 게 낫습니다.`,
+      () => `항해로 치면 파도가 높아지는 중입니다. 속도를 줄일 때입니다.`,
+      () => `승률에 미열이 있습니다. 오늘은 무리 안 하시는 게 좋겠습니다.`,
+      () => `농사로 치면 잎이 처지기 시작했습니다. 물 줄 때를 놓치지 마세요.`,
     ],
     en: [
       () => `At this rate, buy a lottery ticket instead. That might work out.`,
@@ -1360,6 +1537,21 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `About 30% of this is skill. I would rather not say what the rest is.`,
       () => `I want to say something but I am holding off. A few more games and I will not.`,
       () => `Hard to be certain, but a few more and today becomes *that* day.`,
+      // Gambling material, dialed down from cold — not quite "thank god," more "starting to worry."
+      () => `At the poker table, people would be watching your stack a little more closely now.`,
+      () => `If this were stocks, it is not sell-off time yet — but people are watching the chart.`,
+      // Fishing/construction/sailing/hospital — early-warning versions only.
+      () => `The bites are slowing down. Move spots or pack up for the day.`,
+      () => `In construction terms, the schedule is starting to slip. Not report-worthy yet.`,
+      () => `Headwind. Hold your course before you worry about speed.`,
+      () => `The patient — your win rate — looks a bit worse than yesterday. Not time to change the prescription yet.`,
+      () => `In farming terms, the first dry spell. Too early to call it a bad year.`,
+      // Second expansion — one more per theme.
+      () => `The bait keeps coming back untouched. Check your hook-set timing.`,
+      () => `The materials are starting to misalign. Do not stack higher today.`,
+      () => `The swell is picking up. Time to ease off the speed.`,
+      () => `The win rate is running a slight fever. Take it easy today.`,
+      () => `The leaves are starting to droop. Do not miss the watering window.`,
     ],
     ja: [
       () => `この勝率なら宝くじでも買いましょう。そっちは当たるかも。`,
@@ -1506,6 +1698,22 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `3割ほどが実力です。残りは今申し上げると気を悪くされそうなので。`,
       () => `口がむずむずしますが、まだ我慢します。もう少し続けたら我慢できません。`,
       () => `断定は難しいですが、あと数戦でこの日が『あの日』になります。`,
+      // 賭け事ネタ、coldより弱め — 「よかった」と言い切るにはまだ早く、
+      // 少し心配になってきた程度に温度を落とす。
+      () => `ポーカーなら、そろそろスタックを気にされ始める頃合いです。`,
+      () => `株だったら損切りにはまだ早いですが、周りはチャートを見始めています。`,
+      // 釣り・建設・航海・病院 — まだ深刻ではない、初期警告の表現まで。
+      () => `釣りで言えば、当たりが遠のいてきた時間です。ポイントを変えるか、今日は畳むかです。`,
+      () => `工事で言えば、工期が押し始めた現場です。まだ報告する段階ではありませんが。`,
+      () => `航海で言えば向かい風です。速度より針路の維持が先です。`,
+      () => `本日の回診所見 — 患者(あなたの勝率)の経過が昨日ほどではありません。処方を変えるほどではまだ。`,
+      () => `農業で言えば日照りの入り口です。凶作と言う段階ではまだありませんが。`,
+      // 第2次拡張 — テーマごとに1本ずつ追加。
+      () => `餌だけ取られる時間です。合わせのタイミングを見直しましょう。`,
+      () => `資材が少しずれ始めた現場です。今日は無理に積み上げないほうがいいです。`,
+      () => `うねりが高くなってきています。速度を落とす時間です。`,
+      () => `勝率に微熱があります。今日は無理をしないほうがよさそうです。`,
+      () => `葉が少ししおれ始めました。水やりのタイミングを逃さないでください。`,
     ],
   },
 
@@ -1745,6 +1953,42 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `단정하긴 어렵지만 오늘은 아닙니다. 사실 단정해도 아무도 뭐라 안 할 것 같고요.`,
       () => `잠시만요. 이건 저도 좀 놀랐습니다.`,
       () => `재능의 문제는 아닌 것 같습니다. 어 그 얘기는 여기까지 하겠습니다.`,
+      // 도박 소재 — 카지노·화투·섯다·투기. 실제 파산·중독 묘사는 안 하고, "다행히
+      // 진짜 돈이 아니다"는 안도 쪽으로 문장을 닫는다(놀리는 대상은 오늘 성적이지
+      // 도박 문제 자체가 아니다).
+      () => `도박이 아니어서 천만다행입니다. 패가망신 하진 않았네요.`,
+      () => `섯다였으면 오늘 집문서 얘기까지 나왔을 승률입니다. 그나마 철권이라 다행입니다.`,
+      () => `화투판이었으면 판돈을 잃고 먼저 일어났을 흐름입니다.`,
+      () => `카지노였으면 이쯤에서 직원이 조용히 한도를 물어봤을 겁니다.`,
+      () => `코인이었으면 지금 '물렸다'는 표현을 쓰고 있었을 겁니다.`,
+      () => `투기 종목이었으면 손절 타이밍을 한참 지난 그래프입니다.`,
+      () => `다행히 이건 진짜 돈이 아닙니다. 숨 고르고 한 판 더 하시든가요.`,
+      // 낚시·건설·항해·병원 (2026-08-07). 규칙은 hot 쪽 주석 참조 — 특히
+      // 병원은 입원·처방까지만(사망 금지), 항해는 회항·정박까지만(침몰 금지).
+      // 주어(승률)·틀("~로 치면") 앵커는 cooling 쪽 주석 참조. '공기(工期)'도 같은
+      // 이유로 '일정'으로 바꿨다.
+      () => `낚시로 치면 해 지도록 입질 한 번 없는 날입니다. 오늘은 포인트가 아니었던 겁니다.`,
+      () => `낚시였으면 벌써 짐 쌌을 시간입니다. 지금은 어분만 뿌리고 계신 셈이거든요.`,
+      () => `공사로 치면 일정 지연에 재시공까지 겹친 현장입니다. 오늘은 접는 게 맞습니다.`,
+      () => `공사로 치면 설계 변경이 필요한 수치입니다. 오늘은 도면부터 다시 보시죠.`,
+      () => `항해로 치면 역풍에 역조류입니다. 이럴 땐 항구로 돌리는 것도 항해술이고요.`,
+      () => `닻을 내릴 자리부터 찾으세요. 오늘은 항해할 날이 아닙니다.`,
+      () => `승률이 입원했습니다. 면회는 내일 오세요.`,
+      () => `승률에 오늘 내릴 처방은 하나뿐입니다 — 절대 안정. 콘솔 전원도 포함입니다.`,
+      // 농사 — 작황·밭갈이까지만. 흉년의 실제 고통(굶주림)은 소재로 안 쓴다.
+      () => `농사로 치면 올해 작황은 접어두는 게 맞습니다. 내년 밭갈이나 준비하시죠.`,
+      () => `오늘 뿌린 씨는 하나도 안 자랐습니다. 밭 탓만은 아닐 겁니다.`,
+      // 2차 확장 — 주제당 2개씩 추가. cold 는 강도를 유지하되 hot 의 대구(對句) 형태로.
+      () => `낚시로 치면 미끼만 계속 뜯기는 날입니다. 오늘은 그만 접으시죠.`,
+      () => `찌가 안 움직인 지 오래입니다. 자리를 옮길 게 아니라 접을 때입니다.`,
+      () => `공사로 치면 감리가 반려한 시공입니다. 오늘 올린 건 다시 헐어야 합니다.`,
+      () => `이 정도 오차면 검수에서 바로 걸립니다. 오늘 도면은 폐기하시죠.`,
+      () => `항해로 치면 좌초 직전입니다. 지금은 속도가 아니라 방향부터 바로잡을 때입니다.`,
+      () => `키가 안 먹습니다. 바람이 아니라 배 자체를 점검할 때입니다.`,
+      () => `승률 정밀검사 결과가 안 좋습니다. 오늘은 재검이 아니라 안정이 답입니다.`,
+      () => `이 수치면 응급 처방이 필요합니다 — 오늘 그만 끄시는 걸로 하겠습니다.`,
+      () => `농사로 치면 밭을 갈아엎을 시기입니다. 씨앗을 아끼세요.`,
+      () => `오늘 심은 건 전부 뽑아내는 게 낫습니다. 내일 다시 심으시죠.`,
     ],
     en: [
       () => `The lottery didn't hit and neither did anything else. Luck called in sick.`,
@@ -1969,6 +2213,38 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `Hard to be certain, but today is not it. Though nobody would object if I were certain.`,
       () => `One moment. Even I was surprised by that.`,
       () => `I do not think talent is the issue here. I will leave it at that.`,
+      // Gambling material — casino/poker/crypto. No addiction or ruin imagery, just relief
+      // that it is not real money.
+      () => `Thank god this is not gambling. You would have lost the house by now.`,
+      () => `At poker, this is the night that ends in a phone call home. Lucky it's Tekken.`,
+      () => `At a casino, the floor staff would be quietly checking your limit right about now.`,
+      () => `In crypto, this is the stretch where people start saying "bagholder."`,
+      () => `If this were stocks, you are well past the point anyone recommends holding.`,
+      () => `The good news: this was never real money. Catch your breath and run it back.`,
+      // Fishing/construction/sailing/hospital. Hospital = the win rate is the patient,
+      // admission and prescriptions only (no death); sailing = turn back to port (no sinking).
+      () => `Not one bite all day. Wrong spot, wrong day.`,
+      () => `A real angler would have packed up hours ago. You are just feeding the fish.`,
+      () => `Delays and rework on the same site. Shut it down for today.`,
+      () => `These numbers call for a design change. Back to the drawing board.`,
+      () => `Headwind and countercurrent. Turning back to port is also seamanship.`,
+      () => `Find somewhere to drop anchor. Today is not a sailing day.`,
+      () => `The win rate has been admitted. Visiting hours start tomorrow.`,
+      () => `One prescription today: complete rest. The console counts.`,
+      // Farming — crops and plowing only; real hardship stays off limits.
+      () => `In farming terms, write off this year's crop. Start prepping next season's field.`,
+      () => `Nothing you planted today came up. It is not all the soil's fault.`,
+      // Second expansion — two more per theme, mirroring hot's structure at cold's intensity.
+      () => `The bait keeps getting stripped clean. Time to call it a day.`,
+      () => `The bobber hasn't moved in a while. Not a new spot — a stop.`,
+      () => `In construction terms, the inspector rejected this. What went up today comes back down.`,
+      () => `A tolerance this far off fails inspection on sight. Scrap today's plans.`,
+      () => `In sailing terms, you're about to run aground. Fix the heading before you touch the throttle.`,
+      () => `The rudder isn't answering. Check the ship, not the wind.`,
+      () => `The win rate's full workup came back bad. Rest, not a retest, is the answer today.`,
+      () => `Numbers like this call for urgent care. Calling it here.`,
+      () => `In farming terms, it's time to till the field under. Save your seed.`,
+      () => `Better to pull up everything you planted today. Replant tomorrow.`,
     ],
     ja: [
       () => `宝くじも当たらず勝率も上がらず。今日は運が欠勤です。`,
@@ -2193,6 +2469,38 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `断定は難しいですが、今日ではありません。断定しても誰も文句を言わなそうですが。`,
       () => `ちょっと待ってください。これは私も驚きました。`,
       () => `才能の問題ではないと思います。その話はここまでにしましょう。`,
+      // 賭け事ネタ — ko/en には2026-08-07に入ったが ja だけ漏れていた分の追補。
+      // 破産・依存の描写はせず「本物のお金でなくて良かった」側で閉じる。
+      () => `賭け事でなくて本当に良かったです。身代を潰さずに済みました。`,
+      () => `ポーカーなら、今夜は家に電話する羽目になっていた手です。鉄拳で幸いでした。`,
+      () => `カジノなら、そろそろスタッフが静かに限度額を尋ねに来る頃です。`,
+      () => `仮想通貨なら「塩漬け」と呼ばれ始める区間です。`,
+      () => `株なら、ホールドを勧める人が誰もいない位置まで来ています。`,
+      () => `幸いこれは本物のお金ではありません。一息ついて、もう一戦どうぞ。`,
+      // 釣り・建設・航海・病院。病院は入院・処方まで(死の表現は禁止)、
+      // 航海は帰港・停泊まで(沈没は禁止)。
+      () => `釣りで言えば、日が暮れるまで当たり一つない日です。今日のポイントではなかったんです。`,
+      () => `釣りなら、とっくに片付けている時間です。今は撒き餌だけしている状態ですので。`,
+      () => `工事で言えば、工期遅延に手直し工事まで重なった現場です。今日は閉めるのが正解です。`,
+      () => `工事で言えば、設計変更が必要な数字です。今日は図面から見直しましょう。`,
+      () => `航海で言えば、向かい風に逆潮です。港に引き返すのも航海術のうちです。`,
+      () => `錨を下ろす場所を探してください。今日は航海する日ではありません。`,
+      () => `勝率が入院しました。面会は明日どうぞ。`,
+      () => `勝率への今日の処方はひとつだけ — 絶対安静。コンソールの電源も含みます。`,
+      // 農業 — 作柄・畑起こしまで。飢えなど実際の苦しみは素材にしない。
+      () => `農業で言えば、今年の作柄は諦めるのが正解です。来年の畑を耕しましょう。`,
+      () => `今日蒔いた種はどれも育ちませんでした。土のせいだけではなさそうです。`,
+      // 第2次拡張 — テーマごとに2本ずつ、hotと対になる強度で。
+      () => `餌が取られ続けています。今日はここで終わりにしましょう。`,
+      () => `浮きがずっと動きません。移動ではなく撤収の時間です。`,
+      () => `工事で言えば、検査で差し戻された施工です。今日組んだ分は解体です。`,
+      () => `これだけ誤差があると検査は一発アウトです。今日の図面は破棄しましょう。`,
+      () => `航海で言えば座礁寸前です。速度ではなく針路をまず直す時間です。`,
+      () => `舵が効きません。風ではなく船本体を点検する時間です。`,
+      () => `勝率の精密検査の結果がよくありません。今日は再検査ではなく安静が答えです。`,
+      () => `この数値は緊急対応が必要です。今日はここで終わりにしましょう。`,
+      () => `農業で言えば畑を鋤き返す時期です。種は大事に取っておきましょう。`,
+      () => `今日蒔いた分は全部抜いたほうがいいです。明日また蒔きましょう。`,
     ],
   },
 

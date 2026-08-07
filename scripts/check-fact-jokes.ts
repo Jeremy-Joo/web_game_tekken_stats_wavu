@@ -23,6 +23,7 @@ const base: QuipFacts = {
   currentRating: 1600,
   peakGamesAgo: 10,
   peakFresh: false,
+  recovery: null,
   rankChange: null,
   winStreak: 0,
   bestWinStreak: 9,
@@ -184,6 +185,21 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
     '최고가 오래됐으면 말한다',
     has(factPools(f({ peakGamesAgo: 500, peakRating: 1800, currentRating: 1600 }), 'ko', 'cold').traits, '200 낮습니다'),
   );
+
+  // 회복(recovery)이 있으면 한탄 대신 회복을 말한다 — 같은 곡선에 두 톤이 같이 나오면 안 된다
+  const rec = factPools(
+    f({
+      recovery: { troughRating: 1450, up: 135, toPeak: 205 },
+      peakGamesAgo: 500,
+      peakRating: 1790,
+      currentRating: 1585,
+    }),
+    'ko',
+    'cold',
+  ).traits;
+  ok('회복 중이면 회복을 말한다', has(rec, '올라왔습니다'));
+  ok('회복 중이면 한탄은 침묵', !has(rec, '그때가 좋았죠'));
+  ok('숫자를 그대로 인용한다', has(rec, '135'));
 }
 
 // ── 어긋남 상태 (diverge-jokes.ts) ───────────────────────────────

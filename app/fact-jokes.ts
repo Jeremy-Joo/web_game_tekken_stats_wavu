@@ -405,8 +405,49 @@ function traits(f: QuipFacts, lang: Lang): string[] {
     }
   }
 
-  // 최고 대비
-  if (f.peakGamesAgo > 100 && f.peakRating > f.currentRating) {
+  // 최고 대비 — 최저점에서 회복 중이면(recovery) 한탄 대신 회복을 말한다.
+  // 같은 곡선의 더 나은 독해라 두 풀을 겹치지 않는다(회복이 이긴다).
+  // **문구는 관찰형까지만** — "올라왔다"(사실)는 되고, "계속 오른다"(예측)나
+  // "실력이 돌아왔다"(인과)는 안 된다. 평균 회귀 때문이다(quip-facts.ts recovery 주석).
+  if (f.recovery) {
+    const r = f.recovery;
+    push({
+      ko: [
+        `최저점 ${n(r.troughRating)}에서 ${n(r.up)} 올라왔습니다. 최고점까지는 ${n(r.toPeak)} 남았고요.`,
+        `바닥은 ${n(r.troughRating)}이었습니다. 지금은 거기서 ${n(r.up)} 위에 계십니다.`,
+        `그래프가 V자를 그리는 중입니다. 최저점 대비 +${n(r.up)}.`,
+        `내려간 걸 전부 되찾진 못했어도, 바닥에서 ${n(r.up)}은 되찾았습니다.`,
+        // 주제 변형 (2026-08-07 사용자 요청: 낚시·병원·항해·농사). 은유의 주어가
+        // 승률임을 문장 안에서 밝힌다 — 틀만 던지면 무슨 얘긴지 못 알아듣는다는
+        // 피드백. 여전히 관찰형까지만: 수확/완쾌"까지 남은 거리"는 사실이고,
+        // "수확할 겁니다"(예측)는 아니다.
+        `입질이 돌아왔습니다. 바닥 ${n(r.troughRating)}에서 ${n(r.up)}을 끌어올리셨거든요.`,
+        `승률이라는 환자에게 차도가 있습니다. 최저점 ${n(r.troughRating)}에서 ${n(r.up)} 회복 — 완쾌(최고점)까지는 ${n(r.toPeak)} 남았습니다.`,
+        `항해로 치면 배가 다시 나아가는 중입니다. 바닥 ${n(r.troughRating)}에서 ${n(r.up)} 올라왔습니다.`,
+        `농사로 치면 작황이 돌아오는 중입니다. 바닥 ${n(r.troughRating)}에서 ${n(r.up)} 자랐고, 수확(최고점)까지는 ${n(r.toPeak)}입니다.`,
+      ],
+      en: [
+        `Up ${n(r.up)} from the bottom (${n(r.troughRating)}). ${n(r.toPeak)} left to your peak.`,
+        `The floor was ${n(r.troughRating)}. You are ${n(r.up)} above it now.`,
+        `The graph is drawing a V. +${n(r.up)} off the low.`,
+        `Not all the way back, but ${n(r.up)} of it is reclaimed.`,
+        `The bites are back — you have hauled it up ${n(r.up)} from the bottom (${n(r.troughRating)}).`,
+        `The patient — your win rate — is improving: up ${n(r.up)} from ${n(r.troughRating)}. Full recovery, your peak, is ${n(r.toPeak)} away.`,
+        `The ship is making way again: up ${n(r.up)} from the low of ${n(r.troughRating)}.`,
+        `The crop is coming back — up ${n(r.up)} from ${n(r.troughRating)}, ${n(r.toPeak)} short of harvest (your peak).`,
+      ],
+      ja: [
+        `最低点${n(r.troughRating)}から${n(r.up)}上がってきました。最高点まではあと${n(r.toPeak)}です。`,
+        `底は${n(r.troughRating)}でした。今はそこから${n(r.up)}上にいます。`,
+        `グラフがV字を描いている最中です。最低点から+${n(r.up)}。`,
+        `落ちた分を全部ではなくても、底から${n(r.up)}は取り返しました。`,
+        `当たりが戻ってきました。底の${n(r.troughRating)}から${n(r.up)}引き上げています。`,
+        `患者(あなたの勝率)に快方の兆しがあります。底の${n(r.troughRating)}から${n(r.up)}回復 — 全快(最高点)まではあと${n(r.toPeak)}です。`,
+        `航海で言えば、船が再び進み始めたところです。底の${n(r.troughRating)}から${n(r.up)}上がってきました。`,
+        `畑が持ち直してきました。底の${n(r.troughRating)}から${n(r.up)}。収穫(最高点)まではあと${n(r.toPeak)}です。`,
+      ],
+    });
+  } else if (f.peakGamesAgo > 100 && f.peakRating > f.currentRating) {
     const d = n(f.peakRating - f.currentRating);
     push({
       ko: [
