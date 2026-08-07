@@ -3,7 +3,9 @@
 핵심 요청 흐름 하나(wavu → Next.js 앱 → 사용자 브라우저) 위에, 2026-08-07에 붙인
 멘트 자동 점검 두 개가 GitHub Actions로 매주 돌면서 어디로 연결되는지 그린다.
 멘트 점검 자체의 설계 이유는 [quip-monitoring.md](quip-monitoring.md) 참조 — 이 문서는
-그게 사이트 전체 구조 안에서 어디에 붙는지만 보여준다.
+그게 사이트 전체 구조 안에서 어디에 붙는지만 보여준다. "무엇이 무엇을 부르는가"가
+아니라 "조회 한 번이 시간 순서로 어떻게 흘러가는가"가 궁금하면
+[request-lifecycle.md](request-lifecycle.md) 참조.
 
 ```mermaid
 flowchart TB
