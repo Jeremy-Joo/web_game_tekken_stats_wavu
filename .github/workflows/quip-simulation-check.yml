@@ -1,0 +1,33 @@
+# 멘트 게이트 회귀 검사 — 실제 표본으로 pickJoke/pickCoach 를 재현해, 프로/리그 소재
+# 같은 고레이팅 전용 문구가 COACH_HIGH_MIN_RATING 미달 레이팅에서 나오지 않는지 매주
+# 확인한다. 배경: docs/quip-monitoring.md (2026-08-07 실사고 — 레이팅 1447 유저가
+# "프로 무대에 입성했습니다..." 를 받은 버그의 재발 방지책).
+#
+# 매주인 이유 — 이 검사가 잡는 실패 모드는 데이터 드리프트가 아니라 "코드 회귀"
+# (누군가 게이트 없는 고위험 소재를 다시 넣음)다. 코드가 바뀔 때만 의미가 바뀌므로
+# 매일 돌릴 필요가 없고, wavu 요청도 아낀다. 실패하면 GitHub 기본 동작으로 저장소
+# 소유자에게 이메일이 간다 — 별도 알림 설정 불필요.
+#
+# 상태를 저장하지 않는다(커밋 없음) — player-index-daily.yml 과 달리 write 권한도 없다.
+
+name: quip-simulation-check
+
+on:
+  schedule:
+    - cron: '30 5 * * 1' # 매주 월요일 05:30 UTC — player-index-daily(03:10 UTC)와 안 겹치게
+  workflow_dispatch: {} # 수동으로도 돌릴 수 있게 — 확인용
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: 실제 표본으로 멘트 게이트 재현
+        run: npx tsx scripts/check-quip-simulation.ts
