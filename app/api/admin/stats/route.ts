@@ -22,7 +22,7 @@ import {
   GaError,
 } from '@/lib/ga';
 import { isAdminRangeDays } from '@/lib/admin-ranges';
-import { fetchPlayerIndex, mainCharByPlayer } from '@/lib/tekken/player-index';
+import { fetchPlayerIndex, indexSummaryByPlayer } from '@/lib/tekken/player-index';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -74,12 +74,14 @@ export async function POST(req: NextRequest) {
       fetchPlayerIndex(),
     ]);
 
-    // 메인 캐릭터 — 플레이어 인덱스(500판 이상만 담는 스냅샷)에서 찾아 곁들인다.
-    // 인덱스를 못 받았거나 그 사람이 인덱스에 없으면(표본 미달) mainChar 없이 나간다.
-    const mainChars = idxR.status === 'fulfilled' ? mainCharByPlayer(idxR.value) : new Map();
+    // 메인 캐릭터·레이팅 — 플레이어 인덱스(500판 이상만 담는 스냅샷)에서 찾아 곁들인다.
+    // 인덱스를 못 받았거나 그 사람이 인덱스에 없으면(표본 미달) 그대로 나간다.
+    const idxSummary = idxR.status === 'fulfilled' ? indexSummaryByPlayer(idxR.value) : new Map();
     const playersWithChar = players.map((p) => {
-      const m = mainChars.get(p.id);
-      return m ? { ...p, mainChar: m.mainChar, mainCharGames: m.mainCharGames } : p;
+      const m = idxSummary.get(p.id);
+      return m
+        ? { ...p, mainChar: m.mainChar, mainCharGames: m.mainCharGames, rating: m.rating, peakRating: m.peakRating }
+        : p;
     });
 
     return NextResponse.json({

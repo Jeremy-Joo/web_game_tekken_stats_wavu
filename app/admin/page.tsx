@@ -30,6 +30,13 @@ interface PlayerRow {
    */
   mainChar?: string;
   mainCharGames?: number;
+  /**
+   * 같은 인덱스 기준 레이팅. **인덱스가 마지막 갱신된 시점 스냅샷**이라(매일
+   * 자동 갱신이지만) 지금 이 순간 값과는 다를 수 있다 — mainChar 와 마찬가지로
+   * 500판 미달이면 없다.
+   */
+  rating?: number;
+  peakRating?: number;
 }
 interface DayRow {
   date: string;
@@ -301,13 +308,14 @@ export default function AdminPage() {
   const downloadCsv = () => {
     if (!data) return;
     const lines = [
-      '#,마지막 조회,이름,메인,식별코드,조회,페이지뷰,깊이,비율(%),사용자,첫 조회,조회일 수,패턴,언어',
+      '#,마지막 조회,이름,메인,레이팅,식별코드,조회,페이지뷰,깊이,비율(%),사용자,첫 조회,조회일 수,패턴,언어',
     ];
     data.players.forEach((p, i) => {
       lines.push(
         [
-          i + 1, p.lastDate, p.name || '', p.mainChar || '', p.id, p.lookups, p.views, depth(p),
-          pct(p.views), p.users, p.firstDate, p.daysSeen, pattern(p), langLabel(p.id),
+          i + 1, p.lastDate, p.name || '', p.mainChar || '', p.rating ?? '', p.id, p.lookups,
+          p.views, depth(p), pct(p.views), p.users, p.firstDate, p.daysSeen, pattern(p),
+          langLabel(p.id),
         ].map(csvCell).join(','),
       );
     });
@@ -403,7 +411,7 @@ export default function AdminPage() {
   // 여러 방법으로 훑어보고 싶다는 요청 — 헤더를 눌러 기준을 바꾼다.
   // 기본값(마지막 조회 · 내림차순)은 지금까지의 화면과 같다.
   const sortableColumns = [
-    'lastDate', 'name', 'mainChar', 'id', 'lookups', 'depth', 'pct', 'users',
+    'lastDate', 'name', 'mainChar', 'rating', 'id', 'lookups', 'depth', 'pct', 'users',
     'firstDate', 'daysSeen', 'pattern',
   ] as const;
   type SortKey = (typeof sortableColumns)[number];
@@ -450,6 +458,16 @@ export default function AdminPage() {
           else if (!a.mainChar) cmp = dir;
           else if (!b.mainChar) cmp = -dir;
           else cmp = a.mainChar.localeCompare(b.mainChar);
+          break;
+        }
+        // 레이팅도 mainChar 와 같은 표본(500판 이상)이라 값 없는 행이 있다 —
+        // 같은 방식으로 방향 무관 뒤로 보낸다. 숫자 0 을 "값 없음"과 헷갈리지
+        // 않게 undefined 로만 판정한다(레이팅 0은 실제로 안 나오지만 원칙상).
+        case 'rating': {
+          if (a.rating == null && b.rating == null) cmp = 0;
+          else if (a.rating == null) cmp = dir;
+          else if (b.rating == null) cmp = -dir;
+          else cmp = a.rating - b.rating;
           break;
         }
         case 'id':
@@ -738,6 +756,12 @@ export default function AdminPage() {
                     title="플레이어 인덱스 기준 메인 캐릭터 — 500판 이상 수집된 사람만 있음(없으면 표본 미달)"
                     {...sortProps}
                   />
+                  <SortTh
+                    sortKey="rating"
+                    label="레이팅"
+                    title="플레이어 인덱스 스냅샷 기준 레이팅 — 메인 캐릭터와 같은 표본·같은 시점(없으면 표본 미달, 지금 이 순간 값이 아님)"
+                    {...sortProps}
+                  />
                   <SortTh sortKey="id" label="식별코드" {...sortProps} />
                   <SortTh
                     sortKey="lookups"
@@ -778,6 +802,9 @@ export default function AdminPage() {
                     </td>
                     <td title={p.mainCharGames ? `${p.mainCharGames.toLocaleString()}판` : undefined}>
                       {p.mainChar ?? '—'}
+                    </td>
+                    <td title={p.peakRating ? `최고 ${p.peakRating.toLocaleString()}` : undefined}>
+                      {p.rating != null ? p.rating.toLocaleString() : '—'}
                     </td>
                     <td>{p.id}</td>
                     <td>{p.lookups || '—'}</td>
