@@ -617,15 +617,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
     tzKnown: tz.source !== 'default',
   });
   const quip = advice
-    ? pickJoke(
-        mood,
-        lang,
-        seed,
-        advice.recentDeltaPp,
-        advice.losingStreak,
-        seasonOf(latest.dt),
-        quipFacts,
-      )
+    ? pickJoke(mood, lang, seed, advice.recentDeltaPp, advice.losingStreak, seasonOf(latest.dt), quipFacts).text
     : '';
   const coach = advice
     ? pickCoach(mood, lang, seed + 13, latest?.myRating ?? null, advice.baselineWinRate)

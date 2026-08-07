@@ -91,6 +91,19 @@ const COACH_KEY = 'tkwavu_coach';
 const PIN_KEY = 'tkwavu_pin';
 
 /**
+ * 레이팅을 250 단위 구간으로 뭉갠다. quip_shown GA 이벤트가 실레이팅이 아니라
+ * 이 값을 보낸다 — 실사용 분포 추적(2026-08, docs/quip-monitoring.md Part B)이
+ * "어느 구간에서 어느 멘트 풀이 나갔는가"만 알면 되지 개인별 정확한 레이팅은
+ * 필요 없다. lib/wavu/ranks.ts 의 rankName 과 절대 혼동하지 말 것 — 그건 단(0~37,
+ * 이산값) 이름이고 이건 레이팅(연속값, COACH_HIGH_MIN_RATING 게이트의 그 축)이다.
+ */
+function bucketRating(rating: number | null | undefined): string {
+  if (rating == null) return 'unknown';
+  const lo = Math.floor(rating / 250) * 250;
+  return `${lo}-${lo + 249}`;
+}
+
+/**
  * 비교 결과 멘트에 쓸 값을 뽑는다. 전부 **개요 탭에 이미 있는 숫자**다 —
  * 서버에 새로 요청하지도, 다시 계산하지도 않는다.
  */
@@ -1833,6 +1846,56 @@ export default function Home() {
   }, [mode, compare, showQuips, lang]);
 
   /**
+   * 흐름 탭 맨 위 한 줄. JSX 안에서 직접 호출하던 걸 다른 멘트들과 같은 useMemo 로
+   * 옮겼다(2026-08, docs/quip-monitoring.md Part B) — pickJoke 가 이제 어느 사다리
+   * 단(source)에서 뽑았는지도 같이 돌려주는데, 그 값을 실사용 분포 추적(quip_shown GA
+   * 이벤트) 쪽 effect 에서도 읽어야 해서 렌더 중 즉석 호출로는 재사용할 수 없었다.
+   */
+  const flowQuip = useMemo(() => {
+    if (!single?.advice || !showQuips) return null;
+    return pickJoke(
+      single.advice.mood,
+      lang,
+      single.recordCount + single.advice.losingStreak * 7,
+      single.advice.recentDeltaPp,
+      single.advice.losingStreak,
+      // 계절은 **마지막 경기 날짜**로 정한다(조회 시점이 아니라).
+      // 반년 쉰 사람에게 지난 계절 농담이 나가는 게, 안 친 계절의
+      // 농담이 나가는 것보다 낫다 — 문구가 데이터를 따라간다는 규칙은 같다.
+      summary?.lastDt ? seasonOf(new Date(`${summary.lastDt}T00:00:00Z`)) : null,
+      // 마일스톤·승단·실력차 같은 축. 우선순위 사다리는 pickJoke 안에 있다.
+      single.quipFacts ?? null,
+    );
+  }, [single, summary, lang, showQuips]);
+
+  /**
+   * 실사용 분포 추적 — 화면에 실제로 보인 멘트가 어느 풀(source)에서 나왔는지 GA4
+   * 로 보낸다(2026-08, docs/quip-monitoring.md Part B). 개별 문구가 아니라 풀 단위
+   * 로만 보낸다 — 그 이유는 같은 문서 3장 참조.
+   *
+   * `lastQuipEventRef` 로 같은 조회에서 중복 발사하지 않는다. player_lookup 이벤트
+   * (위쪽 effect)와 같은 "조회당 한 번" 의미지만, 그 effect 는 `summary`/`flowQuip`
+   * 보다 소스 위치가 앞이라(둘 다 나중에 선언됨) 여기서 직접 못 쓴다 — 별도 effect로
+   * 둔다. 화면에 실제로 안 보인 멘트(showQuips 꺼짐 등)는 flowQuip 자체가 null 이라
+   * 자동으로 안 보낸다.
+   *
+   * customEvent:quip_pool / customEvent:rating_bucket 을 GA4 맞춤 측정기준으로
+   * 등록해야 Data API 로 읽힌다 — 등록 전 이벤트는 소급해서 못 읽는다(player_lookup
+   * 의 ui_lang 과 같은 사정, 위쪽 주석 참조).
+   */
+  const lastQuipEventRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!flowQuip || !flowQuip.text || !single?.polarisId) return;
+    const key = `${single.polarisId}:${flowQuip.source}`;
+    if (lastQuipEventRef.current === key) return;
+    lastQuipEventRef.current = key;
+    window.gtag?.('event', 'quip_shown', {
+      quip_pool: flowQuip.source,
+      rating_bucket: bucketRating(single.currentRating),
+    });
+  }, [flowQuip, single]);
+
+  /**
    * 맞대결 신호 — **서로 붙은 기록이 있을 때만** 개요 위에 한 줄.
    *
    * '맞대결 상세'는 탭 여덟 개 중 하나라 있는 줄도 모르고 지나친다. 표를 여기 옮기는 게
@@ -2826,24 +2889,8 @@ export default function Home() {
                     {/* 농담 + 연습 권유 — 수위는 실제 숫자로 정하고(advice.mood),
                         문구는 조회 결과에서 나온 씨앗으로 고른다(같은 조회 = 같은 문구).
                         멘트를 끄면 권장 판수 분석만 남는다. */}
-                    {showQuips && (
-                      <p className={`advice-mood mood-${single.advice.mood}`}>
-                        {pickJoke(
-                          single.advice.mood,
-                          lang,
-                          single.recordCount + single.advice.losingStreak * 7,
-                          single.advice.recentDeltaPp,
-                          single.advice.losingStreak,
-                          // 계절은 **마지막 경기 날짜**로 정한다(조회 시점이 아니라).
-                          // 반년 쉰 사람에게 지난 계절 농담이 나가는 게, 안 친 계절의
-                          // 농담이 나가는 것보다 낫다 — 문구가 데이터를 따라간다는 규칙은 같다.
-                          summary?.lastDt
-                            ? seasonOf(new Date(`${summary.lastDt}T00:00:00Z`))
-                            : null,
-                          // 마일스톤·승단·실력차 같은 축. 우선순위 사다리는 pickJoke 안에 있다.
-                          single.quipFacts ?? null,
-                        )}
-                      </p>
+                    {flowQuip && (
+                      <p className={`advice-mood mood-${single.advice.mood}`}>{flowQuip.text}</p>
                     )}
                     {/* 조언은 유머와 독립이다 — 유머를 꺼도 이건 볼 수 있어야 한다 */}
                     {showCoach && (

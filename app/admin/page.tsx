@@ -65,6 +65,12 @@ interface FeatureRow {
   count: number;
   users: number;
 }
+interface QuipPoolRow {
+  pool: string;
+  ratingBucket: string;
+  count: number;
+  users: number;
+}
 interface Stats {
   days: number;
   totalViews: number;
@@ -83,6 +89,12 @@ interface Stats {
    * 등록 방법은 화면 안내문 참조.
    */
   langByPlayer: Record<string, Record<string, number>> | null;
+  /**
+   * 흐름 탭 멘트가 실제로 어느 풀·레이팅 구간에서 나갔는지(2026-08, docs/quip-monitoring.md
+   * Part B). null = GA4 맞춤 측정기준(customEvent:quip_pool·rating_bucket)을 아직
+   * 등록 안 했거나 리포트가 실패했다는 뜻 — 등록 방법은 화면 안내문 참조.
+   */
+  quipUsage: QuipPoolRow[] | null;
   error?: string;
   setup?: boolean; // true = 환경변수/권한 등 설정이 덜 된 상태
 }
@@ -684,6 +696,43 @@ export default function AdminPage() {
                   .filter((f) => f.users > 0)
                   .map((f) => `${FEATURE_EVENTS[f.name]} ${f.users}명`)
                   .join(' · ') || '없음'}
+              </p>
+            </>
+          )}
+
+          {/* ── 멘트가 어느 풀에서 나가나 ───────────────────────────────
+              흐름 탭 멘트 실사용 분포(2026-08, docs/quip-monitoring.md Part B). 개별
+              문구가 아니라 풀(사다리단계) 단위로만 본다 — 그 이유는 같은 문서 3장 참조.
+              편중 여부(2026-08-06 사고 같은 패턴)는 이 화면이 아니라 매주 자동으로
+              scripts/check-quip-usage-drift.ts 가 본다 — 여기는 사람이 훑어보는 용도. */}
+          <h2 className="admin-h2">멘트가 어느 풀에서 나가나</h2>
+          {data.quipUsage === null ? (
+            <p className="hint">이 리포트만 실패했습니다 (나머지 수치는 정상입니다).</p>
+          ) : data.quipUsage.every((r) => r.count === 0) ? (
+            <p className="hint" style={{ lineHeight: 1.7 }}>
+              아직 기록이 없습니다 — GA4 맞춤 측정기준을 등록하기 전이거나, 등록한 지
+              얼마 안 됐다면(소급 안 됨) 정상입니다:
+              <br />
+              GA4 → 관리 → 맞춤 정의 → 맞춤 측정기준 → 만들기 — 이벤트 매개변수{' '}
+              <code>quip_pool</code>과 <code>rating_bucket</code> 두 개를 각각(범위:
+              이벤트) 등록하세요.
+            </p>
+          ) : (
+            <>
+              <BarList
+                rows={Object.entries(
+                  data.quipUsage.reduce<Record<string, number>>((acc, r) => {
+                    acc[r.pool] = (acc[r.pool] ?? 0) + r.count;
+                    return acc;
+                  }, {}),
+                )
+                  .map(([pool, count]) => ({ label: pool, value: count }))
+                  .sort((a, b) => b.value - a.value)}
+                unit="회"
+              />
+              <p className="hint">
+                레이팅 구간은 250 단위입니다(예: 1750-1999). 편중 경고는 GitHub Actions
+                의 quip-usage-drift-check 워크플로 로그에서 확인하세요.
               </p>
             </>
           )}

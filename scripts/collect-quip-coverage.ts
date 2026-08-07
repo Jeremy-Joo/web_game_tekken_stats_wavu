@@ -22,9 +22,8 @@ import { normalizeReplays } from '../lib/wavu/normalize';
 import { sessionAdvice } from '../lib/tekken/advice';
 import { buildQuipFacts } from '../lib/tekken/quip-facts';
 import { dateKey, type MatchRecord } from '../lib/tekken/models';
-import { pickJoke, type Mood } from '../app/jokes';
-import { factPools } from '../app/fact-jokes';
-import { seasonOf, seasonPool } from '../app/season-jokes';
+import { pickJoke, type Mood, type QuipSource } from '../app/jokes';
+import { seasonOf } from '../app/season-jokes';
 
 const DEFAULT_INPUT = 'C:\\Users\\jinho.joo\\Downloads\\tekken8stats_admin_90d_20260806_1200.json';
 const MIN_GAMES_FOR_ADVICE = 100; // sessionAdvice 가 null 을 주는 하한(MIN_BAND_GAMES*2)과 동일
@@ -44,8 +43,6 @@ interface PlayerRow {
   lookups: number;
 }
 
-type QuipSource = 'event' | 'rankChange' | 'clock' | 'state' | 'season' | 'trait' | 'base';
-
 interface ResultRow {
   kind: 'result';
   id: string;
@@ -58,28 +55,7 @@ interface ResultRow {
   text: string;
   daysSinceLast: number;
   stale: boolean; // daysSinceLast > STALE_DAYS(30) — advice.ts 가 mood 를 steady 로 강제하는 조건
-  source: QuipSource; // 사후 분류 — 이 텍스트가 어느 풀에서 나왔는지 (사다리 확률 로직과 무관하게 소속 검사만 함)
-}
-
-/** 결과 텍스트가 어느 풀에서 왔는지 사후 분류한다 (선택 로직을 다시 구현하지 않고 소속 검사만). */
-function classifySource(
-  text: string,
-  mood: Mood,
-  lang: 'ko',
-  season: ReturnType<typeof seasonOf> | null,
-  facts: Parameters<typeof factPools>[0],
-): QuipSource {
-  const pools = factPools(facts, lang, mood);
-  if (pools.events.some((arr) => arr.includes(text))) return 'event';
-  if (pools.rankChange.includes(text)) return 'rankChange';
-  if (pools.clock.includes(text)) return 'clock';
-  if (pools.state.includes(text)) return 'state';
-  if (season) {
-    const up = ['blazing', 'hot', 'steady'].includes(mood) ? 'up' : 'down';
-    if (seasonPool(season, up as 'up' | 'down', lang).includes(text)) return 'season';
-  }
-  if (pools.traits.includes(text)) return 'trait';
-  return 'base';
+  source: QuipSource; // pickJoke 가 직접 돌려준다(2026-08, docs/quip-monitoring.md Part B) — 예전엔 문자열을 사후 대조해서 알아냈다
 }
 
 interface SkipRow {
@@ -202,7 +178,7 @@ async function main() {
           const last = records.reduce((a, b) => (a.dt > b.dt ? a : b));
           const season = seasonOf(last.dt);
           const seed = records.length + advice.losingStreak * 7;
-          const text = pickJoke(
+          const { text, source } = pickJoke(
             advice.mood,
             'ko',
             seed,
@@ -215,7 +191,6 @@ async function main() {
             appendProgress({ kind: 'skip', id, reason: 'empty_text' });
             logSuffix = 'SKIP(empty_text)';
           } else {
-            const source = classifySource(text, advice.mood, 'ko', season, facts);
             appendProgress({
               kind: 'result',
               id,

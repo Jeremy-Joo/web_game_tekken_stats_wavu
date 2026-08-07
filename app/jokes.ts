@@ -3144,6 +3144,15 @@ function pick<T>(pool: T[], seed: number): T {
 }
 
 /**
+ * pickJoke 가 사다리의 어느 단에서 문구를 뽑았는지. scripts/collect-quip-coverage.ts 가
+ * 예전에 문자열을 사후 대조(classifySource)해서 알아내던 것을 이제 직접 돌려준다 —
+ * 실사용 분포 추적(2026-08, docs/quip-monitoring.md Part B)이 어느 카테고리가 얼마나
+ * 나가는지 알아야 해서다. 개별 문구가 아니라 이 카테고리 단위로만 추적한다(같은 문서
+ * 3장 참조) — 그래서 이 유니온은 무드×언어별로 세분화하지 않는다.
+ */
+export type QuipSource = 'event' | 'rankChange' | 'clock' | 'state' | 'season' | 'trait' | 'base';
+
+/**
  * 흐름 탭 문구.
  * `seed` 는 조회 결과에서 나온 안정적인 정수를 넘긴다 —
  * 같은 조회에서는 항상 같은 문구가 나오고, 조회가 달라지면 문구도 달라진다.
@@ -3156,7 +3165,7 @@ export function pickJoke(
   streak: number,
   season?: Season | null,
   facts?: QuipFacts | null,
-): string {
+): { text: string; source: QuipSource } {
   // ── 우선순위 사다리 (2026-08-06 재검토, 2차) ──────────────────────
   // 갈래가 여섯이다. 각각 성격이 달라서 취급도 다르다:
   //   사건(events)     드물게 한 번 참  → **무조건 우선.** 놓치면 다시 안 온다.
@@ -3178,38 +3187,39 @@ export function pickJoke(
   // 풀이 섞일 일이 없고, '강등'이라는 단어는 상태 풀이 쓰지 않는다 —
   // 강등은 단(myRank)이 실제로 떨어졌을 때 rankChange 풀만 말할 수 있다.
   const { events, rankChange, clock, state, traits } = factPools(facts ?? null, lang, mood);
-  if (events.length > 0) return pick(events[0], seed); // 빈 pool 은 factPools 가 이미 걸렀다
+  if (events.length > 0) return { text: pick(events[0], seed), source: 'event' }; // 빈 pool 은 factPools 가 이미 걸렀다
 
   // 승단·강등 — 흔한 일이라 사건에서 뺐다(위 사다리 주석 참조). 확률로만 끼워 넣는다.
-  if (rankChange.length > 0 && seed % RANKCHANGE_EVERY === 0) return pick(rankChange, seed);
+  if (rankChange.length > 0 && seed % RANKCHANGE_EVERY === 0)
+    return { text: pick(rankChange, seed), source: 'rankChange' };
 
   // 시각 — 한 주의 34% 를 커버해 마찬가지로 흔하다. 승단·강등과 같은 확률로 끼워 넣는다.
   // seed 가 홀수(예: 3)면 RANKCHANGE_EVERY 와 겹칠 수 있지만, 두 필드가 동시에
   // 값을 가지는 경우 자체가 드물어(단이 막 바뀐 순간이 하필 새벽/점심일 때) 실질적
   // 충돌은 미미하다 — rankChange 가 앞에 있으므로 그럴 땐 rankChange 가 이긴다.
-  if (clock.length > 0 && seed % CLOCK_EVERY === 0) return pick(clock, seed);
+  if (clock.length > 0 && seed % CLOCK_EVERY === 0) return { text: pick(clock, seed), source: 'clock' };
 
   // 승률·레이팅 어긋남 — 승률 표만 봐서는 절대 안 보이는 정보라 계절보다 앞선다.
-  if (state.length > 0 && seed % STATE_EVERY === 0) return pick(state, seed);
+  if (state.length > 0 && seed % STATE_EVERY === 0) return { text: pick(state, seed), source: 'state' };
 
   // 계절 문구는 mood 가 아니라 **날짜**가 여는 축이라 pool 을 따로 본다.
   // 계절을 모르면(=null) 이 갈래는 통째로 건너뛴다 — 없는 근거로 계절을 말하지 않는다.
   if (season) {
     const sp = seasonPool(season, UP_MOODS.has(mood) ? 'up' : 'down', lang);
     // 언어에 계절 문구가 없으면(en) 비어 있다 → 자동으로 기본 농담으로 떨어진다.
-    if (sp.length > 0 && seed % SEASON_EVERY === 0) return pick(sp, seed);
+    if (sp.length > 0 && seed % SEASON_EVERY === 0) return { text: pick(sp, seed), source: 'season' };
   }
 
   // 특성 문구는 늘 참이라 우선하면 기본 풀을 영영 밀어낸다. 확률로만 끼워 넣는다.
-  if (traits.length > 0 && seed % TRAIT_EVERY === 0) return pick(traits, seed);
+  if (traits.length > 0 && seed % TRAIT_EVERY === 0) return { text: pick(traits, seed), source: 'trait' };
 
   // 연패가 없으면 연패를 소재로 한 문구는 후보에서 뺀다.
   const pool = JOKES[mood][lang].filter(
     (j) => typeof j === 'function' || streak >= STREAK_MIN,
   );
-  if (pool.length === 0) return '';
+  if (pool.length === 0) return { text: '', source: 'base' };
   const j = pick(pool, seed);
-  return (typeof j === 'function' ? j : j.fn)(pp, streak);
+  return { text: (typeof j === 'function' ? j : j.fn)(pp, streak), source: 'base' };
 }
 
 /** 연습 권유 한 줄 (농담 다음 줄). 씨앗을 농담과 어긋나게 줘야 짝이 다양해진다. */

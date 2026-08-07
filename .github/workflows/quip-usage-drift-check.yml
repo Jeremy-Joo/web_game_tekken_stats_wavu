@@ -1,0 +1,35 @@
+# 멘트 실사용 분포 점검 — GA quip_shown 이벤트를 읽어 특정 풀(무드×사다리단계)이
+# 편중되지 않는지 매주 확인한다. 배경: docs/quip-monitoring.md Part B, 2026-08-06
+# 편중 사고(승단·연승·오늘 몰림 멘트가 실측 이벤트의 68% 차지).
+#
+# quip-simulation-check.yml 과 다르다 — 그건 코드 회귀를 실패시키는 검사(Part A),
+# 이건 GA 분포를 보는 참고용 경고(Part B)라 항상 exit 0 이다(스크립트 자체 설명 참조).
+#
+# 필요 사전 준비 — 저장소 Settings → Secrets and variables → Actions 에
+#   ADMIN_PASSWORD   .env.local 의 값과 동일 (player-index-daily.yml 과 공용)
+# GA4 맞춤 측정기준(quip_pool, rating_bucket)을 등록하기 전까지는 유예 기간으로
+# 보고 스크립트가 조용히 건너뛴다.
+
+name: quip-usage-drift-check
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # 매주 월요일 06:00 UTC — quip-simulation-check(05:30 UTC) 다음
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: GA 실사용 분포로 편중 점검
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: npx tsx scripts/check-quip-usage-drift.ts

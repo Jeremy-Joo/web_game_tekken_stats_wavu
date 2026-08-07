@@ -512,6 +512,56 @@ export async function featureUsage(days: number): Promise<FeatureRow[]> {
   })).sort((a, b) => b.count - a.count);
 }
 
+export interface QuipPoolRow {
+  /** app/jokes.ts 의 QuipSource — 여기서 그 타입을 직접 import 하지 않는다(lib 가 app
+   * 을 참조하는 새 방향의 의존을 만들지 않으려는 것). GA 가 돌려주는 값도 어차피
+   * 문자열이라 컴파일 타임 보장은 없다. */
+  pool: string;
+  /** '1750-1999' 형태(app/page.tsx 의 bucketRating), 알 수 없으면 'unknown'. */
+  ratingBucket: string;
+  count: number;
+  users: number;
+}
+
+const QUIP_POOLS = ['event', 'rankChange', 'clock', 'state', 'season', 'trait', 'base'] as const;
+
+/**
+ * 흐름 탭 멘트가 실제로 어느 풀·레이팅 구간에서 나갔는지(2026-08, docs/quip-monitoring.md
+ * Part B). 개별 문구가 아니라 풀 단위로만 추적한다 — 그 이유는 같은 문서 3장 참조.
+ *
+ * **quip_pool·rating_bucket 을 GA4 맞춤 측정기준으로 등록한 시점부터 쌓인다.**
+ * 등록 전 기간은 전부 0 이며, featureUsage() 와 같은 사정으로 '아무도 그 풀을 못
+ * 봤다'가 아니라 '셀 방법이 없었다'는 뜻이다 — 호출부가 그렇게 구분해서 보여줄 것.
+ */
+export async function quipUsage(days: number): Promise<QuipPoolRow[]> {
+  const rows = await runReport({
+    dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+    dimensions: [{ name: 'customEvent:quip_pool' }, { name: 'customEvent:rating_bucket' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+    dimensionFilter: {
+      filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'quip_shown' } },
+    },
+    limit: 1000,
+  });
+
+  const got: QuipPoolRow[] = rows.map((r) => ({
+    pool: r.dimensionValues?.[0]?.value || 'unknown',
+    ratingBucket: r.dimensionValues?.[1]?.value || 'unknown',
+    count: Number(r.metricValues?.[0]?.value ?? 0),
+    users: Number(r.metricValues?.[1]?.value ?? 0),
+  }));
+
+  // 풀 하나가 통째로 안 보이면(모든 레이팅 구간에서 0건) 그게 "아무도 그 사다리
+  // 단을 못 봤다"는 실제 신호일 수 있어 0행을 채워 드러낸다 — 레이팅 구간까지
+  // 전부 조합해서 채우지는 않는다(구간은 열린 값이라 조합 자체가 큰 의미가 없다).
+  const seenPools = new Set(got.map((r) => r.pool));
+  for (const pool of QUIP_POOLS) {
+    if (!seenPools.has(pool)) got.push({ pool, ratingBucket: 'all', count: 0, users: 0 });
+  }
+
+  return got.sort((a, b) => b.count - a.count);
+}
+
 export interface ReportUse {
   views: number;
   users: number;

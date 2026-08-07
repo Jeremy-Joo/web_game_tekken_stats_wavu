@@ -19,6 +19,7 @@ import {
   featureUsage,
   reportViews,
   lookupLangByPlayer,
+  quipUsage,
   GaError,
 } from '@/lib/ga';
 import { isAdminRangeDays } from '@/lib/admin-ranges';
@@ -65,13 +66,14 @@ export async function POST(req: NextRequest) {
     // (GA4 측정기준 이름이 바뀌거나 권한이 모자랄 때 여기만 깨질 수 있다)
     // langR 은 특히 잘 실패한다 — customEvent:ui_lang 을 GA4 관리화면에서
     // 맞춤 측정기준으로 등록하기 전에는 항상 실패한다(lookupLangByPlayer 주석 참조).
-    const [tabsR, audR, featR, repR, langR, idxR] = await Promise.allSettled([
+    const [tabsR, audR, featR, repR, langR, idxR, quipR] = await Promise.allSettled([
       tabViews(days),
       audience(days),
       featureUsage(days),
       reportViews(days),
       lookupLangByPlayer(days),
       fetchPlayerIndex(),
+      quipUsage(days),
     ]);
 
     // 메인 캐릭터·레이팅 — 플레이어 인덱스(500판 이상만 담는 스냅샷)에서 찾아 곁들인다.
@@ -97,6 +99,7 @@ export async function POST(req: NextRequest) {
       reports: repR.status === 'fulfilled' ? repR.value : null,
       // Map 은 JSON 으로 직렬화하면 사라지므로 일반 객체로 바꿔 보낸다.
       langByPlayer: langR.status === 'fulfilled' ? Object.fromEntries(langR.value) : null,
+      quipUsage: quipR.status === 'fulfilled' ? quipR.value : null,
     });
   } catch (e) {
     // 설정 미비(환경변수·권한)와 일시적 오류를 구분해 화면이 원인을 알려줄 수 있게

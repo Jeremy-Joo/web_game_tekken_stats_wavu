@@ -22,11 +22,9 @@ import { normalizeReplays } from '../lib/wavu/normalize';
 import { sessionAdvice } from '../lib/tekken/advice';
 import { buildQuipFacts } from '../lib/tekken/quip-facts';
 import { dateKey, type MatchRecord } from '../lib/tekken/models';
-import { pickJoke, pickCoach, COACH_HIGH_MIN_RATING, type Mood } from '../app/jokes';
-import { factPools } from '../app/fact-jokes';
-import { seasonOf, seasonPool } from '../app/season-jokes';
+import { pickJoke, pickCoach, COACH_HIGH_MIN_RATING } from '../app/jokes';
+import { seasonOf } from '../app/season-jokes';
 import type { PlayerIndex } from '../lib/tekken/player-index';
-import type { QuipFacts } from '../lib/tekken/quip-facts';
 
 const MIN_GAMES_FOR_ADVICE = 100; // sessionAdvice 가 null 을 주는 하한과 동일 (collect-quip-coverage.ts 참조)
 const BOUNDARY_SAMPLE = 10; // COACH_HIGH_MIN_RATING 근방 우선 표본 — 버그가 실제로 걸리는 경계
@@ -48,21 +46,6 @@ function daysSinceLast(records: MatchRecord[]): number {
     0,
     Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${dateKey(last)}T00:00:00Z`)) / 86_400_000),
   );
-}
-
-/** 결과 텍스트가 어느 풀에서 왔는지 사후 분류한다 (collect-quip-coverage.ts 와 동일한 방식 — 정보성 통계용). */
-function classifySource(text: string, mood: Mood, facts: QuipFacts, season: ReturnType<typeof seasonOf> | null) {
-  const pools = factPools(facts, 'ko', mood);
-  if (pools.events.some((arr) => arr.includes(text))) return 'event';
-  if (pools.rankChange.includes(text)) return 'rankChange';
-  if (pools.clock.includes(text)) return 'clock';
-  if (pools.state.includes(text)) return 'state';
-  if (season) {
-    const up = (['blazing', 'hot', 'steady'] as Mood[]).includes(mood) ? 'up' : 'down';
-    if (seasonPool(season, up, 'ko').includes(text)) return 'season';
-  }
-  if (pools.traits.includes(text)) return 'trait';
-  return 'base';
 }
 
 function selectSample(index: PlayerIndex): { id: string; rating: number }[] {
@@ -165,13 +148,10 @@ async function main() {
       const coachSeed = records.length * 3 + Math.round(advice.recentDeltaPp);
       const coach = pickCoach(advice.mood, 'ko', coachSeed, rating, advice.baselineWinRate);
 
-      if (joke) {
-        const src = classifySource(joke, advice.mood, facts, season);
-        sourceDist[src] = (sourceDist[src] ?? 0) + 1;
-      }
+      if (joke.text) sourceDist[joke.source] = (sourceDist[joke.source] ?? 0) + 1;
 
       for (const [source, text] of [
-        ['pickJoke', joke],
+        ['pickJoke', joke.text],
         ['pickCoach', coach],
       ] as const) {
         if (!text) continue;

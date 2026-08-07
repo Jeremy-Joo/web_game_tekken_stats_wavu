@@ -4,7 +4,8 @@
 "이상한 조합"이 배포됐는지 알 방법이 없었다. 이 문서는 그걸 자동으로 잡는 두 시스템의
 설계 결정과, 왜 그렇게 나눴는지를 적는다.
 
-상태: **Part A 적용됨** (2026-08-07) · **Part B 설계 확정, 구현 전**
+상태: **Part A 적용됨** (2026-08-07) · **Part B 코드 적용됨** (2026-08-07, GA4 맞춤
+측정기준 등록은 미완 — 5장 참조)
 
 관련 문서: [joke-themes.md](joke-themes.md) · [advice-text.md](advice-text.md) ·
 [mood-baseline.md](mood-baseline.md)
@@ -62,17 +63,24 @@ Part A(`scripts/check-quip-simulation.ts`)의 규칙은 `['프로', '리그', '�
 "이 맥락에서만 나와야 하는" 소재를 추가할 때는 이 목록에 없는 어휘라면 이 검사가
 보호해주지 않는다 — 게이트를 직접 코드로 챙겨야 한다.
 
-## 5. 수동 단계 (Part B, 구현 시)
+## 5. 수동 단계 (Part B — 아직 안 함, 배포 후 사용자가 직접 해야 함)
 
-Part B를 배포하면 사용자가 직접 **GA4 → 관리 → 맞춤 정의 → 맞춤 측정기준**에서
-`quip_pool`, `rating_bucket`(이벤트 범위) 두 개를 등록해야 한다 —
-`app/admin/page.tsx`의 `ui_lang` 등록 안내와 같은 방식. 등록은 소급 적용되지 않는다 —
-등록 전에 발생한 `quip_shown` 이벤트는 Data API로 영영 못 읽는다.
+**GA4 → 관리 → 맞춤 정의 → 맞춤 측정기준 → 만들기**에서 `quip_pool`, `rating_bucket`
+(둘 다 범위: 이벤트) 두 개를 등록해야 한다 — `app/admin/page.tsx`의 `ui_lang` 등록
+안내와 같은 방식. 등록은 소급 적용되지 않는다 — 등록 전에 발생한 `quip_shown` 이벤트는
+Data API로 영영 못 읽는다. 등록 후 `scripts/check-quip-usage-drift.ts`의
+`CUSTOM_DIMENSIONS_REGISTERED_AT` 상수를 실제 등록일로 갱신할 것 — 그 전까지는 이
+스크립트가 유예 기간으로 보고 조용히 건너뛴다.
 
 ## 6. 반영 결과
 
 - **Part A**: `scripts/check-quip-simulation.ts` + `.github/workflows/quip-simulation-check.yml`
   (매주 월요일 05:30 UTC). `COACH_HIGH_MIN_RATING` 게이트를 일부러 빼고 재현한 결과,
   실제 표본(레이팅 1531)에서 위반을 정확히 잡아내는 것을 확인했다(2026-08-07).
-- **Part B**: 미착수. 착수 시 `pickJoke()` 반환 타입 변경, `quip_shown` GA 이벤트,
-  `lib/ga.ts`의 `quipUsage()`, `app/api/admin/quip-usage`, 주간 드리프트 검사 순으로 진행.
+- **Part B**: 코드는 적용됨(2026-08-07) — `pickJoke()`가 `{text, source}`를 반환하도록
+  바꾸고(app/jokes.ts), `app/page.tsx`에서 `quip_shown` GA 이벤트를 `player_lookup`과
+  같은 "조회당 한 번" 방식으로 발사, `lib/ga.ts`의 `quipUsage()` + `/api/admin/quip-usage`
+  + `scripts/check-quip-usage-drift.ts`(매주 월요일 06:00 UTC, 편중 60%↑ 시 경고) +
+  `/admin` 표시 섹션까지 전부 붙였다. 브라우저에서 실제 조회로 `quip_shown` 이벤트가
+  올바른 `quip_pool`/`rating_bucket`로 나가는 것 확인. **다만 5장의 GA4 맞춤 측정기준
+  등록은 아직 안 했다** — 등록 전까지는 `quipUsage()`가 항상 0을 반환한다.
