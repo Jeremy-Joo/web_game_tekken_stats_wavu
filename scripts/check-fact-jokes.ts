@@ -137,6 +137,35 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
     has(factPools(f({ rankChange: { up: false, gamesAgo: 0, visits: 2, deltaPp: null } }), 'ko', 'steady').rankChange, '강등'),
   );
   ok('rankChange 없으면 필드가 빈다', factPools(base, 'ko', 'steady').rankChange.length === 0);
+
+  // 2026-08-07 실사고 — 레이팅 1447(중하위권) 유저가 승단만 하면 "프로 무대에
+  // 입성했습니다"를 받았다. 프로/감독 소재는 COACH_HIGH_MIN_RATING(1950) 이상일
+  // 때만 후보여야 한다. base.currentRating 은 1600 이라 게이트 아래다.
+  const lowRatingUp = factPools(
+    f({ rankChange: { up: true, gamesAgo: 8, visits: 3, deltaPp: null } }),
+    'ko',
+    'cooling',
+  ).rankChange;
+  ok('레이팅 낮으면 승단 문구에 프로 소재 없음', !has(lowRatingUp, '프로 무대'));
+  ok('레이팅 낮으면 승단 문구에 상위 리그 소재 없음', !has(lowRatingUp, '상위 리그'));
+  const highRatingUp = factPools(
+    f({ currentRating: 2000, rankChange: { up: true, gamesAgo: 8, visits: 3, deltaPp: null } }),
+    'ko',
+    'cooling',
+  ).rankChange;
+  ok('레이팅 높으면 승단 문구에 프로 소재 후보로 들어간다', has(highRatingUp, '프로 무대'));
+  const lowRatingDown = factPools(
+    f({ rankChange: { up: false, gamesAgo: 0, visits: 2, deltaPp: null } }),
+    'ko',
+    'cooling',
+  ).rankChange;
+  ok('레이팅 낮으면 강등 문구에 감독 소재 없음', !has(lowRatingDown, '감독'));
+  const highRatingDown = factPools(
+    f({ currentRating: 2000, rankChange: { up: false, gamesAgo: 0, visits: 2, deltaPp: null } }),
+    'ko',
+    'cooling',
+  ).rankChange;
+  ok('레이팅 높으면 강등 문구에 감독 소재 후보로 들어간다', has(highRatingDown, '감독'));
 }
 
 // ── 마일스톤 — 시간 값이 없으면 시간 얘기를 안 한다 ──────────────

@@ -24,6 +24,7 @@
 import type { Lang } from './i18n';
 import type { QuipFacts } from '@/lib/tekken/quip-facts';
 import type { Mood } from './jokes';
+import { COACH_HIGH_MIN_RATING } from './jokes';
 import { divergePool } from './diverge-jokes';
 
 /** 천 단위 쉼표. toLocaleString 은 실행 환경에 따라 결과가 갈릴 수 있어 직접 넣는다. */
@@ -99,6 +100,16 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
   const d = rc.deltaPp;
   // 재방문 횟수는 그대로 쓴다. 실측상 수백이 나오는데 그게 사실이고, 사실이라 웃기다.
   const many = v >= 5;
+  // 프로/리그 소재는 실제로 그 구간(레이팅)에 있을 때만 낸다. 실측 사고(2026-08-07,
+  // tekkenstats.com/player/5GHjH4FJ6Mr4): 승률 44%·레이팅 1,447(중하위권)에서
+  // 8판 전 승단(이 계급 3번째 방문 — 오르내림 반복 중)했다고 "프로 무대에
+  // 입성했습니다"가 그대로 나갔다. "승격은 박수를 받지만..."·"상위 리그는..." 같은
+  // 문구는 전부 '지금 진짜 높은 곳에서 경쟁 중'이라는 전제가 있어야 성립하는데,
+  // QuipFacts.rankChange 는 몇 단인지 안 담아서(머리말 규칙 — 단 이름을 지어내지
+  // 않는다) 그 전제를 판정할 수가 없었다. currentRating 은 있으니 그걸로 게이트.
+  // 임계값은 COACH_HIGH_MIN_RATING(1950) 재사용 — "프로 소재를 써도 되는 구간"의
+  // 기존 정의(jokes.ts pickCoach)와 같은 선을 쓴다.
+  const highRating = f.currentRating >= COACH_HIGH_MIN_RATING;
   const p: Pool = rc.up
     ? {
         ko: [
@@ -107,16 +118,19 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           ...(d != null && d < -3 ? [`승급하고 나서 승률이 ${Math.abs(d)}%p 떨어졌습니다. 원래 다 그렇습니다.`] : []),
           `계급이 올랐습니다. 위에는 더 무서운 사람들이 있습니다.`,
           `올라가셨군요. 내려오는 길도 같은 길입니다.`,
-          // 2026-08-07 사용자 추가 — 강등 쪽 '운영' 소재의 승격 짝. 리그 승격/잔류 비유는
-          // 이 사이트의 단(rank) 구조 자체가 실제로 그런 사다리라 프로/직장 비유와
-          // 달리 단정형으로 써도 "진짜 직장 얘기"로 안 읽힌다(승격·잔류는 이 게임에도
-          // 실재하는 개념). 넷째 줄("운영의 수준을 끌어올리세요")은 다른 멘트보다
-          // 지시형에 가깝지만, 유머 축에 있는 다른 문구들도 종종 그런 톤을 쓴다.
-          `프로 무대에 입성했습니다. 이제는 승격이 아니라 잔류를 고민해야 할 때입니다.`,
-          `승격은 박수를 받지만, 살아남는 건 운영이 결정합니다.`,
-          `상위 리그는 승격을 축하해주지 않습니다. 운영만 평가합니다.`,
-          `승격은 쉬워도 잔류는 어렵습니다. 더 나은 운영, 수준 높은 운영이 필요합니다.`,
-          `승단 축하드립니다. 더 나은 운영이 필요한 순간입니다.`,
+          // 2026-08-07 사용자 추가 — 강등 쪽 '운영' 소재의 승격 짝. highRating 게이트는
+          // 같은 날 추가(위 주석 참조) — 리그 승격/잔류 비유 자체는 이 사이트의 단
+          // (rank) 구조가 실제로 그런 사다리라 문제가 아니지만, 그 사다리의 '위쪽'
+          // 얘기를 아무 구간에서나 하면 안 맞는다.
+          ...(highRating
+            ? [
+                `프로 무대에 입성했습니다. 이제는 승격이 아니라 잔류를 고민해야 할 때입니다.`,
+                `승격은 박수를 받지만, 살아남는 건 운영이 결정합니다.`,
+                `상위 리그는 승격을 축하해주지 않습니다. 운영만 평가합니다.`,
+                `승격은 쉬워도 잔류는 어렵습니다. 더 나은 운영, 수준 높은 운영이 필요합니다.`,
+                `승단 축하드립니다. 더 나은 운영이 필요한 순간입니다.`,
+              ]
+            : []),
         ],
         en: [
           `You ranked up. Congratulations.`,
@@ -124,11 +138,15 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           ...(d != null && d < -3 ? [`Your win rate dropped ${Math.abs(d)}%p after the promotion. That is normal.`] : []),
           `Rank up. Scarier people live up there.`,
           `You went up. The way down is the same road.`,
-          `Welcome to the pro stage. The question now isn't promotion, it's survival.`,
-          `Promotion gets the applause. Staying up is decided by how you play.`,
-          `The upper bracket doesn't celebrate the promotion. It only grades what comes after.`,
-          `Getting promoted is the easy part. Staying up is the hard part, and it takes sharper play.`,
-          `Congratulations on the rank up. Now you need the play to match it.`,
+          ...(highRating
+            ? [
+                `Welcome to the pro stage. The question now isn't promotion, it's survival.`,
+                `Promotion gets the applause. Staying up is decided by how you play.`,
+                `The upper bracket doesn't celebrate the promotion. It only grades what comes after.`,
+                `Getting promoted is the easy part. Staying up is the hard part, and it takes sharper play.`,
+                `Congratulations on the rank up. Now you need the play to match it.`,
+              ]
+            : []),
         ],
         ja: [
           `昇格しました。おめでとうございます。`,
@@ -136,11 +154,15 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           ...(d != null && d < -3 ? [`昇格後に勝率が${Math.abs(d)}%p 下がりました。よくあることです。`] : []),
           `ランクが上がりました。上にはもっと怖い人がいます。`,
           `上がりましたね。下りも同じ道です。`,
-          `プロの舞台に上がりました。今問われているのは昇格ではなく残留です。`,
-          `昇格には拍手が来ます。生き残れるかは運営次第です。`,
-          `上位リーグは昇格を祝ってくれません。運営だけを評価します。`,
-          `昇格は簡単でも残留は難しいです。求められるのはより良い、質の高い運営です。`,
-          `昇段おめでとうございます。今度はより良い運営が必要な瞬間です。`,
+          ...(highRating
+            ? [
+                `プロの舞台に上がりました。今問われているのは昇格ではなく残留です。`,
+                `昇格には拍手が来ます。生き残れるかは運営次第です。`,
+                `上位リーグは昇格を祝ってくれません。運営だけを評価します。`,
+                `昇格は簡単でも残留は難しいです。求められるのはより良い、質の高い運営です。`,
+                `昇段おめでとうございます。今度はより良い運営が必要な瞬間です。`,
+              ]
+            : []),
         ],
       }
     : {
@@ -168,10 +190,16 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           `계급은 바뀌었습니다. 운영까지 바뀌었다는 착각은 하지 않는 편이 좋겠습니다.`,
           // 프로/감독 소재 — 가정법 원칙(jokes.ts 머리말)은 첫 줄만 지킨다.
           // 나머지 둘은 '당신의 감독'이라 안 박아 일반론으로 읽히게 남겨뒀다.
-          `계급은 떨어졌습니다. 프로 스포츠였다면 감독이 경질됐겠지만, 안타깝게도 당신의 운영 능력까지 함께 교체되진 않았습니다.`,
-          `감독은 바꿀 수 있어도, 운영 습관은 쉽게 바뀌지 않습니다.`,
-          `성적은 떨어졌습니다. 하지만 가장 큰 문제는 아직도 벤치에 그대로 남아 있습니다.`,
-          `감독은 경질될 수 있습니다. 운영 능력은 자동으로 교체되지 않습니다.`,
+          // highRating 게이트: 위 highRating 정의부 주석 참조 — 프로 소재는 실제로
+          // 그 구간(레이팅)에 있을 때만.
+          ...(highRating
+            ? [
+                `계급은 떨어졌습니다. 프로 스포츠였다면 감독이 경질됐겠지만, 안타깝게도 당신의 운영 능력까지 함께 교체되진 않았습니다.`,
+                `감독은 바꿀 수 있어도, 운영 습관은 쉽게 바뀌지 않습니다.`,
+                `성적은 떨어졌습니다. 하지만 가장 큰 문제는 아직도 벤치에 그대로 남아 있습니다.`,
+                `감독은 경질될 수 있습니다. 운영 능력은 자동으로 교체되지 않습니다.`,
+              ]
+            : []),
           `계급은 떨어졌습니다. 하지만 당신의 운영 능력까지 함께 떨어져 나가진 않았습니다.`,
           `계급만 바뀌었습니다. 운영은 여전히 당신의 것입니다.`,
           `강등은 됐습니다. 운영은 그대로입니다. 그것이 더 큰 문제일 수도 있습니다.`,
@@ -197,10 +225,14 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           `Rank slipped. Your play looks exactly as familiar as before.`,
           `New rank, same decisions. Don't expect a different outcome.`,
           `The rank changed. Assuming your play changed with it would be a mistake.`,
-          `Rank dropped. If this were pro sports, the coach would be fired — your instincts, unfortunately, were not.`,
-          `You can fire the coach. Habits don't take the hint.`,
-          `The result dropped. The actual problem is still on the bench.`,
-          `Coaches get replaced. Decision-making does not auto-update.`,
+          ...(highRating
+            ? [
+                `Rank dropped. If this were pro sports, the coach would be fired — your instincts, unfortunately, were not.`,
+                `You can fire the coach. Habits don't take the hint.`,
+                `The result dropped. The actual problem is still on the bench.`,
+                `Coaches get replaced. Decision-making does not auto-update.`,
+              ]
+            : []),
           `Rank dropped. Your play did not fall with it.`,
           `Only the rank changed. The play is still yours.`,
           `Demoted, yes. Unchanged, also yes. That might be the bigger issue.`,
@@ -226,10 +258,14 @@ function rankChange(f: QuipFacts, lang: Lang): string[] {
           `階級は下がりましたが、運営は相変わらず見慣れた姿です。`,
           `新しい階級、同じ運営。結果が変わる理由は多くありません。`,
           `階級は変わりました。運営まで変わったと思うのは早計です。`,
-          `階級は下がりました。プロの世界なら監督が更迭されるところですが、あなたの運営能力はそのまま残ってしまいました。`,
-          `監督は代えられても、プレイの癖はそう簡単には変わりません。`,
-          `成績は落ちました。でも一番の問題は今もベンチに座ったままです。`,
-          `監督は更迭されることがあります。運営能力は自動では入れ替わりません。`,
+          ...(highRating
+            ? [
+                `階級は下がりました。プロの世界なら監督が更迭されるところですが、あなたの運営能力はそのまま残ってしまいました。`,
+                `監督は代えられても、プレイの癖はそう簡単には変わりません。`,
+                `成績は落ちました。でも一番の問題は今もベンチに座ったままです。`,
+                `監督は更迭されることがあります。運営能力は自動では入れ替わりません。`,
+              ]
+            : []),
           `階級は下がりました。でもあなたの運営能力まで一緒に落ちたわけではありません。`,
           `階級だけが変わりました。運営は相変わらずあなたのものです。`,
           `降格はしました。運営はそのままです。それがより大きな問題かもしれません。`,
