@@ -40,6 +40,13 @@ async function main() {
         `최고는 ${f.peakGamesAgo}판 전, 방금갱신=${f.peakFresh}`,
     );
     console.log(
+      `  회복         ${
+        f.recovery
+          ? `최저 ${f.recovery.troughRating} → +${f.recovery.up} (최고까지 ${f.recovery.toPeak})`
+          : '-'
+      }`,
+    );
+    console.log(
       `  단 변화      ${
         f.rankChange
           ? `${f.rankChange.up ? '승단' : '강등'} ${f.rankChange.gamesAgo}판 전, ` +

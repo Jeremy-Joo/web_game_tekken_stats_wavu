@@ -36,6 +36,26 @@ const RANK_RECENT = 12;
 const RANK_COMPARE_MIN = 50;
 /** 최고 레이팅을 "방금 갱신"이라고 부를 수 있는 판수. */
 const PEAK_FRESH = 5;
+/**
+ * '추락했다 회복 중'이라 부르려면 최고점→최저점 낙폭이 이만큼은 돼야 한다.
+ * 경기당 변동이 ±8~13(위 DIVERGE 주석의 실측)이라 150이면 두 자릿수 순연패 급 —
+ * 작은 출렁임까지 회복 서사로 부풀리지 않기 위한 하한이다.
+ */
+const RECOVERY_DIP = 150;
+/**
+ * 최저점에서 이만큼은 올라와야 '회복 중'이다. 바닥에서 두어 판 이긴 걸
+ * 회복이라 불렀다가 다음 조회에서 도로 내려가 있으면 거짓말이 된다.
+ */
+const RECOVERY_UP = 100;
+/**
+ * 최저점이 이 판수 안에 있어야 '회복 중'이다 — **처음 구현엔 이 게이트가 없었고,
+ * 실측 12명 전원(100%)에서 회복이 검출됐다(2026-08-07).** 이력이 길면 최고점은
+ * 위쪽 극단값, 그 후 최저점은 아래쪽 극단값이라 "현재가 최저점보다 위"는 거의
+ * 항상 참이 된다 — 수천 판 전 바닥에서 +655 는 회복이 아니라 세월이다.
+ * '회복 중'은 현재형 서사라 바닥이 최근이어야 성립한다. 200은 advice.ts 의
+ * FORM_BASE_N 과 같은 값 — 이 코드베이스에서 '요즘'의 기존 정의(헤비 유저 2주치)다.
+ */
+const RECOVERY_TROUGH_RECENT = 200;
 /** 실력차 버킷을 가르는 레이팅 차. */
 const GAP_RATING = 50;
 /** 버킷 하나를 인용하려면 최소 이만큼. */
@@ -94,6 +114,24 @@ export interface QuipFacts {
   peakGamesAgo: number;
   /** 사건 — 방금 최고를 갱신했는가. */
   peakFresh: boolean;
+  /**
+   * 최고점 이후 최저점 대비 회복 (2026-08-07). 최고점 → 그 후 최저점(trough) →
+   * 현재의 세 지점에서, 바닥 대비 충분히 올라온 중일 때만 값이 있다.
+   *
+   * 세션 위치 기반 반등(docs/advice-text.md ⑦ — 실측 후 기각)과 다른 점:
+   * 그쪽은 "30판째 구간"이 잘 풀린 세션만 담는 표집 편향으로 거의 전원에게
+   * 반등이 보였지만, 레이팅 곡선은 모든 경기가 정확히 한 번씩 들어가는 단일
+   * 시계열이라 내려갔다 올라온 게 관측된 사실이다. 단, 평균 회귀는 남는다 —
+   * 문구는 관찰형("올라왔다")까지만 쓰고 예측("계속 오른다")·인과("실력이
+   * 돌아왔다")는 쓰지 않는다(fact-jokes.ts 쪽 규칙).
+   *
+   * 현재가 최고점을 넘어서면 null — 그 순간은 peakFresh 사건이 이어받는다.
+   * '올라오는 중'은 현재형 주장이라 isCurrent 가 아니면 null 이고, 같은 이유로
+   * 최저점이 최근(RECOVERY_TROUGH_RECENT판 이내)일 때만 값이 있다 — 근접성 게이트가
+   * 없던 첫 구현은 실측 12명 전원에게 떠서(수천 판 전 바닥 대비 +655 같은 '세월'까지
+   * 회복으로 불렀다) 게이트를 추가했다.
+   */
+  recovery: { troughRating: number; up: number; toPeak: number } | null;
 
   /**
    * 최근 단 변화. 실측상 12판에 한 번꼴로 바뀌므로 '희귀한 사건'이 아니다 —
@@ -211,6 +249,39 @@ export function buildQuipFacts(input: QuipFactsInput): QuipFacts | null {
       peakIdx = i;
     }
   const peakGamesAgo = all.length - 1 - peakIdx;
+
+  // ── 최저점 대비 회복 ───────────────────────────────────────────
+  // 최고점 '이후' 구간에서 최저점을 찾아, 현재가 거기서 충분히 올라온 상태인지 본다.
+  // myRating<=0 은 값이 아직 안 붙은 경기라 건너뛴다(실력차 계산과 같은 가드).
+  let recovery: QuipFacts['recovery'] = null;
+  if (peakIdx >= 0 && peakIdx < all.length - 1) {
+    let troughRating = Infinity;
+    let troughIdx = -1;
+    for (let i = peakIdx + 1; i < all.length; i++) {
+      const r = all[i].myRating;
+      // <= 로 잡아 같은 최저값이면 **가장 최근** 것을 최저점으로 본다 — 근접성
+      // 게이트(RECOVERY_TROUGH_RECENT)가 실제 회복 시작점을 기준으로 판정되게.
+      if (r > 0 && r <= troughRating) {
+        troughRating = r;
+        troughIdx = i;
+      }
+    }
+    const cur = all[all.length - 1].myRating;
+    const troughGamesAgo = troughIdx >= 0 ? all.length - 1 - troughIdx : Infinity;
+    if (
+      troughRating !== Infinity &&
+      troughGamesAgo <= RECOVERY_TROUGH_RECENT &&
+      peakRating - troughRating >= RECOVERY_DIP &&
+      cur - troughRating >= RECOVERY_UP &&
+      cur < peakRating
+    ) {
+      recovery = {
+        troughRating,
+        up: cur - troughRating,
+        toPeak: peakRating - cur,
+      };
+    }
+  }
 
   // ── 단 변화 ────────────────────────────────────────────────────
   // myRank 가 0 인 경기는 값이 없다는 뜻이라 건너뛴다(normalize 가 ?? 0 으로 채운다).
@@ -383,6 +454,8 @@ export function buildQuipFacts(input: QuipFactsInput): QuipFacts | null {
     currentRating: last.myRating,
     peakGamesAgo,
     peakFresh: isCurrent && peakGamesAgo <= PEAK_FRESH,
+    // '올라오는 중'은 현재형 주장이다 — 지난 시즌을 보면서 말하면 거짓말이 된다.
+    recovery: isCurrent ? recovery : null,
     rankChange: isCurrent ? rankChange : null,
     winStreak: isCurrent ? winStreak : 0,
     bestWinStreak,
