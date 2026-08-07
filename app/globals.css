@@ -1180,6 +1180,14 @@ footer a {
   font-size: 0.8rem;
 }
 
+/* 버전 표시 — 개발자 참고용이라 disclaimer(법적 고지, 이미 조용함)보다도 흐리다. */
+.version-tag {
+  display: block;
+  color: var(--muted);
+  font-size: 0.68rem;
+  opacity: 0.5;
+}
+
 /* 비공식 고지 — 읽을 수는 있되 화면을 차지하지 않는다. 법적 문구는 조용해야 한다. */
 .disclaimer {
   display: block;

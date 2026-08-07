@@ -6,6 +6,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { gaEvent } from '@/lib/ga-events';
+import pkg from '../package.json';
 import RankBadges from './RankBadges';
 // 2026-08-05: 승률 비교·장기전 패턴 찾기 기능 잠시 중단 — 아래 사용처도 주석 처리됨.
 // import SimilarPlayers from './SimilarPlayers';
@@ -101,6 +102,15 @@ function bucketRating(rating: number | null | undefined): string {
   if (rating == null) return 'unknown';
   const lo = Math.floor(rating / 250) * 250;
   return `${lo}-${lo + 249}`;
+}
+
+/**
+ * package.json 버전(예: "2026.8.7")을 표시용 날짜꼴("2026.08.07")로 편다.
+ * 버전을 날짜 그대로 잡기로 했다(2026-08-07) — semver 숫자 식별자는 앞자리 0을
+ * 못 붙이므로 package.json 원본은 0을 안 붙이고, 화면에서만 자리를 맞춘다.
+ */
+function formatVersion(v: string): string {
+  return v.split('.').map((p) => p.padStart(2, '0')).join('.');
 }
 
 /**
@@ -3282,6 +3292,11 @@ export default function Home() {
             같은 말을 두 번 하는 셈이라 걷어냈다. */}
         {/* 크레딧은 번역하지 않는다 — 이름·이메일이고, 감사 문구도 원문이 영어다.
             언어를 바꿔도 같은 사람을 같은 표기로 부르는 게 맞다. */}
+        {/* 버전 — 날짜 그대로(2026-08-07 결정). 커밋마다가 아니라 의미 있는
+            작업 묶음이 끝날 때만 package.json 을 올린다. 고지보다 더 조용해야
+            해서(사람이 알아야 할 정보가 아니라 개발자 참고용) disclaimer 보다도
+            흐리게 둔다. */}
+        <span className="version-tag">v{formatVersion(pkg.version)}</span>
         {/* 고지가 먼저다 — 이 사이트가 무엇인지(비공식 팬사이트)와 자료 출처를
             먼저 밝히고, 그다음이 만든 사람이다. */}
         <span className="disclaimer">{t('disclaimer')}</span>
