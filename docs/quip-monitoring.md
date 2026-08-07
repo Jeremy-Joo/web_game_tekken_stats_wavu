@@ -4,8 +4,9 @@
 "이상한 조합"이 배포됐는지 알 방법이 없었다. 이 문서는 그걸 자동으로 잡는 두 시스템의
 설계 결정과, 왜 그렇게 나눴는지를 적는다.
 
-상태: **Part A 적용됨** (2026-08-07) · **Part B 코드 적용됨** (2026-08-07, GA4 맞춤
-측정기준 등록은 미완 — 5장 참조)
+상태: **Part A 적용됨** (2026-08-07) · **Part B 적용됨** (2026-08-07, GA4 맞춤
+측정기준 등록 완료 — 5장 참조. 드리프트 검사는 등록일+14일 유예 후인
+2026-08-21부터 실제 판정 시작)
 
 관련 문서: [joke-themes.md](joke-themes.md) · [advice-text.md](advice-text.md) ·
 [mood-baseline.md](mood-baseline.md)
@@ -63,14 +64,15 @@ Part A(`scripts/check-quip-simulation.ts`)의 규칙은 `['프로', '리그', '�
 "이 맥락에서만 나와야 하는" 소재를 추가할 때는 이 목록에 없는 어휘라면 이 검사가
 보호해주지 않는다 — 게이트를 직접 코드로 챙겨야 한다.
 
-## 5. 수동 단계 (Part B — 아직 안 함, 배포 후 사용자가 직접 해야 함)
+## 5. 수동 단계 (Part B — 완료, 2026-08-07)
 
 **GA4 → 관리 → 맞춤 정의 → 맞춤 측정기준 → 만들기**에서 `quip_pool`, `rating_bucket`
-(둘 다 범위: 이벤트) 두 개를 등록해야 한다 — `app/admin/page.tsx`의 `ui_lang` 등록
+(둘 다 범위: 이벤트) 두 개를 등록했다 — `app/admin/page.tsx`의 `ui_lang` 등록
 안내와 같은 방식. 등록은 소급 적용되지 않는다 — 등록 전에 발생한 `quip_shown` 이벤트는
-Data API로 영영 못 읽는다. 등록 후 `scripts/check-quip-usage-drift.ts`의
-`CUSTOM_DIMENSIONS_REGISTERED_AT` 상수를 실제 등록일로 갱신할 것 — 그 전까지는 이
-스크립트가 유예 기간으로 보고 조용히 건너뛴다.
+Data API로 영영 못 읽는다(그 전 기간은 그냥 0으로 남는다). 등록일을
+`scripts/check-quip-usage-drift.ts`의 `CUSTOM_DIMENSIONS_REGISTERED_AT = '2026-08-07'`
+에 반영했다 — 이 스크립트는 등록일+14일 유예 기간(2026-08-21까지)이 지나야
+실제 편중 판정을 시작한다.
 
 ## 6. 반영 결과
 
@@ -82,5 +84,6 @@ Data API로 영영 못 읽는다. 등록 후 `scripts/check-quip-usage-drift.ts`
   같은 "조회당 한 번" 방식으로 발사, `lib/ga.ts`의 `quipUsage()` + `/api/admin/quip-usage`
   + `scripts/check-quip-usage-drift.ts`(매주 월요일 06:00 UTC, 편중 60%↑ 시 경고) +
   `/admin` 표시 섹션까지 전부 붙였다. 브라우저에서 실제 조회로 `quip_shown` 이벤트가
-  올바른 `quip_pool`/`rating_bucket`로 나가는 것 확인. **다만 5장의 GA4 맞춤 측정기준
-  등록은 아직 안 했다** — 등록 전까지는 `quipUsage()`가 항상 0을 반환한다.
+  올바른 `quip_pool`/`rating_bucket`로 나가는 것 확인. 5장의 GA4 맞춤 측정기준도
+  2026-08-07에 등록 완료 — `quipUsage()`는 그 시점부터 쌓인 데이터를 돌려준다.
+  드리프트 검사의 실제 판정은 유예 기간이 끝나는 2026-08-21부터 시작한다.
