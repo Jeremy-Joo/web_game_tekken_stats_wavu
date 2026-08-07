@@ -8,8 +8,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { gaEvent } from '@/lib/ga-events';
 import pkg from '../package.json';
 import RankBadges from './RankBadges';
-// 2026-08-05: 승률 비교·장기전 패턴 찾기 기능 잠시 중단 — 아래 사용처도 주석 처리됨.
-// import SimilarPlayers from './SimilarPlayers';
+// 2026-08-05 잠시 중단 → 2026-08-08 재테스트 중(표본 263→1,888명으로 커짐, 로컬 확인용).
+import SimilarPlayers from './SimilarPlayers';
 import {
   TrendChart,
   DailyChart,
@@ -3246,12 +3246,11 @@ export default function Home() {
 
                 {/* 흐름 탭: 장기전 조언(위) 과 항목별 표(아래) 사이 — 그 흐름을
                     보러 온 사람이 그 자리에서 바로 비슷한 실력대 상대도 찾아본다.
-                    2026-08-05: 승률 비교·장기전 패턴 찾기 기능 잠시 중단 — 숨김
-                    처리(재개 시 아래 주석 해제).
+                    2026-08-08 재테스트 중 — 표본이 263→1,888명으로 커진 뒤 결과가
+                    쓸 만한지 로컬 확인용. */}
                 {current.key === 'flow' && mode === 'single' && single && (
                   <SimilarPlayers polarisId={single.polarisId} lang={lang} />
                 )}
-                */}
 
                 {/* 비교 표: 표본이 얇은 행 숨기기 */}
                 {thinnable && (
