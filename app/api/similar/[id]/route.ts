@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRecords } from '@/lib/wavu/cache';
 import { fetchPlayerIndex, currentVersionOf } from '@/lib/tekken/player-index';
-import {
-  findSimilar,
-  type CharGamesBand,
-  type Direction,
-  type GamesBand,
-  type RatingBand,
-  type Recency,
-  type SessionTrend,
-} from '@/lib/tekken/similarity';
+import { findSimilar, type Direction, type Recency, type SessionTrend } from '@/lib/tekken/similarity';
 
 // 승률 비슷한/정반대인 사람, 장기전 패턴 찾기. 조회자 본인의 전적은 실시간으로
 // 받고(wavu 캐시 재사용), 비교 대상은 player-index 스냅샷을 GitHub raw 에서
@@ -19,29 +11,16 @@ import {
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
-const CHAR_GAMES_BAND_VALUES = [10, 20, 30, 0];
-const GAMES_BAND_VALUES = [10, 20, 30, 0];
-const RATING_BAND_VALUES = [100, 200, 300, 0];
-
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const sp = req.nextUrl.searchParams;
   const direction = (sp.get('direction') === 'opposite' ? 'opposite' : 'similar') as Direction;
-  const charGamesBand = (CHAR_GAMES_BAND_VALUES.includes(Number(sp.get('charGamesBand')))
-    ? Number(sp.get('charGamesBand'))
-    : 20) as CharGamesBand;
   const recency = (['month', 'patch', 'all'].includes(sp.get('recency') ?? '')
     ? sp.get('recency')
     : 'month') as Recency;
   const sessionTrend = (['any', 'declining', 'rising'].includes(sp.get('trend') ?? '')
     ? sp.get('trend')
     : 'any') as SessionTrend;
-  const gamesBand = (GAMES_BAND_VALUES.includes(Number(sp.get('gamesBand')))
-    ? Number(sp.get('gamesBand'))
-    : 20) as GamesBand;
-  const ratingBand = (RATING_BAND_VALUES.includes(Number(sp.get('ratingBand')))
-    ? Number(sp.get('ratingBand'))
-    : 200) as RatingBand;
   // 기준 캐릭터를 직접 지정할 수도 있다(예: 메인이 아니라 부캐로 비교하고 싶을 때).
   // 안 주면 최근에 쓴 캐릭터로 정한다.
   const charaParam = sp.get('char');
@@ -95,21 +74,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     const myCharGames = myCharRecords.length;
 
-    const {
-      results,
-      wouldMatchWithLooserCharGamesBand,
-      wouldMatchWithLooserGamesBand,
-      wouldMatchWithLooserRatingBand,
-    } = findSimilar(ix.rows, {
+    const { results, poolSize } = findSimilar(ix.rows, {
       charaId,
       myWinRate,
       myCharGames,
       myGames,
       myRating,
       direction,
-      charGamesBand,
-      gamesBand,
-      ratingBand,
       sessionTrend,
       recency,
       currentVersion: currentVersionOf(ix),
@@ -118,9 +89,6 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     return NextResponse.json({
       direction,
-      charGamesBand,
-      gamesBand,
-      ratingBand,
       recency,
       sessionTrend,
       charaId,
@@ -131,17 +99,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       myRating,
       indexSize: ix.rows.length,
       indexUpdatedAt: ix.updatedAt,
+      poolSize,
       count: results.length,
-      wouldMatchWithLooserCharGamesBand,
-      wouldMatchWithLooserGamesBand,
-      wouldMatchWithLooserRatingBand,
-      results: results.slice(0, 12).map((r) => ({
+      results: results.map((r) => ({
         id: r.row.id,
         name: r.row.name,
         games: r.row.games,
         charGames: r.charGames,
         charWinRate: r.charWinRate,
         wrDiff: r.wrDiff,
+        looseMatch: r.looseMatch,
         rating: r.row.rating,
         stopAfter: r.row.stopAfter,
         dropPp: r.row.dropPp,

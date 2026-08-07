@@ -7,16 +7,14 @@ import { makeT, type Lang } from './i18n';
 // 열 때만 요청한다. 육각형 거리 대신 승률(캐릭터별) + 장기전 패턴(계정 전체)을
 // 직접 쓴다 — 이유는 lib/tekken/similarity.ts 머리말 참조.
 //
-// 판수·레이팅 대역: 승률만 보면 실력대가 완전히 다른 사람도 "비슷하다"고 나올
-// 수 있다(초심자 55% 와 파괴신 55% 는 같은 숫자지만 같은 실력이 아니다).
-// 레이팅은 방향을 안 가리고 대역으로 막는다 — 낮은 쪽만 배제하면 어디까지
-// 낮아야 거를지 기준이 애매해진다.
+// 판수·레이팅·대역 선택 UI 없음(2026-08-08 제거): 예전엔 "±N%" 대역을
+// AND 로 걸어 못 맞으면 후보에서 뺐는데, 프로필이 특이한 사람은 대역을
+// 하나씩 완화해도 계속 0명이었다. 지금은 판수·레이팅·승률 차이를 종합
+// 점수로 합쳐 가장 가까운 사람을 순위로 보여준다 — 결과가 비지 않는 대신,
+// 프로필이 많이 다른 매치는 sp-badge stretch 로 표시해 사용자가 직접
+// 판단하게 한다. 자세한 이유는 similarity.ts 머리말 참조.
 
 const BRAND = '#ff0060';
-
-type CharGamesBand = 10 | 20 | 30 | 0;
-type GamesBand = 10 | 20 | 30 | 0;
-type RatingBand = 100 | 200 | 300 | 0;
 
 interface Result {
   id: string;
@@ -25,6 +23,7 @@ interface Result {
   charGames: number;
   charWinRate: number;
   wrDiff: number;
+  looseMatch: boolean;
   rating: number;
   stopAfter: number | null;
   dropPp: number | null;
@@ -37,9 +36,7 @@ interface Resp {
   count: number;
   indexSize: number;
   indexUpdatedAt: number;
-  wouldMatchWithLooserCharGamesBand: number;
-  wouldMatchWithLooserGamesBand: number;
-  wouldMatchWithLooserRatingBand: number;
+  poolSize: number;
   charaId: string;
   charaName: string;
   myCharGames: number;
@@ -52,8 +49,7 @@ interface Resp {
 
 const EMPTY_RESP = (error: string): Resp => ({
   error,
-  count: 0, indexSize: 0, indexUpdatedAt: 0,
-  wouldMatchWithLooserCharGamesBand: 0, wouldMatchWithLooserGamesBand: 0, wouldMatchWithLooserRatingBand: 0,
+  count: 0, indexSize: 0, indexUpdatedAt: 0, poolSize: 0,
   charaId: '', charaName: '', myCharGames: 0, myWinRate: 0, myGames: 0, myRating: 0, results: [],
 });
 
@@ -96,6 +92,7 @@ const CSS = `
 .sp-badge { font-size: 10px; padding: 1px 6px; border-radius: 2px; margin-left: 6px; }
 .sp-badge.down { background: #3a1a1a; color: #ff8a8a; }
 .sp-badge.up { background: #1a3a1a; color: #8aff8a; }
+.sp-badge.stretch { background: #2a2110; color: #ffb84d; }
 .sp-wr { font-size: 12px; color: ${BRAND}; font-family: Consolas, monospace; white-space: nowrap; text-align: right; }
 .sp-diff { font-size: 10px; color: #8a8a96; }
 .sp-empty { font-size: 12px; color: #8a8a96; padding: 10px 0; }
@@ -110,9 +107,6 @@ const CSS = `
 export default function SimilarPlayers({ polarisId, lang }: { polarisId: string; lang: Lang }) {
   const [open, setOpen] = useState(false);
   const [direction, setDirection] = useState<'similar' | 'opposite'>('similar');
-  const [charGamesBand, setCharGamesBand] = useState<CharGamesBand>(20);
-  const [gamesBand, setGamesBand] = useState<GamesBand>(20);
-  const [ratingBand, setRatingBand] = useState<RatingBand>(200);
   const [trend, setTrend] = useState<'any' | 'declining' | 'rising'>('any');
   const [recency, setRecency] = useState<'month' | 'patch' | 'all'>('month');
   const [busy, setBusy] = useState(false);
@@ -122,10 +116,7 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
   async function search() {
     setBusy(true);
     try {
-      const q = new URLSearchParams({
-        direction, charGamesBand: String(charGamesBand), gamesBand: String(gamesBand),
-        ratingBand: String(ratingBand), trend, recency,
-      });
+      const q = new URLSearchParams({ direction, trend, recency });
       const res = await fetch(`/api/similar/${encodeURIComponent(polarisId)}?${q}`);
       const json = await res.json();
       setResp(res.ok ? json : EMPTY_RESP(json.error));
@@ -135,16 +126,6 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
       setBusy(false);
     }
   }
-
-  // 완화 힌트 중 가장 값이 큰 것 하나만 보여준다 — 셋 다 나열하면 오히려 뭘
-  // 눌러야 할지 더 헷갈린다.
-  const looserHints = resp
-    ? [
-        { n: resp.wouldMatchWithLooserCharGamesBand, key: 'charGamesBand' as const },
-        { n: resp.wouldMatchWithLooserGamesBand, key: 'gamesBand' as const },
-        { n: resp.wouldMatchWithLooserRatingBand, key: 'ratingBand' as const },
-      ].sort((a, b) => b.n - a.n)[0]
-    : null;
 
   return (
     <div className="sp-wrap">
@@ -166,36 +147,12 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
           </div>
 
           <div className="sp-controls">
-            <select className="sp-select" value={charGamesBand} onChange={(e) => setCharGamesBand(Number(e.target.value) as CharGamesBand)}>
-              <option value={10}>{t('spCharGamesBandLabel')}: ±10%</option>
-              <option value={20}>{t('spCharGamesBandLabel')}: ±20%</option>
-              <option value={30}>{t('spCharGamesBandLabel')}: ±30%</option>
-              <option value={0}>{t('spCharGamesBandLabel')}: {t('spBandUnlimited')}</option>
-            </select>
             <select className="sp-select" value={recency} onChange={(e) => setRecency(e.target.value as 'month' | 'patch' | 'all')}>
               <option value="month">{t('spRecencyLabel')}: {t('spRecencyMonth')}</option>
               <option value="patch">{t('spRecencyLabel')}: {t('spRecencyPatch')}</option>
               <option value="all">{t('spRecencyLabel')}: {t('spRecencyAll')}</option>
             </select>
-          </div>
-
-          <div className="sp-controls">
-            <select className="sp-select" value={gamesBand} onChange={(e) => setGamesBand(Number(e.target.value) as GamesBand)}>
-              <option value={10}>{t('spGamesBandLabel')}: ±10%</option>
-              <option value={20}>{t('spGamesBandLabel')}: ±20%</option>
-              <option value={30}>{t('spGamesBandLabel')}: ±30%</option>
-              <option value={0}>{t('spGamesBandLabel')}: {t('spBandUnlimited')}</option>
-            </select>
-            <select className="sp-select" value={ratingBand} onChange={(e) => setRatingBand(Number(e.target.value) as RatingBand)}>
-              <option value={100}>{t('spRatingBandLabel')}: ±100</option>
-              <option value={200}>{t('spRatingBandLabel')}: ±200</option>
-              <option value={300}>{t('spRatingBandLabel')}: ±300</option>
-              <option value={0}>{t('spRatingBandLabel')}: {t('spBandUnlimited')}</option>
-            </select>
-          </div>
-
-          <div className="sp-controls">
-            <select className="sp-select" value={trend} onChange={(e) => setTrend(e.target.value as 'any' | 'declining' | 'rising')} style={{ flex: '1 1 100%' }}>
+            <select className="sp-select" value={trend} onChange={(e) => setTrend(e.target.value as 'any' | 'declining' | 'rising')}>
               <option value="any">{t('spTrendLabel')}: {t('spTrendAny')}</option>
               <option value="declining">{t('spTrendDeclining')}</option>
               <option value="rising">{t('spTrendRising')}</option>
@@ -217,20 +174,13 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
                 {' · '}
                 {t('spMyGamesRating')(resp.myGames, resp.myRating)}
               </div>
-              <div className="sp-note">{t('spIndexNote')(resp.indexSize, Math.round((Date.now() / 1000 - resp.indexUpdatedAt) / 86400))}</div>
+              <div className="sp-note">
+                {t('spIndexNote')(resp.indexSize, Math.round((Date.now() / 1000 - resp.indexUpdatedAt) / 86400))}
+                {resp.results.length > 0 && <> · {t('spClosestNote')(resp.results.length, resp.poolSize)}</>}
+              </div>
 
               {resp.results.length === 0 ? (
-                <div className="sp-empty">
-                  {t('spEmpty')(resp.indexSize)}
-                  {looserHints && looserHints.n > 0 && (
-                    <>
-                      {' '}
-                      {looserHints.key === 'charGamesBand' && t('spLooserHintCharGamesBand')(looserHints.n)}
-                      {looserHints.key === 'gamesBand' && t('spLooserHintGamesBand')(looserHints.n)}
-                      {looserHints.key === 'ratingBand' && t('spLooserHintRatingBand')(looserHints.n)}
-                    </>
-                  )}
-                </div>
+                <div className="sp-empty">{t('spEmpty')(resp.charaName)}</div>
               ) : (
                 resp.results.map((r) => (
                   <a key={r.id} className="sp-row" href={`/player/${r.id}`} target="_blank" rel="noreferrer">
@@ -243,6 +193,7 @@ export default function SimilarPlayers({ polarisId, lang }: { polarisId: string;
                         {r.risePp != null && r.riseAfter != null && (
                           <span className="sp-badge up">{t('spRisingBadge')(r.riseAfter, r.risePp)}</span>
                         )}
+                        {r.looseMatch && <span className="sp-badge stretch">{t('spStretchBadge')}</span>}
                       </div>
                       <div className="sp-sub">{t('spResultSub')(r.charGames, r.games, r.rating)}</div>
                     </div>

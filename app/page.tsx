@@ -8,7 +8,9 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { gaEvent } from '@/lib/ga-events';
 import pkg from '../package.json';
 import RankBadges from './RankBadges';
-// 2026-08-05: 승률 비교·장기전 패턴 찾기 기능 잠시 중단 — 아래 사용처도 주석 처리됨.
+// 2026-08-05 잠시 중단 → 2026-08-08 AND 대역 필터를 순위 방식으로 재설계
+// 완료(lib/tekken/similarity.ts 머리말 참조)했지만 노출은 계속 보류. 아래
+// 사용처도 주석 처리됨.
 // import SimilarPlayers from './SimilarPlayers';
 import {
   TrendChart,
@@ -3246,8 +3248,8 @@ export default function Home() {
 
                 {/* 흐름 탭: 장기전 조언(위) 과 항목별 표(아래) 사이 — 그 흐름을
                     보러 온 사람이 그 자리에서 바로 비슷한 실력대 상대도 찾아본다.
-                    2026-08-05: 승률 비교·장기전 패턴 찾기 기능 잠시 중단 — 숨김
-                    처리(재개 시 아래 주석 해제).
+                    2026-08-05 잠시 중단 → 2026-08-08 순위 방식으로 재설계·로컬
+                    검증 완료, 노출은 계속 보류(재개 시 아래 주석 해제).
                 {current.key === 'flow' && mode === 'single' && single && (
                   <SimilarPlayers polarisId={single.polarisId} lang={lang} />
                 )}

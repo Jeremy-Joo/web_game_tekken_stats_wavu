@@ -574,10 +574,6 @@ const D = {
     en: (c: string) => `Comparing on: ${c} (recently used)`,
     ja: (c: string) => `基準キャラ: ${c}(最近使用)`,
   },
-  spCharGamesBandLabel: { ko: '해당 캐릭터 판수 유사도', en: 'Character games similarity', ja: 'そのキャラの試合数の近さ' },
-  spGamesBandLabel: { ko: '통산 판수 유사도', en: 'Total games similarity', ja: '通算試合数の近さ' },
-  spRatingBandLabel: { ko: '레이팅 유사도', en: 'Rating similarity', ja: 'レートの近さ' },
-  spBandUnlimited: { ko: '무관', en: 'Any', ja: '指定なし' },
   spTrendLabel: { ko: '장기전 패턴', en: 'Long-session pattern', ja: '長時間戦のパターン' },
   spTrendAny: { ko: '무관', en: 'Any', ja: '指定なし' },
   spTrendDeclining: { ko: '장기전에서 낮은 승률', en: 'Lower win rate in long sessions', ja: '長時間戦で勝率が低い' },
@@ -617,24 +613,19 @@ const D = {
     ja: (n: number, d: number) => `サンプル${n}人・${d}日前のスナップショット`,
   },
   spEmpty: {
-    ko: (n: number) => `표본 ${n}명 중 이 조건에 맞는 사람이 없습니다. 유사도 대역을 넓혀보세요.`,
-    en: (n: number) => `None of the ${n} sampled players match. Try widening a similarity band.`,
-    ja: (n: number) => `サンプル${n}人の中に条件に合う人がいません。近さの範囲を広げてみてください。`,
+    ko: (charaName: string) => `표본 중 ${charaName}(으)로 이 조건에 맞는 사람이 없습니다. 최근 활동·장기전 패턴 조건을 바꿔보세요.`,
+    en: (charaName: string) => `No one in the sample plays ${charaName} under these conditions. Try changing recent activity or long-session pattern.`,
+    ja: (charaName: string) => `サンプルの中に${charaName}でこの条件に合う人がいません。最近の活動や長時間戦のパターン条件を変えてみてください。`,
   },
-  spLooserHintCharGamesBand: {
-    ko: (n: number) => `해당 캐릭터 판수 유사도를 한 단계 넓히면 ${n}명 더 나옵니다.`,
-    en: (n: number) => `Widening the character-games similarity by one step adds ${n} more.`,
-    ja: (n: number) => `そのキャラの試合数の近さを一段広げると${n}人増えます。`,
+  spClosestNote: {
+    ko: (shown: number, pool: number) => `그 캐릭터 사용자 ${pool}명 중 가장 가까운 ${shown}명`,
+    en: (shown: number, pool: number) => `Closest ${shown} of ${pool} who play this character`,
+    ja: (shown: number, pool: number) => `そのキャラの使用者${pool}人中、最も近い${shown}人`,
   },
-  spLooserHintGamesBand: {
-    ko: (n: number) => `통산 판수 유사도를 한 단계 넓히면 ${n}명 더 나옵니다.`,
-    en: (n: number) => `Widening the total-games similarity by one step adds ${n} more.`,
-    ja: (n: number) => `通算試合数の近さを一段広げると${n}人増えます。`,
-  },
-  spLooserHintRatingBand: {
-    ko: (n: number) => `레이팅 유사도를 한 단계 넓히면 ${n}명 더 나옵니다.`,
-    en: (n: number) => `Widening the rating similarity by one step adds ${n} more.`,
-    ja: (n: number) => `レートの近さを一段広げると${n}人増えます。`,
+  spStretchBadge: {
+    ko: '참고용(판수·레이팅 차이 큼)',
+    en: 'Reference only — very different games/rating',
+    ja: '参考程度(試合数・レートの差が大きい)',
   },
   spGamesShort: { ko: '판', en: ' games', ja: '戦' },
   spTooFewGames: {

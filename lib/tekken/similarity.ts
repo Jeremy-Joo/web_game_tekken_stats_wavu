@@ -19,56 +19,48 @@
 // 그만두는 경향 때문에 뒷구간 승률이 높게 나오는 건 흔한 현상이고, 그게
 // '몸이 풀려서 더 잘한다'는 뜻은 아니다. 화면에서 이 경고를 같이 보여줄 것.
 //
-// ── 판수·레이팅 대역을 추가한 이유 (2026-08-06) ──────────────────────
-// 승률만 보면 완전히 다른 실력대 사람도 "비슷하다"고 나올 수 있다 — 초심자
-// 구간에서 55% 와 파괴신 구간에서 55% 는 같은 숫자지만 같은 실력이 아니다.
-// 레이팅은 **방향을 안 가리고 대역으로** 막는다(낮은 쪽만 배제하지 않는다) —
-// "나보다 낮으면 이상하다"고 예외 처리하면 어디까지 낮아야 걸러지는지
-// 기준이 애매해진다. 대역을 좁게 잡으면 낮은 쪽이든 높은 쪽이든 크게
-// 어긋난 사람은 애초에 후보에 안 들어온다 — 더 단순하고 결과도 같다.
-// 판수(gamesBand)는 계정 전체 판수다 — charGamesBand(그 캐릭터 판수)와는
-// 다른 목적이다: 이건 '경험치'가 비슷한 사람을 찾는 것이다.
+// ── AND 대역 필터를 순위 방식으로 바꾼 이유 (2026-08-08) ────────────────
+// 처음엔 판수·레이팅을 "내 값의 ±N% 안"이라는 대역으로 걸러 통과 못 하면
+// 후보에서 뺐다. 표본이 263명일 땐 이게 그럭저럭 됐는데, 1,888명으로 늘고
+// 나서 실측해보니 여전히 프로필이 특이한 사람(예: 계정 통산 5,571판 중
+// 한 캐릭터로 2,874판)은 기본 설정에서 결과 0명이었다 — 세 대역을 하나씩만
+// 완화하는 힌트도 전부 0이었다(세 축이 동시에 안 맞는 사람에게는 "하나씩
+// 완화"가 무의미하다). "전부 무관으로 풀기" 버튼도 검토했지만, 그러면
+// 판수·레이팅이 완전히 딴판인 사람도 승률 하나만 보고 "비슷하다"고 나와서
+// 이 기능의 존재 이유(실력대가 맞는 사람끼리 비교)를 깎아먹는다.
 //
-// ── 캐릭터 판수를 문턱값 대신 대역으로 바꾼 이유 (2026-08-06) ───────────
-// 처음엔 "그 캐릭터로 20판 이상이면 통과"였다. 그런데 20판짜리 승률과
-// 10,000판짜리 승률은 숫자가 같아도 신뢰도가 다르다 — 20판이면 진짜 실력은
-// 표본 오차로 넓게 흔들리고, 10,000판이면 거의 확정된 값이다. 문턱값은
-// 그 차이를 무시하고 둘을 같은 무게로 비교해버린다. 신뢰구간을 계산해
-// 보정하는 방법도 있지만, 그건 결국 '진짜 승률을 추정'하는 것이고 이
-// 사이트는 추정값을 쓰지 않는다(랭크 포인트 추정 기능을 정확하지 않다는
-// 이유로 철회한 전례가 있다). 대신 판수·레이팅과 같은 방식을 쓴다 — 내
-// 판수 근처 사람만 후보로 본다. 20판인 내게는 20판 근처 사람만, 10,000판인
-// 내게는 10,000판 근처 사람만 비교 대상이 된다 — 표본 크기가 다르면 애초에
-// 비교 대상에 들어오지 않는다.
+// 그래서 "맞다/아니다"로 걸러내는 대신, 판수·레이팅·승률 차이를 하나의
+// 점수(distance)로 합쳐 가장 가까운 N명을 순위로 준다. 표본에 그 캐릭터를
+// 쓰는 사람이 한 명이라도 있으면 결과가 원천적으로 비지 않는다. 대신
+// 필터가 걸러주지 않으니 각자의 실제 판수·레이팅을 결과에 그대로 남겨
+// 화면에서 보여준다 — "이 사람은 판수가 나보다 훨씬 적으니 참고만
+// 하세요" 식으로 사용자가 직접 판단하게 하는 쪽이, 억지로 맞춰 보여주는
+// 것보다 정직하다. 프로필이 많이 다른 매치는 looseMatch 로 표시해 화면에서
+// 경고 배지를 붙일 수 있게 한다.
 
 import type { PlayerIndexRow } from './player-index';
 
-export type CharGamesBand = 10 | 20 | 30 | 0; // 0 = 무관
-export type GamesBand = 10 | 20 | 30 | 0; // 0 = 무관
-export type RatingBand = 100 | 200 | 300 | 0; // 0 = 무관
 export type SessionTrend = 'any' | 'declining' | 'rising';
 export type Recency = 'month' | 'patch' | 'all';
 export type Direction = 'similar' | 'opposite';
+
+/** 결과 하나가 이 이상 벌어지면 "프로필이 많이 다르다"는 배지를 붙인다.
+ *  charGames/games 는 상대 차이(0~1에 가까울수록 격차 큼), rating 은
+ *  300(구 대역 설정의 최대폭)을 1로 잡은 상대값이다. */
+const LOOSE_MATCH_THRESHOLD = 0.5;
 
 export interface SimilarityQuery {
   /** 비교 기준 캐릭터. 보통 조회자의 최근 캐릭터. */
   charaId: string;
   /** 그 캐릭터에서 조회자의 승률(0~100). */
   myWinRate: number;
-  /** 조회자가 그 캐릭터로 친 판수. charGamesBand 의 기준. */
+  /** 조회자가 그 캐릭터로 친 판수. */
   myCharGames: number;
-  /** 조회자의 통산 판수(계정 전체). gamesBand 의 기준. */
+  /** 조회자의 통산 판수(계정 전체). */
   myGames: number;
-  /** 조회자의 현재 레이팅. ratingBand 의 기준. */
+  /** 조회자의 현재 레이팅. */
   myRating: number;
   direction: Direction;
-  /** 그 캐릭터 판수가 내 판수의 ±N% 안이어야 한다 — 승률의 표본 크기(신뢰도)를
-   *  맞춘다. 0 이면 무관. */
-  charGamesBand: CharGamesBand;
-  /** 통산 판수가 내 판수의 ±N% 안이어야 한다. 0 이면 무관. */
-  gamesBand: GamesBand;
-  /** 레이팅이 내 레이팅의 ±N 안이어야 한다. 0 이면 무관. */
-  ratingBand: RatingBand;
   sessionTrend: SessionTrend;
   recency: Recency;
   /**
@@ -87,16 +79,17 @@ export interface SimilarityResult {
   charWinRate: number;
   /** |charWinRate - myWinRate|, %p. */
   wrDiff: number;
+  /** 종합 유사도 점수 — 낮을수록 순위가 위(similar 는 전체적으로 가까운
+   *  사람, opposite 는 승률만 먼 나머지는 가까운 사람). 절대값 자체는
+   *  의미가 없고 정렬용이다. */
+  distance: number;
+  /** 판수·레이팅 중 하나라도 나와 크게 다르면 true — 화면에서 "참고용"
+   *  경고를 붙이는 데 쓴다. */
+  looseMatch: boolean;
 }
 
 const NOW_S = () => Math.floor(Date.now() / 1000);
 const MONTH_S = 30 * 86400;
-/** charGamesBand 를 완화할 때 다음으로 넓어질 단계. */
-const LOOSER_CHAR_GAMES: Record<CharGamesBand, CharGamesBand | null> = { 10: 20, 20: 30, 30: 0, 0: null };
-/** gamesBand 를 완화할 때 다음으로 넓어질 단계. */
-const LOOSER_GAMES: Record<GamesBand, GamesBand | null> = { 10: 20, 20: 30, 30: 0, 0: null };
-/** ratingBand 를 완화할 때 다음으로 넓어질 단계. */
-const LOOSER_RATING: Record<RatingBand, RatingBand | null> = { 100: 200, 200: 300, 300: 0, 0: null };
 
 function withinRecency(row: PlayerIndexRow, recency: Recency, currentVersion: number): boolean {
   if (recency === 'all') return true;
@@ -110,34 +103,21 @@ function withinSessionTrend(row: PlayerIndexRow, trend: SessionTrend): boolean {
   return row.risePp != null && row.risePp > 0; // 'rising'
 }
 
-function withinPercentBand(value: number, center: number, band: 10 | 20 | 30 | 0): boolean {
-  if (band === 0) return true;
-  const lo = center * (1 - band / 100);
-  const hi = center * (1 + band / 100);
-  return value >= lo && value <= hi;
-}
-
-function withinRatingBand(rowRating: number, myRating: number, band: RatingBand): boolean {
-  if (band === 0) return true;
-  return Math.abs(rowRating - myRating) <= band;
+/** 상대 차이, 0(동일)~1에 가까울수록 격차가 크다. */
+function relDiff(a: number, b: number): number {
+  return Math.abs(a - b) / Math.max(a, b, 1);
 }
 
 /**
- * rows 를 필터링하고 승률 차이순으로 정렬한다.
- * similar 는 차이 오름차순(가까운 순), opposite 는 내림차순(먼 순).
- * 결과가 비어도 예외를 던지지 않는다 — 대역을 각각 한 단계씩 완화하면 몇 명이
- * 더 나오는지도 같이 계산해, 호출부가 "표본 N명 중 조건에 맞는 사람 없음"과
- * 완화 힌트를 정직하게 말할 수 있게 한다.
+ * rows 에서 그 캐릭터를 쓰는 사람 중 판수·레이팅·승률 종합으로 가장 가까운
+ * limit 명을 순위로 준다. 표본에 그 캐릭터 사용자가 있는 한 결과가 비지
+ * 않는다 — 예전처럼 조건에 못 맞아 0명이 되는 경우가 없다.
  */
 export function findSimilar(
   rows: PlayerIndexRow[],
   q: SimilarityQuery,
-): {
-  results: SimilarityResult[];
-  wouldMatchWithLooserCharGamesBand: number;
-  wouldMatchWithLooserGamesBand: number;
-  wouldMatchWithLooserRatingBand: number;
-} {
+  limit = 12,
+): { results: SimilarityResult[]; poolSize: number } {
   const basePool = rows.filter(
     (r) =>
       r.id !== q.excludeId &&
@@ -145,41 +125,31 @@ export function findSimilar(
       withinSessionTrend(r, q.sessionTrend),
   );
 
-  const scoreAt = (charGamesBand: number, gamesBand: number, ratingBand: number): SimilarityResult[] => {
-    const out: SimilarityResult[] = [];
-    for (const row of basePool) {
-      const c = row.chars[q.charaId];
-      if (!c) continue;
-      if (!withinPercentBand(c.games, q.myCharGames, charGamesBand as CharGamesBand)) continue;
-      if (!withinPercentBand(row.games, q.myGames, gamesBand as GamesBand)) continue;
-      if (!withinRatingBand(row.rating, q.myRating, ratingBand as RatingBand)) continue;
-      const wrDiff = Math.round(Math.abs(c.wrRecent - q.myWinRate) * 10) / 10;
-      out.push({ row, charGames: c.games, charWinRate: c.wrRecent, wrDiff });
-    }
-    return out;
-  };
+  const out: SimilarityResult[] = [];
+  for (const row of basePool) {
+    const c = row.chars[q.charaId];
+    if (!c) continue;
 
-  const scored = scoreAt(q.charGamesBand, q.gamesBand, q.ratingBand);
-  scored.sort((a, b) => (q.direction === 'similar' ? a.wrDiff - b.wrDiff : b.wrDiff - a.wrDiff));
+    const wrDiff = Math.round(Math.abs(c.wrRecent - q.myWinRate) * 10) / 10;
+    const charGamesDist = relDiff(c.games, q.myCharGames);
+    const gamesDist = relDiff(row.games, q.myGames);
+    const ratingDist = Math.abs(row.rating - q.myRating) / 300;
 
-  // 세 대역을 각각 하나씩만 완화해본다(동시에 다 풀지 않는다) — "어느 걸
-  // 완화해야 결과가 느는지"를 따로 알 수 있어야 사용자가 정확히 조절할 수 있다.
-  const looserCharGames = LOOSER_CHAR_GAMES[q.charGamesBand];
-  const wouldMatchWithLooserCharGamesBand =
-    looserCharGames == null ? 0 : scoreAt(looserCharGames, q.gamesBand, q.ratingBand).length - scored.length;
+    // similar: 승률차가 작을수록 좋다. opposite: 승률차가 클수록 좋다 —
+    // 둘 다 "좋을수록 점수가 낮다"로 맞추려고 opposite 는 뒤집는다.
+    const wrNorm = Math.min(1, wrDiff / 100);
+    const wrTerm = q.direction === 'similar' ? wrNorm : 1 - wrNorm;
 
-  const looserGames = LOOSER_GAMES[q.gamesBand];
-  const wouldMatchWithLooserGamesBand =
-    looserGames == null ? 0 : scoreAt(q.charGamesBand, looserGames, q.ratingBand).length - scored.length;
+    // 승률(방향의 본질)에 가중치 2, 프로필 근접도(판수·레이팅)에 가중치 1씩 —
+    // 승률이 우선순위지만, 프로필이 완전히 딴판인 사람이 승률 하나만 맞아
+    // 상위로 튀어오르지는 않게 한다.
+    const distance = Math.round((wrTerm * 2 + charGamesDist + gamesDist + ratingDist) * 100) / 100;
+    const looseMatch =
+      charGamesDist > LOOSE_MATCH_THRESHOLD || gamesDist > LOOSE_MATCH_THRESHOLD || ratingDist > 1;
 
-  const looserRating = LOOSER_RATING[q.ratingBand];
-  const wouldMatchWithLooserRatingBand =
-    looserRating == null ? 0 : scoreAt(q.charGamesBand, q.gamesBand, looserRating).length - scored.length;
+    out.push({ row, charGames: c.games, charWinRate: c.wrRecent, wrDiff, distance, looseMatch });
+  }
 
-  return {
-    results: scored,
-    wouldMatchWithLooserCharGamesBand,
-    wouldMatchWithLooserGamesBand,
-    wouldMatchWithLooserRatingBand,
-  };
+  out.sort((a, b) => a.distance - b.distance);
+  return { results: out.slice(0, limit), poolSize: out.length };
 }
