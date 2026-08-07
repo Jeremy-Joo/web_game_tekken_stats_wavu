@@ -19,8 +19,8 @@ const DOMINANCE_THRESHOLD = 0.6; // 2026-08-06 편중 사고(68%)를 참고한 �
 
 // GA4 맞춤 측정기준(quip_pool, rating_bucket) 등록일. 등록 전 데이터는 전부 0 이라
 // '아무도 안 봤다'가 아니라 '셀 방법이 없었다'는 뜻이다(lib/ga.ts quipUsage 주석 참조).
-// Part B 배포 후 실제 등록한 날짜로 갱신할 것 — 그 전까지는 유예 기간으로 보고 건너뛴다.
-const CUSTOM_DIMENSIONS_REGISTERED_AT: string | null = null;
+// 2026-08-07 GA4 콘솔에서 quip_pool·rating_bucket 두 맞춤 측정기준 등록 완료.
+const CUSTOM_DIMENSIONS_REGISTERED_AT: string | null = '2026-08-07';
 const GRACE_PERIOD_DAYS = 14;
 
 interface QuipPoolRow {
