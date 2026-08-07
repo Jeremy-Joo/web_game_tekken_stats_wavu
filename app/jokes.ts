@@ -137,6 +137,11 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `이 정도면 자랑해도 됩니다. 딱 오늘까지만요.`,
       () => `어디까지 가나 보고 싶은데, 보고 싶은 마음이 드는 순간이 꺾이는 자리입니다.`,
       () => `통계가 할 말을 잃었습니다. 좋은 쪽으로요.`,
+      // 도박 소재 — 카지노·화투·섯다·투기. 실제 돈 얘기는 항상 가정법("~였으면")으로
+      // 감싼다(딴 돈이 아니라 게임 승률이라는 게 핵심). 놀리는 대상은 "돈이 안 되는
+      // 취미"라는 사실이지, 도박 자체를 권하거나 미화하지 않는다.
+      () => `카지노였으면 지금쯤 보안요원이 옆에 붙었을 승률입니다.`,
+      () => `섯다판이었으면 오늘로 은퇴 선언 하기 딱 좋은 패입니다.`,
     ],
     en: [
       () => `This is not form. This is an incident. The good kind.`,
@@ -157,6 +162,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `This is worth bragging about. Strictly today.`,
       () => `I want to see how far it goes — and wanting that is exactly where it breaks.`,
       () => `The stats have nothing to say. In a good way.`,
+      // Gambling material — casino/poker/crypto. Real money is always hypothetical
+      // ("if this were..."); the joke is that the win doesn't pay out, not gambling itself.
+      () => `At a casino, security would be watching you by now.`,
+      () => `In poker, this is the hand you retire on.`,
     ],
     ja: [
       () => `これは調子ではなく事故です。良いほうの事故ですが。`,
@@ -177,6 +186,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `これは自慢していい数字です。今日限りで。`,
       () => `どこまで行くか見たいのですが、見たくなった時点がもう折れ目です。`,
       () => `統計が言葉を失いました。良い意味で。`,
+      // 賭け事ネタ — カジノ・パチンコ・仮想通貨。実際のお金は常に仮定法("〜だったら")で
+      // 包む。笑いどころは「勝っても現金化できない」であって、賭け事そのものではない。
+      () => `カジノだったら、そろそろ警備員に見られている頃です。`,
+      () => `パチンコなら大当たりを通り越して出玉制限がかかる数字です。`,
     ],
   },
 
@@ -347,6 +360,15 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `실력이 는 건 아니고 절대 아니고, 오늘 상대들이 좀 그랬던 것 같아요.`,
       () => `단정하긴 어렵지만 오늘은 운이 실력을 덮어준 날입니다.`,
       () => `기록해 두세요. 다음에 이런 날 오면 그때 또 기록하시고요.`,
+      // 도박 소재 — 카지노·화투·섯다·투기. "~였으면"으로 감싼 가정법만 쓴다 —
+      // 실제로 돈을 딴 게 아니라 승률 얘기라는 걸 문장 구조로도 분명히 한다.
+      () => `이게 카지노였으면 오늘 큰돈 만졌을 텐데, 여긴 철권이라 통장엔 안 남습니다.`,
+      () => `섯다판이었으면 오늘 판돈을 다 쓸어 담았습니다. 아쉽게도 여긴 철권입니다.`,
+      () => `화투판이었으면 이 흐름에 다들 슬슬 자리를 접었을 겁니다.`,
+      () => `이 승률을 투기 종목에 넣었으면 지금쯤 손 떨리는 인터뷰를 하고 있을 겁니다.`,
+      () => `코인이었으면 지금쯤 존버 대신 익절을 고민하고 있을 겁니다.`,
+      () => `카지노 칩이었다면 옆에서 따라 걸었을 흐름입니다.`,
+      () => `섯다로 치면 광 팔고도 남는 패입니다.`,
     ],
     en: [
       (pp) => `If only stocks moved like this — last 20 games are ${pp}%p above your usual.`,
@@ -499,6 +521,13 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `Your skill did not improve — absolutely not. Today's opponents just were what they were.`,
       () => `Hard to be certain, but today luck covered for skill.`,
       () => `Write it down. And write it down again next time one of these comes around.`,
+      // Gambling material — casino/poker/crypto, always hypothetical ("if this were...").
+      () => `At a casino, this is the night you'd have walked out with real money — instead it's Tekken, so it stays a number.`,
+      () => `At the poker table, you'd have scooped every pot tonight. Shame it's Tekken.`,
+      () => `If this were stocks, people would be asking for your entry point.`,
+      () => `Put this win rate in crypto and you'd be debating early retirement, not holding.`,
+      () => `At the blackjack table, the pit boss would be watching you by now.`,
+      () => `Everyone at the table would be copying your bets on a night like this.`,
     ],
     ja: [
       (pp) => `株もこう上がってほしい… 直近20試合が平均より${pp}%p 高いです。`,
@@ -648,6 +677,12 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `実力が上がったのではなく、絶対に違いますし、今日の相手がそうだっただけかと。`,
       () => `断定は難しいですが、今日は運が実力を覆ってくれた日です。`,
       () => `記録しておきましょう。次にこういう日が来たらまた記録して。`,
+      // 賭け事ネタ — カジノ・パチンコ・仮想通貨。常に仮定法("〜だったら")で包む。
+      () => `カジノだったら今夜は本物のお金を持ち帰っていました。鉄拳なので数字止まりです。`,
+      () => `パチンコなら今夜は台を独占できていました。鉄拳なのが惜しいところです。`,
+      () => `株だったら、今のタイミングを聞かれる側になっています。`,
+      () => `仮想通貨にこの勝率を入れていたら、握り続けるか悩む前に引退の相談をしています。`,
+      () => `ブラックジャックなら、そろそろディーラーに見られている頃です。`,
     ],
   },
 
@@ -1214,6 +1249,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `한 30%만 실력입니다. 나머지는 지금 말씀드리면 기분 상하실 것 같고요.`,
       () => `입이 근질근질한데 아직은 참겠습니다. 조금만 더 하시면 못 참을 것 같고요.`,
       () => `단정하긴 어렵지만 여기서 더 하면 오늘이 그 날이 됩니다.`,
+      // 도박 소재 — cold보다 한 단계 약하게. "다행"이라고 단정하기엔 이르고,
+      // 슬슬 걱정되기 시작하는 정도로 톤을 낮춘다.
+      () => `화투판이었으면 슬슬 눈치를 보기 시작했을 흐름입니다.`,
+      () => `투기 종목이었으면 손절까진 아니고, 일단 지켜보는 구간입니다.`,
     ],
     en: [
       () => `At this rate, buy a lottery ticket instead. That might work out.`,
@@ -1360,6 +1399,9 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `About 30% of this is skill. I would rather not say what the rest is.`,
       () => `I want to say something but I am holding off. A few more games and I will not.`,
       () => `Hard to be certain, but a few more and today becomes *that* day.`,
+      // Gambling material, dialed down from cold — not quite "thank god," more "starting to worry."
+      () => `At the poker table, people would be watching your stack a little more closely now.`,
+      () => `If this were stocks, it is not sell-off time yet — but people are watching the chart.`,
     ],
     ja: [
       () => `この勝率なら宝くじでも買いましょう。そっちは当たるかも。`,
@@ -1506,6 +1548,10 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `3割ほどが実力です。残りは今申し上げると気を悪くされそうなので。`,
       () => `口がむずむずしますが、まだ我慢します。もう少し続けたら我慢できません。`,
       () => `断定は難しいですが、あと数戦でこの日が『あの日』になります。`,
+      // 賭け事ネタ、coldより弱め — 「よかった」と言い切るにはまだ早く、
+      // 少し心配になってきた程度に温度を落とす。
+      () => `ポーカーなら、そろそろスタックを気にされ始める頃合いです。`,
+      () => `株だったら損切りにはまだ早いですが、周りはチャートを見始めています。`,
     ],
   },
 
@@ -1745,6 +1791,16 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `단정하긴 어렵지만 오늘은 아닙니다. 사실 단정해도 아무도 뭐라 안 할 것 같고요.`,
       () => `잠시만요. 이건 저도 좀 놀랐습니다.`,
       () => `재능의 문제는 아닌 것 같습니다. 어 그 얘기는 여기까지 하겠습니다.`,
+      // 도박 소재 — 카지노·화투·섯다·투기. 실제 파산·중독 묘사는 안 하고, "다행히
+      // 진짜 돈이 아니다"는 안도 쪽으로 문장을 닫는다(놀리는 대상은 오늘 성적이지
+      // 도박 문제 자체가 아니다).
+      () => `도박이 아니어서 천만다행입니다. 패가망신 하진 않았네요.`,
+      () => `섯다였으면 오늘 집문서 얘기까지 나왔을 승률입니다. 그나마 철권이라 다행입니다.`,
+      () => `화투판이었으면 판돈을 잃고 먼저 일어났을 흐름입니다.`,
+      () => `카지노였으면 이쯤에서 직원이 조용히 한도를 물어봤을 겁니다.`,
+      () => `코인이었으면 지금 '물렸다'는 표현을 쓰고 있었을 겁니다.`,
+      () => `투기 종목이었으면 손절 타이밍을 한참 지난 그래프입니다.`,
+      () => `다행히 이건 진짜 돈이 아닙니다. 숨 고르고 한 판 더 하시든가요.`,
     ],
     en: [
       () => `The lottery didn't hit and neither did anything else. Luck called in sick.`,
@@ -1969,6 +2025,14 @@ const JOKES: Record<Mood, Record<Lang, Joke[]>> = {
       () => `Hard to be certain, but today is not it. Though nobody would object if I were certain.`,
       () => `One moment. Even I was surprised by that.`,
       () => `I do not think talent is the issue here. I will leave it at that.`,
+      // Gambling material — casino/poker/crypto. No addiction or ruin imagery, just relief
+      // that it is not real money.
+      () => `Thank god this is not gambling. You would have lost the house by now.`,
+      () => `At poker, this is the night that ends in a phone call home. Lucky it's Tekken.`,
+      () => `At a casino, the floor staff would be quietly checking your limit right about now.`,
+      () => `In crypto, this is the stretch where people start saying "bagholder."`,
+      () => `If this were stocks, you are well past the point anyone recommends holding.`,
+      () => `The good news: this was never real money. Catch your breath and run it back.`,
     ],
     ja: [
       () => `宝くじも当たらず勝率も上がらず。今日は運が欠勤です。`,
