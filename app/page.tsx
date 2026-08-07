@@ -2425,6 +2425,22 @@ export default function Home() {
         {mode === 'compare' && <p className="hint">{t('compareHint')}</p>}
       </div>
 
+      {/* 랜덤 조회 — 조회 칸 바로 아래 고정(결과 유무와 무관하게, 2026-08-07 위치 조정).
+          모드까지 넘기는 이유: 비교 모드에서 눌렀을 때도 한 명 조회로 가야 한다.
+          결과가 이미 떠 있으면 compact — 폼과 표 사이에 낀 무관한 상자가 되지
+          않게 안내문을 줄인다(docs/ui-period-analysis.md P6). */}
+      <RandomPlayer
+        lang={lang}
+        compact={!!(single || compare)}
+        onPick={(rid) => {
+          setId(rid);
+          setIds('');
+          setMode('single');
+          setCharSel('');
+          run(rid, undefined, '', 'single');
+        }}
+      />
+
       {single && (
         <>
           <p className="meta">
@@ -2584,22 +2600,6 @@ export default function Home() {
           )}
         </>
       )}
-
-      {/* 랜덤 조회 — 곁가지라 조회 폼 아래에 접어둔다.
-          모드까지 넘기는 이유: 비교 모드에서 눌렀을 때도 한 명 조회로 가야 한다.
-          결과가 이미 떠 있으면 compact — 폼과 표 사이에 낀 무관한 상자가 되지
-          않게 안내문을 줄인다(docs/ui-period-analysis.md P6). */}
-      <RandomPlayer
-        lang={lang}
-        compact={!!(single || compare)}
-        onPick={(rid) => {
-          setId(rid);
-          setIds('');
-          setMode('single');
-          setCharSel('');
-          run(rid, undefined, '', 'single');
-        }}
-      />
 
       {tabs && (
         <>
