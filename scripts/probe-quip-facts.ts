@@ -69,6 +69,9 @@ async function main() {
     console.log(
       `  오늘 몰림    ${f.todaySameChar ? `${f.todaySameChar.opp} ${f.todaySameChar.count}회` : '-'}`,
     );
+    console.log(
+      `  어긋남       ${f.divergence ? `${f.divergence.kind} (${f.divergence.wins}승${f.divergence.losses}패, 순변화 ${f.divergence.net})` : '-'}`,
+    );
     await new Promise((r) => setTimeout(r, 900)); // wavu 예의
   }
 }

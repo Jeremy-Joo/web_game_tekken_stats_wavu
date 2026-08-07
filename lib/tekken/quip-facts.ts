@@ -71,17 +71,41 @@ const TODAY_SAME_CHAR = 5;
  * 승률·레이팅 어긋남을 재는 창. 25로 둔 근거: 손익분기 실측(2026-08-05, 15명
  * 363,237경기)을 25경기 창으로 했고, 그 창에서 2200+ 는 17승 8패(68%)여도
  * 레이팅이 떨어진 비율이 33%였다 — 이 어긋남이 실재한다는 게 이 축의 존재 이유다.
- * 손익분기 승률은 1600대 52% → 2400+ 64% 로 오른다(이길 때 +8, 질 때 -13 규모).
  */
 const DIVERGE_WINDOW = 25;
 /** 창 안에서 레이팅 변동이 있는 경기가 이만큼은 돼야 말할 수 있다(방금 경기는 TBD=0). */
 const DIVERGE_KNOWN_MIN = 15;
-/** '이기고 있다'로 부르는 승수 (25판 중 15승 = 60%). */
-const DIVERGE_WIN_HI = 15;
-/** '5할 이하'로 부르는 승수 (25판 중 12승 = 48%). */
-const DIVERGE_WIN_LO = 12;
 /** 순변화가 이 안이면 '제자리'다. 경기당 변동이 ±8~13 이라 한 판 값보다 크게 잡았다. */
 const DIVERGE_FLAT = 15;
+
+/**
+ * 레이팅 구간별 손익분기 승률(25판 창 기준) — 2026-08-07 실측,
+ * docs/rating-threshold-research.md. 예전엔 60%/48% 고정값을 전 구간에 썼는데,
+ * 바로 위 옛 주석 자체가 "손익분기가 1600대 52% → 2400+ 64%로 오른다"고 말하고
+ * 있었다 — 코드와 주석이 처음부터 모순이었다. 이제 그 표를 코드로 반영한다.
+ *
+ * 750 미만·3000 이상은 표본이 얇아 가장 가까운 실측 구간값을 그대로 쓴다
+ * (값을 지어내지 않는다는 이 파일 머리말 규칙). 2750~2999 구간은 관측 범위
+ * (승률 90~99%) 안에서도 손익분기에 못 미쳐 정확한 지점을 모른다 — 0.9를
+ * 하한 추정치로 쓴다(실제로는 이보다 높을 수 있다).
+ */
+function breakevenWinRate(rating: number): number {
+  if (rating < 1000) return 0.175;
+  if (rating < 2000) return 0.49;
+  if (rating < 2250) return 0.565;
+  if (rating < 2500) return 0.64;
+  if (rating < 2750) return 0.75;
+  return 0.9;
+}
+
+/**
+ * 손익분기에서 이만큼 떨어져야 '뚜렷하다'고 본다(승수 기준, ±게임 수).
+ * 예전 고정값(60%/48%)이 대략적인 중심(약 54%)에서 ±6%p, 25판이면 ±1.5판이던
+ * 것과 같은 폭으로 ±2판을 쓴다. 손익분기가 클램프값(0.9 등)인 구간에서는 이
+ * 여유가 과소평가일 수 있다 — 추측이 아니라 그 이상은 실측을 못 했다는 뜻이라
+ * 일부러 보수적으로 둔다.
+ */
+const DIVERGE_MARGIN_GAMES = 2;
 
 export interface QuipFacts {
   /**
@@ -432,10 +456,15 @@ export function buildQuipFacts(input: QuipFactsInput): QuipFacts | null {
       const wins = win.filter((r) => r.result === 'W').length;
       const losses = DIVERGE_WINDOW - wins;
       const net = Math.round(win.reduce((s, r) => s + r.myDelta, 0));
+      // 손익분기는 레이팅 구간마다 다르다(breakevenWinRate) — 승수 기준 중심을
+      // 구해 ±DIVERGE_MARGIN_GAMES 를 '뚜렷하다'의 문턱으로 쓴다.
+      const center = breakevenWinRate(last.myRating) * DIVERGE_WINDOW;
+      const winHi = Math.min(DIVERGE_WINDOW, Math.round(center + DIVERGE_MARGIN_GAMES));
+      const winLo = Math.max(0, Math.round(center - DIVERGE_MARGIN_GAMES));
       const kind: NonNullable<QuipFacts['divergence']>['kind'] | null =
-        wins >= DIVERGE_WIN_HI && net <= 0 ? 'winNoGain'
-          : wins <= DIVERGE_WIN_LO && net >= DIVERGE_FLAT ? 'loseButGain'
-            : wins <= DIVERGE_WIN_LO && Math.abs(net) < DIVERGE_FLAT ? 'flatEven'
+        wins >= winHi && net <= 0 ? 'winNoGain'
+          : wins <= winLo && net >= DIVERGE_FLAT ? 'loseButGain'
+            : wins <= winLo && Math.abs(net) < DIVERGE_FLAT ? 'flatEven'
               : null;
       if (kind) divergence = { kind, wins, losses, net };
     }

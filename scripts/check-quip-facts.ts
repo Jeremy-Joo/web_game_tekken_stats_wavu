@@ -32,13 +32,17 @@ interface Spec {
   shutout?: boolean;
   /** 상대 레이팅. 기본 1500 — 실력차 버킷을 만들려면 벌려야 한다. */
   opRating?: number;
+  /** 승리 시 레이팅 증가폭(기본 5). 어긋남(divergence) 테스트용 — 승패 비대칭을 만든다. */
+  winGain?: number;
+  /** 패배 시 레이팅 감소폭(기본 5, 양수로 표기). */
+  lossLoss?: number;
 }
 
-function make(specs: Spec[]): MatchRecord[] {
+function make(specs: Spec[], startRating = 1500): MatchRecord[] {
   const out: MatchRecord[] = [];
   let t = T0;
   let seq = 0;
-  let rating = 1500;
+  let rating = startRating;
   for (const s of specs) {
     if (s.breakDays) t += s.breakDays * 86400;
     let acc = 0;
@@ -46,7 +50,8 @@ function make(specs: Spec[]): MatchRecord[] {
       acc += s.winRate ?? 50;
       const win = acc >= 100;
       if (win) acc -= 100;
-      rating += win ? 5 : -5;
+      const delta = win ? (s.winGain ?? 5) : -(s.lossLoss ?? 5);
+      rating += delta;
       out.push({
         dt: kstFromEpoch(t),
         battleId: `b${seq++}`,
@@ -54,7 +59,7 @@ function make(specs: Spec[]): MatchRecord[] {
         myPolaris: 'MEMEMEMEMEME',
         myChar: 'Jin',
         myRating: rating,
-        myDelta: win ? 5 : -5,
+        myDelta: delta,
         myPower: 0,
         myRank: s.rank ?? 25,
         score: win ? '3-1' : s.shutout ? '0-3' : '1-3',
@@ -288,6 +293,34 @@ eq('마일스톤 미만이면 아래 단계', facts(make([{ n: 520 }]))!.milesto
   // TODAY 와 겹치게 만들려면 날짜를 맞춰야 한다 — 합성 데이터는 2026-01-01 부터라
   // 오늘과 겹치지 않는다. 겹치지 않으면 null 이어야 한다.
   eq('오늘 경기가 없으면 null', facts(make([{ n: 200 }]))!.todaySameChar, null);
+}
+
+// ── 승률·레이팅 어긋남(divergence) — 구간별 손익분기(breakevenWinRate) ──────
+// 2026-08-07 실측(docs/rating-threshold-research.md)으로 60%/48% 고정값을
+// 구간별 값으로 바꿨다 — 여기서 못박는 건 "같은 승률·순변화라도 레이팅 구간이
+// 다르면 판정이 달라진다"는 것 자체다(고정값 시절엔 있을 수 없던 동작).
+{
+  // 25판 중 14승(56%) — 옛 고정 HI(60%)보다 낮아 옛 시스템이면 어느 구간에서도
+  // winNoGain 이 안 열렸을 승률. winGain=1/lossLoss=5 로 순변화를 마이너스로 만든다.
+  const pattern = [{ n: 25, winRate: 56, winGain: 1, lossLoss: 5 }];
+
+  // 저구간(750~999, 손익분기 17.5%대라 문턱이 낮다): 여기선 14승이 문턱을 넘는다.
+  const low = facts(make(pattern, 900))!;
+  eq('저구간 — 56% 승률이면 winNoGain (문턱이 낮다)', low.divergence?.kind, 'winNoGain');
+
+  // 고구간(2250~2499, 손익분기 64%대라 문턱이 높다): 같은 55%대 승률로는 안 열린다.
+  const high = facts(make(pattern, 2450))!;
+  eq('고구간 — 같은 56% 승률은 winNoGain 안 열림 (문턱이 높다)', high.divergence, null);
+}
+{
+  // loseButGain — 저승률(20%)인데 순변화가 뚜렷이 양수(+15 이상).
+  const f = facts(make([{ n: 25, winRate: 20, winGain: 10, lossLoss: 1 }], 1470))!;
+  eq('중구간 — 저승률+순변화 양수는 loseButGain', f.divergence?.kind, 'loseButGain');
+}
+{
+  // flatEven — 저승률(20%)인데 순변화가 거의 0.
+  const f = facts(make([{ n: 25, winRate: 20, winGain: 3, lossLoss: 1 }], 1505))!;
+  eq('중구간 — 저승률+순변화 거의 0은 flatEven', f.divergence?.kind, 'flatEven');
 }
 
 console.log(failed ? `\n${failed}건 실패` : '\n전부 통과');
