@@ -143,17 +143,29 @@ export function currentVersionOf(index: PlayerIndex): number {
   return v;
 }
 
+/** id → 인덱스 스냅샷 요약. indexSummaryByPlayer() 의 반환 값 하나. */
+export interface PlayerIndexSummary {
+  mainChar: string;
+  mainCharGames: number;
+  rating: number;
+  peakRating: number;
+}
+
 /**
- * id → 메인 캐릭터. /admin 플레이어 목록이 GA 조회 기록(누구를 봤나)에 이 값을
- * 곁들이는 데 쓴다(2026-08-07). **인덱스는 500판 이상만 담는다**(minGames) —
- * GA 에 잡힌 조회 전부가 아니라 그중 인덱스 수집 문턱을 넘긴 사람만 나온다.
- * 그래서 이 맵에 없는 id 는 "메인 캐릭터가 없다"가 아니라 "표본이 안 쌓였거나
- * 인덱스가 아직 못 받았다"는 뜻 — 호출부가 '—' 처럼 모른다는 티를 내야 한다.
+ * id → (메인 캐릭터·레이팅). /admin 플레이어 목록이 GA 조회 기록(누구를 봤나)에
+ * 이 값을 곁들이는 데 쓴다(2026-08-07, 레이팅은 08-07 추가). **인덱스는 500판
+ * 이상만 담는다**(minGames) — GA 에 잡힌 조회 전부가 아니라 그중 인덱스 수집
+ * 문턱을 넘긴 사람만 나온다. 그래서 이 맵에 없는 id 는 "정보가 없다"가 아니라
+ * "표본이 안 쌓였거나 인덱스가 아직 못 받았다"는 뜻 — 호출부가 '—' 처럼
+ * 모른다는 티를 내야 한다. 레이팅은 **인덱스가 마지막으로 갱신된 시점**
+ * 기준이라(PlayerIndex.updatedAt) 지금 이 순간의 실제 레이팅과는 다를 수
+ * 있다 — 실시간이 필요하면 이 값이 아니라 /player/id 조회를 안내할 것.
  */
-export function mainCharByPlayer(
-  index: PlayerIndex,
-): Map<string, { mainChar: string; mainCharGames: number }> {
+export function indexSummaryByPlayer(index: PlayerIndex): Map<string, PlayerIndexSummary> {
   return new Map(
-    index.rows.map((r) => [r.id, { mainChar: r.mainChar, mainCharGames: r.mainCharGames }]),
+    index.rows.map((r) => [
+      r.id,
+      { mainChar: r.mainChar, mainCharGames: r.mainCharGames, rating: r.rating, peakRating: r.peakRating },
+    ]),
   );
 }
