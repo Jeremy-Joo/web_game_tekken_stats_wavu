@@ -1,7 +1,11 @@
 // 레이팅(wavu glicko2, myRank 아님) 구간대별 "순변화가 0을 넘는 손익분기 승률"을
 // 실측한다 — docs/rank-threshold-research.md 의 자매 조사.
 //
-//   npx tsx scripts/build-rating-threshold-data.ts <admin export json 경로> [구간당 목표 인원]
+//   npx tsx scripts/build-rating-threshold-data.ts <admin export json 경로> [구간당 목표 인원] [feed-only]
+//
+// feed-only: admin export를 건너뛰고 전 구간을 wavu 피드로만 채운다. 2026-08-07
+// 실측(admin export 위주)의 편향 검증용 — 결과를 rating-threshold-report-feedonly-*.json
+// 에 따로 남긴다. 기존 체크포인트는 안 건드린다.
 //
 // 배경: lib/tekken/quip-facts.ts 의 DIVERGE_WIN_HI(60%)/DIVERGE_WIN_LO(48%)가
 // **레이팅 구간과 무관하게 고정값**을 쓴다. 그런데 그 상수 옆 주석 자체가
@@ -27,15 +31,16 @@ import type { MatchRecord } from '../lib/tekken/models';
 const BAND_WIDTH = 250;
 const argTarget = Number(process.argv[3]);
 const TARGET_PER_BAND = Number.isFinite(argTarget) && argTarget > 0 ? argTarget : 40;
+const FEED_ONLY = process.argv[4] === 'feed-only';
 const RATING_WINDOW = 25; // lib/tekken/quip-facts.ts 의 DIVERGE_WINDOW 와 동일
 const WAVU_GAP_MS = 1200;
 const FEED_STEP_SEC = 7000;
 const FEED_API = 'https://wank.wavu.wiki/api/replays';
-const MAX_FEED_WINDOWS = 40;
+const MAX_FEED_WINDOWS = FEED_ONLY ? 120 : 40;
 
 const OUT_DIR = path.join(__dirname, 'out');
-const PROGRESS_PATH = path.join(OUT_DIR, 'rating-threshold-progress.jsonl');
-const REPORT_PREFIX = path.join(OUT_DIR, 'rating-threshold-report');
+const PROGRESS_PATH = path.join(OUT_DIR, FEED_ONLY ? 'rating-threshold-progress-feedonly.jsonl' : 'rating-threshold-progress.jsonl');
+const REPORT_PREFIX = path.join(OUT_DIR, FEED_ONLY ? 'rating-threshold-report-feedonly' : 'rating-threshold-report');
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const bandOf = (rating: number) => Math.floor(rating / BAND_WIDTH) * BAND_WIDTH;
@@ -83,21 +88,29 @@ interface FeedReplay {
 
 async function buildCandidates(adminPath: string): Promise<Map<number, Candidate[]>> {
   const coverage = new Map<number, string[]>();
-  const admin = loadAdminExport(adminPath);
-  for (const p of admin) {
-    const id = normalizePolarisId(p.id);
-    if (!id) continue;
-    const band = bandOf(p.rating!);
-    const list = coverage.get(band) ?? coverage.set(band, []).get(band)!;
-    if (!list.includes(id)) list.push(id);
+  if (FEED_ONLY) {
+    console.log('\n── feed-only 모드 — admin export 건너뛰고 전 구간을 wavu 피드로만 채운다 ──');
+  } else {
+    const admin = loadAdminExport(adminPath);
+    for (const p of admin) {
+      const id = normalizePolarisId(p.id);
+      if (!id) continue;
+      const band = bandOf(p.rating!);
+      const list = coverage.get(band) ?? coverage.set(band, []).get(band)!;
+      if (!list.includes(id)) list.push(id);
+    }
+
+    console.log('\n── 1단계: admin export 정찰 ──');
+    for (const [band, list] of [...coverage.entries()].sort((a, b) => a[0] - b[0])) {
+      console.log(`  ${band}~${band + BAND_WIDTH - 1}: ${list.length}명`);
+    }
   }
 
-  console.log('\n── 1단계: admin export 정찰 ──');
-  for (const [band, list] of [...coverage.entries()].sort((a, b) => a[0] - b[0])) {
-    console.log(`  ${band}~${band + BAND_WIDTH - 1}: ${list.length}명`);
-  }
-
+  // 관측 범위(500~3249)의 모든 구간을 빈 배열로 먼저 깔아둔다 — 안 그러면 coverage에
+  // 아예 없는 구간(feed-only 모드는 coverage가 통째로 비어 있음)이 short() 체크에서
+  // 빠져 피드 보강을 통째로 건너뛴다(build-rank-threshold-data.ts와 같은 버그, 2026-08-07).
   const byBand = new Map<number, Candidate[]>();
+  for (let b = 500; b <= 3000; b += BAND_WIDTH) byBand.set(b, []);
   const seenIds = new Set<string>();
   for (const [band, ids] of coverage) {
     const picked = [...ids].sort().slice(0, TARGET_PER_BAND);
@@ -320,10 +333,10 @@ function report() {
 async function main() {
   const adminPath = process.argv[2];
   if (!adminPath || !fs.existsSync(adminPath)) {
-    console.error('사용법: npx tsx scripts/build-rating-threshold-data.ts <admin export json 경로> [구간당 목표 인원]');
+    console.error('사용법: npx tsx scripts/build-rating-threshold-data.ts <admin export json 경로> [구간당 목표 인원] [feed-only]');
     process.exit(1);
   }
-  console.log(`구간당 목표 인원: ${TARGET_PER_BAND}명${argTarget ? '' : ' (기본값)'}`);
+  console.log(`구간당 목표 인원: ${TARGET_PER_BAND}명${argTarget ? '' : ' (기본값)'}${FEED_ONLY ? ' · feed-only 모드' : ''}`);
   const byBand = await buildCandidates(adminPath);
   await collectAndAnalyze(byBand);
   report();
