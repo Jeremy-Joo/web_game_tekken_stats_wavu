@@ -2528,14 +2528,13 @@ export default function Home() {
                   <span className="sum-value sum-date">{summary.lastDt}</span>
                 </div>
               )}
+              {/* 마지막 세션 기준 컨디션 한 줄 — 카드 캡션으로(2026-08-08, 예전엔
+                  카드 밖 별도 문단에 음수 margin 으로 붙여놓기만 했다). 요약 카드가
+                  그 요약에 대한 코멘트까지 한 덩어리로 갖는 게 진짜 "붙어 보인다".
+                  끄는 법 안내는 여기서 뺐다 — 흐름 탭 하단에 이미 한 번 나오니,
+                  조회 직후 첫 화면부터 안내문이 앞서는 것보다 낫다. */}
+              {showQuips && condition && <p className="sum-caption">{condition}</p>}
             </div>
-          )}
-          {/* 마지막 세션 기준 컨디션 한 줄 (멘트 끄면 안 나온다) */}
-          {showQuips && condition && (
-            <p className="condition">
-              {condition}
-              <span className="quips-off">{t('quipsOff')}</span>
-            </p>
           )}
           {single.charCounts && single.charCounts.length > 1 && (
             <div className="char-chips">
@@ -2898,28 +2897,35 @@ export default function Home() {
                     단정하지 않는다 — 표본이 얇거나 꺾이는 지점이 없으면 그렇게 말한다. */}
                 {current.key === 'flow' && single?.advice && (
                   <div className="advice">
-                    {/* 농담 + 연습 권유 — 수위는 실제 숫자로 정하고(advice.mood),
-                        문구는 조회 결과에서 나온 씨앗으로 고른다(같은 조회 = 같은 문구).
-                        멘트를 끄면 권장 판수 분석만 남는다. */}
-                    {flowQuip && (
-                      <p className={`advice-mood mood-${single.advice.mood}`}>{flowQuip.text}</p>
-                    )}
-                    {/* 조언은 유머와 독립이다 — 유머를 꺼도 이건 볼 수 있어야 한다 */}
-                    {showCoach && (
-                      <p className="advice-coach">
-                        {/* 아이콘은 붙이지 않는다 — 배경색과 글자색만으로 이미
-                            농담 줄과 구분되고, 문장 앞의 그림이 읽기를 방해했다. */}
-                        {pickCoach(
-                          single.advice.mood,
-                          lang,
-                          // 농담과 다른 씨앗 — 같은 짝만 반복해서 나오지 않게
-                          single.recordCount * 3 + Math.round(single.advice.recentDeltaPp),
-                          // 중상위 이상에게는 다른 조언 묶음이 나간다 (jokes.COACH_HIGH_MIN_RATING)
-                          single.currentRating,
-                          // steady 인데 승률이 이미 좋으면 "지키기/손실 관리" 계열로 갈라진다
-                          single.advice.baselineWinRate,
+                    {/* 농담 + 연습 권유를 한 카드로 묶는다(2026-08-08) — 둘 다 같은
+                        대화체 톤(mood 기반)이라, 아래 판수 분석(사실 진술)과 시각적으로
+                        갈라놔야 한 덩어리씩 읽힌다는 피드백. 수위는 실제 숫자로
+                        정하고(advice.mood), 문구는 조회 결과에서 나온 씨앗으로 고른다
+                        (같은 조회 = 같은 문구). 멘트를 다 끄면 카드째 안 나오고
+                        권장 판수 분석만 남는다. */}
+                    {(flowQuip || showCoach) && (
+                      <div className="quip-card">
+                        {flowQuip && (
+                          <p className={`advice-mood mood-${single.advice.mood}`}>{flowQuip.text}</p>
                         )}
-                      </p>
+                        {/* 조언은 유머와 독립이다 — 유머를 꺼도 이건 볼 수 있어야 한다 */}
+                        {showCoach && (
+                          <p className="advice-coach">
+                            {/* 아이콘은 붙이지 않는다 — 글자색만으로 이미
+                                농담 줄과 구분되고, 문장 앞의 그림이 읽기를 방해했다. */}
+                            {pickCoach(
+                              single.advice.mood,
+                              lang,
+                              // 농담과 다른 씨앗 — 같은 짝만 반복해서 나오지 않게
+                              single.recordCount * 3 + Math.round(single.advice.recentDeltaPp),
+                              // 중상위 이상에게는 다른 조언 묶음이 나간다 (jokes.COACH_HIGH_MIN_RATING)
+                              single.currentRating,
+                              // steady 인데 승률이 이미 좋으면 "지키기/손실 관리" 계열로 갈라진다
+                              single.advice.baselineWinRate,
+                            )}
+                          </p>
+                        )}
+                      </div>
                     )}
                     {single.advice.reliable ? (
                       <>

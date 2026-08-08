@@ -205,6 +205,19 @@ select {
   gap: 0.5rem;
 }
 
+/* 컨디션 한 줄을 요약 카드의 캡션으로(2026-08-08) — flex-basis:100% 로 항상
+   새 줄에서 시작하고, 위쪽 옅은 구분선으로 "이 숫자들에 대한 코멘트"임을
+   보여준다. 카드 밖에서 음수 margin 으로 붙여놓던 예전 방식을 대체한다. */
+.sum-caption {
+  flex-basis: 100%;
+  margin: 0.5rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .sum-label {
   color: var(--muted);
   font-size: 0.8rem;
@@ -585,12 +598,24 @@ button.small,
 .wlc-l { fill: var(--loss); }
 .wlc-mid { stroke: var(--border); stroke-width: 1; }
 
+/* 농담(mood) + 연습 권유(coach) — 같은 대화체 톤이라 카드 하나로 묶는다
+   (2026-08-08). 아래 .advice-main 판수 분석(사실 진술)과는 여기서 시각적으로
+   갈린다 — 대화체 카드 하나, 그다음 분석 문단들, 순서로 읽힌다. */
+.quip-card {
+  margin: 0 0 0.6rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 6px;
+  background: rgba(110, 168, 254, 0.1);
+}
+
 .advice-mood {
   margin: 0 0 0.4rem;
   font-size: 0.95rem;
   font-weight: 700;
   line-height: 1.45;
 }
+
+.quip-card .advice-mood:last-child { margin-bottom: 0; }
 
 /* 6단계. 양 끝은 색을 한 단계 더 밀어 '드문 등급'이라는 걸 색으로도 알린다. */
 .mood-blazing { color: #fbbf24; text-shadow: 0 0 12px rgba(251, 191, 36, 0.35); }
@@ -600,15 +625,19 @@ button.small,
 .mood-cold { color: var(--loss); }
 .mood-frozen { color: #93c5fd; text-shadow: 0 0 12px rgba(147, 197, 253, 0.3); }
 
-/* 연습 조언 — 유머와 다른 트랙이라 시각적으로도 분리한다 */
+/* 연습 조언 — quip-card 안에 있을 땐 자기 배경 없이 카드 배경을 그대로 쓰고,
+   mood 줄과는 위쪽 옅은 구분선으로만 나뉜다(박스 안에 박스가 겹치지 않게). */
 .advice-coach {
-  margin: 0 0 0.5rem;
-  padding: 0.4rem 0.55rem;
-  border-radius: 6px;
-  background: rgba(110, 168, 254, 0.1);
+  margin: 0;
   color: var(--accent);
   font-size: 0.88rem;
   line-height: 1.5;
+}
+
+.quip-card .advice-mood + .advice-coach {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--border);
 }
 
 .advice-main {
