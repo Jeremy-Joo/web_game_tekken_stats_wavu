@@ -1,6 +1,6 @@
 {
   "name": "tekken-stats-wavu",
-  "version": "2026.8.8",
+  "version": "2026.8.8.2",
   "private": true,
   "scripts": {
     "dev": "next dev",

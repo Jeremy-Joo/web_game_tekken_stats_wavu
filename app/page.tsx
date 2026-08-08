@@ -2114,6 +2114,60 @@ export default function Home() {
     window.scrollTo({ top: 0 });
   };
 
+  /**
+   * 리포트/공유/엑셀/CSV/JSON 버튼 줄. 한 명 모드에서는 캐릭터별 상세 칩
+   * 바로 위로 옮겼다(2026-08-08, 사용자 피드백) — 다운로드가 "그 데이터
+   * 밑에 딸린 부속"이 아니라 탭 진입 전에 바로 손 닿는 자리에 있는 게
+   * 맞다는 지적. 비교 모드는 캐릭터 칩이 없어서 그대로 탭 위(예전 자리)에
+   * 둔다 — 두 자리 중 실제로 렌더되는 건 항상 하나뿐이다(아래 두 사용처
+   * 참조).
+   */
+  const downloadRow = tabs && (
+    <>
+      <div className="row dl-row">
+        {/* 리포트는 한 명 조회일 때만 — 비교는 대상이 여럿이라 한 장으로 요약되지 않는다 */}
+        {/* 리포트는 서버 렌더라 localStorage 의 언어를 못 읽는다 — 링크로 넘겨준다 */}
+        {mode === 'single' && single && (
+          <a
+            className="btn-link report-btn"
+            href={`/player/${single.polarisId}/report${lang === 'ko' ? '' : `?lang=${lang}`}`}
+            onClick={() => gaEvent('report_open')}
+          >
+            {t('reportBtn')}
+          </a>
+        )}
+        {/* 공유 — 주소창에 이미 상태가 들어가 있지만(replaceState) 폰에서는
+            주소를 복사하기가 번거롭다. 버튼 하나로 그 마찰을 없앤다.
+            한 명·여러 명 모드 모두에 둔다. */}
+        <ShareButton
+          lang={lang}
+          title={
+            mode === 'single' && single
+              ? `${single.myName || single.polarisId} — ${t('title')}`
+              : t('title')
+          }
+        />
+        {xlsxHref && (
+          <button className="ghost" onClick={downloadXlsx} disabled={xlsxBusy}>
+            {xlsxBusy ? t('xlsxBusy') : t('xlsxBtn')}
+          </button>
+        )}
+        <button className="ghost" onClick={downloadCsv} disabled={dlBusy}>
+          {t('csvBtn')}
+        </button>
+        <button className="ghost" onClick={downloadJson} disabled={dlBusy}>
+          {t('jsonBtn')}
+        </button>
+      </div>
+      {dlMsg && <p className="error">{dlMsg}</p>}
+      {/* 오래 걸릴 조회에만 예상 시간을 미리 알린다 (실측 기반 근사) */}
+      {xlsxHref && !xlsxBusy && xlsxEtaSec >= 5 && (
+        <p className="hint">{t('xlsxEta')(xlsxEtaSec)}</p>
+      )}
+      {xlsxMsg && <p className="error">{xlsxMsg}</p>}
+    </>
+  );
+
   return (
     <main>
       <div className="titlebar">
@@ -2337,6 +2391,23 @@ export default function Home() {
           </>
         )}
 
+        {/* 랜덤 조회 — 조회 버튼 바로 아래(2026-08-08, 패널 안으로 이동).
+            식별코드를 모르는 사람에게는 이게 첫 동작이라 조회 버튼 다음
+            자리가 맞다 — 체크박스·최근 조회 같은 부가 설정보다 앞선다.
+            모드까지 넘기는 이유: 비교 모드에서 눌렀을 때도 한 명 조회로
+            가야 한다. */}
+        <RandomPlayer
+          lang={lang}
+          compact={!!(single || compare)}
+          onPick={(rid) => {
+            setId(rid);
+            setIds('');
+            setMode('single');
+            setCharSel('');
+            run(rid, undefined, '', 'single');
+          }}
+        />
+
         <label className="hl-toggle" style={{ marginTop: '0.6rem' }}>
           <input
             type="checkbox"
@@ -2437,63 +2508,49 @@ export default function Home() {
         {mode === 'compare' && <p className="hint">{t('compareHint')}</p>}
       </div>
 
-      {/* 랜덤 조회 — 조회 칸 바로 아래 고정(결과 유무와 무관하게, 2026-08-07 위치 조정).
-          모드까지 넘기는 이유: 비교 모드에서 눌렀을 때도 한 명 조회로 가야 한다.
-          결과가 이미 떠 있으면 compact — 폼과 표 사이에 낀 무관한 상자가 되지
-          않게 안내문을 줄인다(docs/ui-period-analysis.md P6). */}
-      <RandomPlayer
-        lang={lang}
-        compact={!!(single || compare)}
-        onPick={(rid) => {
-          setId(rid);
-          setIds('');
-          setMode('single');
-          setCharSel('');
-          run(rid, undefined, '', 'single');
-        }}
-      />
-
       {single && (
         <>
-          <p className="meta">
-            <b>{single.myName || single.polarisId}</b>
-            {single.selectedChar ? <b> — {single.selectedChar}</b> : null} ·{' '}
-            {/* 숫자+단위(예: "1811경기")도 한 덩어리다 — 한글은 공백 없이도
-                아무 글자 사이에서 줄바꿈될 수 있어서, nowrap 이 없으면 "1811경"
-                "기" 처럼 글자 중간이 끊긴다(모바일 피드백, 2026-08). */}
-            <span className="meta-nowrap">
-              {single.filtered?.count}
-              {t('games')}
-            </span>
-            {single.filtered?.start || single.filtered?.end
-              ? ` (${single.filtered?.start ?? ''} ~ ${single.filtered?.end ?? ''}, ${t('totalSuffix')} ${single.totalCount})`
-              : ''}
-            {single.firstDt && (
-              // 날짜 범위도 통째로 다음 줄로 넘어가야 한다 — 없으면 "~" 뒤에서
-              // 끊겨 시작일과 종료일이 서로 다른 줄에 놓인다.
-              <span className="meta-nowrap">
-                {' '}· {single.firstDt.slice(0, 10)} ~ {single.lastDt?.slice(0, 10)}
-              </span>
-            )}
-            {/* 방금 조회한 사람을 그 자리에서 고정한다. 비교 모드에는 안 나온다. */}
-            {pinned?.id === single.polarisId ? (
-              <span className="pin-state">{t('pinnedHere')}</span>
-            ) : (
-              <button
-                className="ghost small pin-set"
-                onClick={() =>
-                  setPinned({ id: single.polarisId, name: single.myName || single.polarisId })
-                }
-                title={t('pinHint')}
-              >
-                {t('pinSet')}
-              </button>
-            )}
-          </p>
-          {/* 캐릭터별 현재 단 — wavu 값 그대로, 추정 없음 */}
-          <RankBadges polarisId={single.polarisId} lang={lang} />
           {summary && (
             <div className="sum-card">
+              {/* 정체성(이름·판수·기간) + 오늘 상태를 한 카드로(2026-08-08) — 예전엔
+                  둘 다 같은 테두리·배경 스타일의 박스로 따로 있어서 카드 두 개가
+                  겹쳐 쌓인 것처럼 보였다. 캐릭터별 단(RankBadges)은 성격이 다른
+                  상세 정보라 카드 밖, 뒤로 옮겼다. */}
+              <p className="meta">
+                <b>{single.myName || single.polarisId}</b>
+                {single.selectedChar ? <b> — {single.selectedChar}</b> : null} ·{' '}
+                {/* 숫자+단위(예: "1811경기")도 한 덩어리다 — 한글은 공백 없이도
+                    아무 글자 사이에서 줄바꿈될 수 있어서, nowrap 이 없으면 "1811경"
+                    "기" 처럼 글자 중간이 끊긴다(모바일 피드백, 2026-08). */}
+                <span className="meta-nowrap">
+                  {single.filtered?.count}
+                  {t('games')}
+                </span>
+                {single.filtered?.start || single.filtered?.end
+                  ? ` (${single.filtered?.start ?? ''} ~ ${single.filtered?.end ?? ''}, ${t('totalSuffix')} ${single.totalCount})`
+                  : ''}
+                {single.firstDt && (
+                  // 날짜 범위도 통째로 다음 줄로 넘어가야 한다 — 없으면 "~" 뒤에서
+                  // 끊겨 시작일과 종료일이 서로 다른 줄에 놓인다.
+                  <span className="meta-nowrap">
+                    {' '}· {single.firstDt.slice(0, 10)} ~ {single.lastDt?.slice(0, 10)}
+                  </span>
+                )}
+                {/* 방금 조회한 사람을 그 자리에서 고정한다. 비교 모드에는 안 나온다. */}
+                {pinned?.id === single.polarisId ? (
+                  <span className="pin-state">{t('pinnedHere')}</span>
+                ) : (
+                  <button
+                    className="ghost small pin-set"
+                    onClick={() =>
+                      setPinned({ id: single.polarisId, name: single.myName || single.polarisId })
+                    }
+                    title={t('pinHint')}
+                  >
+                    {t('pinSet')}
+                  </button>
+                )}
+              </p>
               <div className="sum-block">
                 <span className="sum-label">{t('sumToday')}</span>
                 {summary.games > 0 ? (
@@ -2536,6 +2593,10 @@ export default function Home() {
               {showQuips && condition && <p className="sum-caption">{condition}</p>}
             </div>
           )}
+          {/* 캐릭터별 현재 단 — wavu 값 그대로, 추정 없음. 위 카드와는 성격이
+              다른 상세 정보라(요약이 아니라 목록) 카드 밖에 남긴다. */}
+          <RankBadges polarisId={single.polarisId} lang={lang} />
+          {downloadRow}
           {single.charCounts && single.charCounts.length > 1 && (
             <div className="char-chips">
               <span className="hint" style={{ margin: 0 }}>{t('charLabel')}:</span>
@@ -2614,47 +2675,9 @@ export default function Home() {
 
       {tabs && (
         <>
-          <div className="row dl-row">
-            {/* 리포트는 한 명 조회일 때만 — 비교는 대상이 여럿이라 한 장으로 요약되지 않는다 */}
-            {/* 리포트는 서버 렌더라 localStorage 의 언어를 못 읽는다 — 링크로 넘겨준다 */}
-            {mode === 'single' && single && (
-              <a
-                className="btn-link report-btn"
-                href={`/player/${single.polarisId}/report${lang === 'ko' ? '' : `?lang=${lang}`}`}
-                onClick={() => gaEvent('report_open')}
-              >
-                {t('reportBtn')}
-              </a>
-            )}
-            {/* 공유 — 주소창에 이미 상태가 들어가 있지만(replaceState) 폰에서는
-                주소를 복사하기가 번거롭다. 버튼 하나로 그 마찰을 없앤다.
-                한 명·여러 명 모드 모두에 둔다. */}
-            <ShareButton
-              lang={lang}
-              title={
-                mode === 'single' && single
-                  ? `${single.myName || single.polarisId} — ${t('title')}`
-                  : t('title')
-              }
-            />
-            {xlsxHref && (
-              <button className="ghost" onClick={downloadXlsx} disabled={xlsxBusy}>
-                {xlsxBusy ? t('xlsxBusy') : t('xlsxBtn')}
-              </button>
-            )}
-            <button className="ghost" onClick={downloadCsv} disabled={dlBusy}>
-              {t('csvBtn')}
-            </button>
-            <button className="ghost" onClick={downloadJson} disabled={dlBusy}>
-              {t('jsonBtn')}
-            </button>
-          </div>
-          {dlMsg && <p className="error">{dlMsg}</p>}
-          {/* 오래 걸릴 조회에만 예상 시간을 미리 알린다 (실측 기반 근사) */}
-          {xlsxHref && !xlsxBusy && xlsxEtaSec >= 5 && (
-            <p className="hint">{t('xlsxEta')(xlsxEtaSec)}</p>
-          )}
-          {xlsxMsg && <p className="error">{xlsxMsg}</p>}
+          {/* 한 명 모드는 이 자리보다 위(캐릭터별 상세 칩 앞)에서 이미 렌더했다
+              (downloadRow 선언부 주석 참조) — 여기서 또 그리면 중복이다. */}
+          {mode !== 'single' && downloadRow}
 
           <div className="tabs">
             {tabs.map((tb) => (
