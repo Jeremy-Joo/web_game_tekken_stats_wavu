@@ -5,8 +5,8 @@
   --bg: #0f1115;
   --panel: #171a21;
   --border: #2a2f3a;
-  /* 인접한 두 상자(.panel · .random-body 등)가 붙어 있을 때 --border 하나로는
-     경계가 흐려 보인다. 그 접점에서만 쓰는 더 밝은 테두리색. */
+  /* 인접한 두 상자가 붙어 있을 때 --border 하나로는 경계가 흐려 보인다.
+     그 접점에서만 쓰는 더 밝은 테두리색(예: .split-sub 의 왼쪽 구분선). */
   --border-strong: #3d4455;
   --text: #e6e8ec;
   --muted: #9aa1ad;
@@ -155,7 +155,7 @@ select {
   display: flex;
   gap: 0.4rem;
   flex-wrap: wrap;
-  margin-top: 0.55rem;
+  margin-top: 0.6rem;
 }
 
 .chip {
@@ -186,10 +186,12 @@ select {
   font-weight: 700;
 }
 
-/* 오늘의 요약 카드 */
+/* 오늘의 요약 카드. gap 1.4rem→1rem(2026-08-08) — 정체성 줄과 합쳐지면서
+   카드가 넓어져, 오늘/레이팅/마지막경기 세 항목 사이가 헐렁하게 벌어져
+   보였다(사용자 피드백: "폭이 너무 넓은 느낌"). */
 .sum-card {
   display: flex;
-  gap: 1.4rem;
+  gap: 1rem;
   flex-wrap: wrap;
   align-items: baseline;
   background: var(--panel);
@@ -751,18 +753,16 @@ button.small,
   margin-top: 0.6rem;
 }
 
-/* 조회 직후 첫 줄(이름·판수·기간) — 예전엔 배경 없는 문단이라 존재감이 약했다
-   (모바일 피드백, 2026-08). 요약 카드(.sum-card)와 같은 톤으로 영역을 주고
-   글자도 키운다 — 이 줄이 "지금 누굴 보고 있나"를 답하는 자리라서다. */
+/* 조회 직후 첫 줄(이름·판수·기간) — 요약 카드(.sum-card) 안 첫 행으로
+   합쳤다(2026-08-08). 예전엔 이 줄도 같은 테두리·배경의 독립 박스라, 바로
+   아래 요약 카드와 박스 두 개가 겹쳐 쌓인 것처럼 보였다(사용자 피드백).
+   지금은 카드 자체 배경을 쓰고, 아래 요약 행들과는 구분선 하나로만 나뉜다. */
 .meta {
+  flex-basis: 100%;
   color: var(--muted);
   font-size: 0.95rem;
   line-height: 1.7;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.7rem 1rem;
-  margin: 0.4rem 0 0.8rem;
+  margin: 0 0 0.4rem;
 }
 
 .meta b {
@@ -1052,7 +1052,7 @@ td.loss {
 .hint {
   color: var(--muted);
   font-size: 0.8rem;
-  margin-top: 0.5rem;
+  margin-top: 0.6rem;
 }
 
 /* 시간대 안내 — 어느 시각 기준으로 읽는 표인지 밝힌다.
@@ -1318,32 +1318,28 @@ footer a {
 }
 
 /* ── 랜덤 조회 ──────────────────────────────────────────────────
-   곁가지 기능이라 조회 폼보다는 약하게 — 하지만 위 조회 폼(.panel)과 경계는
-   또렷해야 한다. 예전에는 음수 마진으로 두 상자를 거의 붙여놔서, 둘 다 같은
-   --panel/--border 를 쓰다 보니 "조회 기간 버튼 줄"과 "무작위 지역 버튼 줄"이
-   한 덩어리로 보였다(2026-08 피드백). 간격을 양수로 주고 테두리를 조금 더
-   또렷하게 해서, 약한 기능이라는 인상은 유지하면서도 자리는 분명하게 갈랐다. */
+   예전엔 자체 박스(배경+진한 테두리)로 조회 폼(.panel)과 분리해 뒀다 —
+   당시엔 패널 안에 "조회 기간 버튼 줄"이 따로 있어서, 박스가 없으면 그
+   줄과 헷갈렸기 때문이다. 그 기간 버튼 줄은 2026-08-06에 사이트에서
+   통째로 빠졌고, 2026-08-08 부터는 이 컨트롤도 조회 버튼 바로 아래,
+   패널 **안으로** 옮겨 박스를 없앴다 — 이제 헷갈릴 상대가 없고, 식별코드
+   입력 줄(.id-row)과 같은 급의 컨트롤로 나란히 읽히는 쪽이 자연스럽다. */
 .random {
-  margin: 1rem 0 1.25rem;
+  margin: 0;
 }
 
 .random-body {
-  margin-top: 0.5rem;
-  padding: 0.7rem 0.85rem;
-  background: var(--panel);
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
+  margin-top: 0.6rem;
 }
 
-/* 조회 결과가 떠 있을 때(RandomPlayer compact) — 안내문이 빠져 한 줄짜리
-   상자가 되므로 위아래 여백도 그만큼 줄인다. 지역 선택·버튼은 그대로다. */
+/* 조회 결과가 떠 있을 때(RandomPlayer compact) — 안내문이 빠져 한 줄만
+   남으므로 위 여백도 그만큼 줄인다. 지역 선택·버튼은 그대로다. */
 .random-compact {
-  margin: 0.6rem 0 1rem;
+  margin: 0;
 }
 
 .random-compact .random-body {
-  margin-top: 0;
-  padding: 0.45rem 0.7rem;
+  margin-top: 0.6rem;
 }
 
 /* 방문자 수 — 푸터 맨 아래. 고지·농담보다도 뒤로 물러난다. */
