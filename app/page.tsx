@@ -2115,12 +2115,13 @@ export default function Home() {
   };
 
   /**
-   * 리포트/공유/엑셀/CSV/JSON 버튼 줄. 한 명 모드에서는 캐릭터별 상세 칩
-   * 바로 위로 옮겼다(2026-08-08, 사용자 피드백) — 다운로드가 "그 데이터
-   * 밑에 딸린 부속"이 아니라 탭 진입 전에 바로 손 닿는 자리에 있는 게
-   * 맞다는 지적. 비교 모드는 캐릭터 칩이 없어서 그대로 탭 위(예전 자리)에
-   * 둔다 — 두 자리 중 실제로 렌더되는 건 항상 하나뿐이다(아래 두 사용처
-   * 참조).
+   * 리포트/공유/엑셀/CSV/JSON 버튼 줄. 한 명 모드에서는 결과 맨 위, 요약
+   * 카드보다도 위로 옮겼다(2026-08-08, 사용자 피드백 — 처음엔 캐릭터별
+   * 상세 칩 바로 위였는데, 그보다 더 위 결과 맨 앞이 맞다는 후속 요청).
+   * 다운로드가 "그 데이터 밑에 딸린 부속"이 아니라 조회 결과를 보자마자
+   * 바로 손 닿는 자리에 있는 게 맞다는 지적. 비교 모드는 캐릭터 칩이 없고
+   * 결과 구조도 달라서 그대로 탭 위(예전 자리)에 둔다 — 두 자리 중 실제로
+   * 렌더되는 건 항상 하나뿐이다(아래 두 사용처 참조).
    */
   const downloadRow = tabs && (
     <>
@@ -2510,6 +2511,7 @@ export default function Home() {
 
       {single && (
         <>
+          {downloadRow}
           {summary && (
             <div className="sum-card">
               {/* 정체성(이름·판수·기간) + 오늘 상태를 한 카드로(2026-08-08) — 예전엔
@@ -2596,7 +2598,6 @@ export default function Home() {
           {/* 캐릭터별 현재 단 — wavu 값 그대로, 추정 없음. 위 카드와는 성격이
               다른 상세 정보라(요약이 아니라 목록) 카드 밖에 남긴다. */}
           <RankBadges polarisId={single.polarisId} lang={lang} />
-          {downloadRow}
           {single.charCounts && single.charCounts.length > 1 && (
             <div className="char-chips">
               <span className="hint" style={{ margin: 0 }}>{t('charLabel')}:</span>
