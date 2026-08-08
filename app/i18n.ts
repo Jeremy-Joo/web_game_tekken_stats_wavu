@@ -364,6 +364,14 @@ const D = {
     en: '※ Correlation only — good days last longer, so later buckets are biased toward good sessions.',
     ja: '※ 相関にすぎません — 調子が良い日ほど長く続くため、後半の標本は有利側に偏ります。',
   },
+  // 기본은 접힘 — 캐비엇 두 줄 아래 상시 노출 문구를 또 얹지 않으려고
+  // 토글로 뺐다(2026-08-08). 궁금한 사람만 펼쳐본다.
+  methodologyToggle: { ko: '분석 기준', en: 'How this is measured', ja: '分析基準' },
+  methodologyBody: {
+    ko: '세션 몇 개를 봤는지가 아니라, 각 세션 안에서 몇 번째 판인지로 5판 단위 구간을 나눕니다(1~5판째, 6~10판째… 최대 56~60판째). 그 사람이 지금까지 친 모든 세션에서 같은 위치의 판을 모아 승률을 재고, 한 구간에 50판 이상 쌓여야 그 구간을 신뢰합니다. 신뢰할 수 있는 구간이 3개 미만이면 이 분석 자체를 보여주지 않습니다.',
+    en: 'Games are grouped by their position within a session, not by how many sessions were counted — 5-game bands (games 1–5, 6–10, … up to 56–60). Every session in the player’s full history contributes to the same-position bucket, and a bucket needs 50+ games before it’s trusted. Fewer than 3 trustworthy buckets means this analysis isn’t shown at all.',
+    ja: 'セッションをいくつ見たかではなく、各セッションの中で何番目の対戦かで5戦単位の区間に分けます(1〜5戦目、6〜10戦目…最大56〜60戦目)。その人が今までに行った全セッションから同じ位置の対戦を集めて勝率を測り、1区間につき50戦以上たまって初めて信頼します。信頼できる区間が3つ未満だとこの分析自体を表示しません。',
+  },
   metSince: { ko: '만난 시기', en: 'Last met', ja: '対戦時期' },
   // '만난 시기'의 직접입력. 상단 조회 기간의 '기간설정'과 라벨을 다르게 둔다 —
   // 상대전적 탭에서는 둘이 한 화면에 같이 보이는데(docs/ui-period-analysis.md P2),

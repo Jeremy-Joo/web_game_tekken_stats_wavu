@@ -659,6 +659,28 @@ button.small,
   margin: 0.35rem 0 0;
 }
 
+/* "분석 기준" 토글 — 기본 button 스타일(꽉 찬 강조 버튼)은 이 자리엔 너무
+   무겁다. 캐비엇 문구와 같은 급으로 눌러서, 눌러야 열리는 부가 설명이지
+   주요 액션이 아니라는 게 보이게 한다. */
+.methodology-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0;
+  min-height: 0;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.methodology-toggle:hover {
+  color: var(--accent);
+}
+
 /* 상대전적에서 눌러 담은 비교 목록 — 검색칸 바로 아래 */
 .pick-box {
   margin-top: 0.6rem;

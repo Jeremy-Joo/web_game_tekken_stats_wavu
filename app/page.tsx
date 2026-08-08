@@ -897,6 +897,10 @@ export default function Home() {
   const [splitView, setSplitView] = useState<'all' | 'season' | 'version' | 'custom'>('all');
   // 캐릭터 칩 접힘 상태 — 사람이 바뀌어도 유지한다(펼쳐두고 여러 명을 도는 사용을 방해하지 않게).
   const [charChipsOpen, setCharChipsOpen] = useState(false);
+  // 흐름 탭 "분석 기준" 접힘 상태 — 기본은 접힘(2026-08-08). 캐비엇 두 줄
+  // 밑에 상시 노출 문구를 또 얹으면 오늘 줄여온 산만함이 되돌아간다는
+  // 이유로, 궁금한 사람만 펼쳐보는 토글로 뒀다.
+  const [methodologyOpen, setMethodologyOpen] = useState(false);
   // 시즌별/버전별 보기에서 고른 시즌(예: 'S2')·버전(예: 'S2-20500') 하나. 목록에
   // 없는 값이면(탭을 옮겼거나 시즌/버전으로 전환을 막 했을 때) 첫 항목으로
   // 대체한다(아래 effSplitSel) — 그래서 여기 빈 문자열로 둬도 안전하다.
@@ -3025,6 +3029,19 @@ export default function Home() {
                     <p className="hint">{t('adviceCaveat')}</p>
                     {(showQuips || showCoach) && (
                       <p className="hint quips-off">{t('quipsOff')}</p>
+                    )}
+                    {/* 분석 기준 — 기본 접힘(위 state 선언부 주석 참조). "몇 판째"가
+                        세션 개수가 아니라 세션 내 순번이라는 걸 라벨만 보고 오해하기
+                        쉽다는 피드백으로 추가했다. */}
+                    <button
+                      type="button"
+                      className="methodology-toggle"
+                      onClick={() => setMethodologyOpen(!methodologyOpen)}
+                    >
+                      {t('methodologyToggle')} {methodologyOpen ? '▲' : '▼'}
+                    </button>
+                    {methodologyOpen && (
+                      <p className="hint methodology-body">{t('methodologyBody')}</p>
                     )}
                   </div>
                 )}
