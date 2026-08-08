@@ -74,6 +74,21 @@ Data API로 영영 못 읽는다(그 전 기간은 그냥 0으로 남는다). �
 에 반영했다 — 이 스크립트는 등록일+14일 유예 기간(2026-08-21까지)이 지나야
 실제 편중 판정을 시작한다.
 
+### 5-1. `day_theme` — 아직 미등록 (2026-08-09 코드만 반영)
+
+요일 테마(영화·영화대사·정의역사·땅값세금고소득자·동물의왕국) 도입으로 `quip_shown`
+이벤트에 세 번째 값 `day_theme`를 추가했다(`app/page.tsx`). `pickJoke()`가 실제로
+요일 테마 풀에서 문구를 냈을 때만 테마 이름이 찍히고, 그 외(주말·en/ja 미착수로
+폴백)에는 `'none'`이다.
+
+**아직 GA4에 맞춤 측정기준으로 등록 안 했다** — 위 두 필드와 같은 절차
+(GA4 → 관리 → 맞춤 정의 → 맞춤 측정기준, 범위: 이벤트)로 `day_theme` 하나만
+추가하면 된다. 등록 전까지는 이벤트 자체는 나가지만 Data API로는 못 읽는다.
+등록하면 `scripts/check-quip-usage-drift.ts` 등 하위 파이프라인(`lib/ga.ts`의
+`quipUsage()`, `/api/admin/quip-usage`, `/admin` 표시)에도 `day_theme`를
+반영하는 작업이 별도로 남는다 — 지금은 이벤트 발신까지만 됐고, 그 뒤 조회·집계
+경로는 아직 `quip_pool`/`rating_bucket` 둘만 본다.
+
 ## 6. 반영 결과
 
 - **Part A**: `scripts/check-quip-simulation.ts` + `.github/workflows/quip-simulation-check.yml`

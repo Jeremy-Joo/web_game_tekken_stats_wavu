@@ -217,6 +217,20 @@ export interface QuipFacts {
     /** 창 안 레이팅 순변화(반올림). */
     net: number;
   } | null;
+
+  /**
+   * 요일 테마용 6상태 (2026-08-09, docs/weekday-theme.md). `divergence`와 같은 창·같은
+   * 손익분기 기준을 쓰되, **정상(둘 다 오름/둘 다 내림)까지 전부 담는다** — divergence는
+   * 그 둘을 mood가 맡는다며 일부러 버렸지만(위 주석 참조), 요일 테마는 그 버려지는
+   * 두 상태까지 문구가 있어야 해서 따로 둔다. divergence와 계산을 분리하면 두 축이
+   * 갈릴 위험이 있어, 같은 블록에서 같은 wins/net/winLo/winHi로 같이 만든다.
+   */
+  sixState: {
+    kind: 'normalWin' | 'winNoGain' | 'near' | 'loseButGain' | 'flatEven' | 'normalLose';
+    wins: number;
+    losses: number;
+    net: number;
+  } | null;
 }
 
 const wrOf = (w: number, n: number) => (n > 0 ? Math.round((w * 1000) / n) / 10 : 0);
@@ -451,6 +465,7 @@ export function buildQuipFacts(input: QuipFactsInput): QuipFacts | null {
   // 아직 안 매겨 delta=0 으로 오므로(normalize 의 TBD 처리), 변동이 있는 경기 수가
   // DIVERGE_KNOWN_MIN 미만이면 "모른다"로 두고 침묵한다 — 0 을 제자리로 읽으면 안 된다.
   let divergence: QuipFacts['divergence'] = null;
+  let sixState: QuipFacts['sixState'] = null;
   if (ord.length >= DIVERGE_WINDOW) {
     const win = ord.slice(-DIVERGE_WINDOW);
     const known = win.filter((r) => r.myDelta !== 0).length;
@@ -469,6 +484,13 @@ export function buildQuipFacts(input: QuipFactsInput): QuipFacts | null {
             : wins <= winLo && Math.abs(net) < DIVERGE_FLAT ? 'flatEven'
               : null;
       if (kind) divergence = { kind, wins, losses, net };
+
+      const sixKind: NonNullable<QuipFacts['sixState']>['kind'] =
+        wins >= winHi ? (net > 0 ? 'normalWin' : 'winNoGain')
+          : wins <= winLo
+            ? net >= DIVERGE_FLAT ? 'loseButGain' : net <= -DIVERGE_FLAT ? 'normalLose' : 'flatEven'
+            : 'near';
+      sixState = { kind: sixKind, wins, losses, net };
     }
   }
 
@@ -501,5 +523,6 @@ export function buildQuipFacts(input: QuipFactsInput): QuipFacts | null {
     todaySameChar,
     // 지난 시즌을 보며 "지금 정체 중"이라고 말하면 거짓말이다 — 사건 계열과 같은 가드.
     divergence: isCurrent ? divergence : null,
+    sixState: isCurrent ? sixState : null,
   };
 }

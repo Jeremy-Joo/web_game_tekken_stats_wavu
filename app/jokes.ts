@@ -49,6 +49,7 @@
 import type { Lang } from './i18n';
 import { seasonPool, type Season } from './season-jokes';
 import { factPools } from './fact-jokes';
+import { pickWeekdayJoke, type WeekdayTheme } from './weekday-jokes';
 import type { QuipFacts } from '@/lib/tekken/quip-facts';
 
 /**
@@ -3165,7 +3166,23 @@ export function pickJoke(
   streak: number,
   season?: Season | null,
   facts?: QuipFacts | null,
-): { text: string; source: QuipSource } {
+  /**
+   * 그 날짜의 요일 테마(app/weekday-jokes.ts 의 weekdayThemeOf 로 계산해 넘긴다).
+   * 월~금만 값이 있다. 이 파일은 Date.now() 를 부르지 않는다는 규칙(season과 동일) —
+   * 호출부가 계산해서 넘긴다.
+   */
+  weekdayTheme?: WeekdayTheme | null,
+): {
+  text: string;
+  source: QuipSource;
+  /**
+   * 이 결과가 요일 테마에서 실제로 나왔으면 그 테마, 아니면 undefined.
+   * "그 날 배정된 테마"가 아니라 "이 문구가 실제로 그 풀에서 나왔는가"다 —
+   * en/ja 미착수라 풀이 비어 폴백한 경우는 undefined 여야 GA가 "노출 안 됨"을
+   * 정확히 센다(quip-monitoring.md Part B, day_theme 차원 참조).
+   */
+  weekdayTheme?: WeekdayTheme;
+} {
   // ── 우선순위 사다리 (2026-08-06 재검토, 2차) ──────────────────────
   // 갈래가 여섯이다. 각각 성격이 달라서 취급도 다르다:
   //   사건(events)     드물게 한 번 참  → **무조건 우선.** 놓치면 다시 안 온다.
@@ -3200,6 +3217,19 @@ export function pickJoke(
   if (clock.length > 0 && seed % CLOCK_EVERY === 0) return { text: pick(clock, seed), source: 'clock' };
 
   // 승률·레이팅 어긋남 — 승률 표만 봐서는 절대 안 보이는 정보라 계절보다 앞선다.
+  // 요일 테마가 6상태로 걸린 날은 이 자리를 그 테마가 대신한다 — 상태 축과 요일
+  // 테마가 같은 wins/net(sixState)에서 나온 걸 서로 다른 말로 중복해서 하지 않기
+  // 위해서다(weekday-jokes.ts 머리말 참조). movieQuote 는 mood 기반이라 여기 안 낀다 —
+  // 기본 티어에서만 다룬다.
+  if (
+    weekdayTheme &&
+    weekdayTheme !== 'movieQuote' &&
+    facts?.sixState &&
+    seed % STATE_EVERY === 0
+  ) {
+    const wj = pickWeekdayJoke(weekdayTheme, facts.sixState.kind, mood, lang, seed);
+    if (wj) return { text: wj, source: 'state', weekdayTheme };
+  }
   if (state.length > 0 && seed % STATE_EVERY === 0) return { text: pick(state, seed), source: 'state' };
 
   // 계절 문구는 mood 가 아니라 **날짜**가 여는 축이라 pool 을 따로 본다.
@@ -3212,6 +3242,15 @@ export function pickJoke(
 
   // 특성 문구는 늘 참이라 우선하면 기본 풀을 영영 밀어낸다. 확률로만 끼워 넣는다.
   if (traits.length > 0 && seed % TRAIT_EVERY === 0) return { text: pick(traits, seed), source: 'trait' };
+
+  // 기본(mood) 자리 — 요일 테마가 걸린 날은 여기서 그 테마로 대신한다.
+  // 6상태 테마는 위 상태 티어와 같은 계산(seed 동일)이라 STATE_EVERY 가 걸렸으면
+  // 이미 위에서 반환됐다 — 여기 오는 건 그 확률에 안 걸린 나머지다. 풀이 비어 있으면
+  // (en/ja 미착수, 또는 sixState 표본 부족) null 이라 기존 JOKES 풀로 자연히 폴백한다.
+  if (weekdayTheme) {
+    const wj = pickWeekdayJoke(weekdayTheme, facts?.sixState?.kind ?? null, mood, lang, seed);
+    if (wj) return { text: wj, source: 'base', weekdayTheme };
+  }
 
   // 연패가 없으면 연패를 소재로 한 문구는 후보에서 뺀다.
   const pool = JOKES[mood][lang].filter(

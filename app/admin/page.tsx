@@ -68,6 +68,8 @@ interface FeatureRow {
 interface QuipPoolRow {
   pool: string;
   ratingBucket: string;
+  /** 요일 테마 이름, 아니면 'none'/'all'/'unknown'(등록 전 기간). */
+  dayTheme: string;
   count: number;
   users: number;
 }
@@ -733,6 +735,42 @@ export default function AdminPage() {
               <p className="hint">
                 레이팅 구간은 250 단위입니다(예: 1750-1999). 편중 경고는 GitHub Actions
                 의 quip-usage-drift-check 워크플로 로그에서 확인하세요.
+              </p>
+            </>
+          )}
+
+          {/* ── 요일 테마가 어디서 나가나 (2026-08-09) ──────────────────
+              'none'(주말·미배정)·'all'(풀 자체가 0건이라 채운 행)·'unknown'(day_theme
+              등록 전 기간)은 빼고, 실제로 노출된 요일 테마 5개끼리만 비교한다. */}
+          <h2 className="admin-h2">요일 테마가 어디서 나가나</h2>
+          {data.quipUsage === null ? (
+            <p className="hint">이 리포트만 실패했습니다 (나머지 수치는 정상입니다).</p>
+          ) : data.quipUsage.filter((r) => !['none', 'all', 'unknown'].includes(r.dayTheme)).length === 0 ? (
+            <p className="hint" style={{ lineHeight: 1.7 }}>
+              아직 기록이 없습니다 — GA4 맞춤 측정기준을 등록하기 전이거나, 등록한 지
+              얼마 안 됐다면(소급 안 됨) 정상입니다:
+              <br />
+              GA4 → 관리 → 맞춤 정의 → 맞춤 측정기준 → 만들기 — 이벤트 매개변수{' '}
+              <code>day_theme</code>을(를) (범위: 이벤트) 등록하세요.
+            </p>
+          ) : (
+            <>
+              <BarList
+                rows={Object.entries(
+                  data.quipUsage
+                    .filter((r) => !['none', 'all', 'unknown'].includes(r.dayTheme))
+                    .reduce<Record<string, number>>((acc, r) => {
+                      acc[r.dayTheme] = (acc[r.dayTheme] ?? 0) + r.count;
+                      return acc;
+                    }, {}),
+                )
+                  .map(([theme, count]) => ({ label: theme, value: count }))
+                  .sort((a, b) => b.value - a.value)}
+                unit="회"
+              />
+              <p className="hint">
+                주말·요일 테마가 안 걸린 조회(전체의 대부분)는 여기서 뺐습니다. 편중
+                경고는 같은 quip-usage-drift-check 워크플로 로그에서 확인하세요.
               </p>
             </>
           )}

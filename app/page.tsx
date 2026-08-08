@@ -42,6 +42,7 @@ import {
   type ConditionFacts,
 } from './jokes';
 import { seasonOf } from './season-jokes';
+import { weekdayThemeOf } from './weekday-jokes';
 import type { QuipFacts } from '@/lib/tekken/quip-facts';
 import WinLossCode from './WinLossCode';
 import RandomPlayer from './RandomPlayer';
@@ -1881,6 +1882,8 @@ export default function Home() {
       summary?.lastDt ? seasonOf(new Date(`${summary.lastDt}T00:00:00Z`)) : null,
       // 마일스톤·승단·실력차 같은 축. 우선순위 사다리는 pickJoke 안에 있다.
       single.quipFacts ?? null,
+      // 요일 테마도 계절과 같은 기준(마지막 경기 날짜)이다 — 조회 시점이 아니다.
+      summary?.lastDt ? weekdayThemeOf(new Date(`${summary.lastDt}T00:00:00Z`)) : null,
     );
   }, [single, summary, lang, showQuips]);
 
@@ -1898,16 +1901,23 @@ export default function Home() {
    * customEvent:quip_pool / customEvent:rating_bucket 을 GA4 맞춤 측정기준으로
    * 등록해야 Data API 로 읽힌다 — 등록 전 이벤트는 소급해서 못 읽는다(player_lookup
    * 의 ui_lang 과 같은 사정, 위쪽 주석 참조).
+   *
+   * `day_theme`(2026-08-09 추가) — 요일 테마(영화·영화대사·정의역사·땅값세금고소득자·
+   * 동물의왕국)가 **실제로 문구를 냈을 때만** 채워진다. "그날 배정된 테마"가 아니라
+   * pickJoke 가 그 풀에서 실제로 뽑았는지를 본다 — en/ja 미착수라 폴백한 경우까지
+   * 테마 이름으로 찍으면 "노출됐다"고 거짓 집계된다. 이것도 마찬가지로 GA4 맞춤
+   * 측정기준으로 등록해야 Data API 로 읽힌다.
    */
   const lastQuipEventRef = useRef<string | null>(null);
   useEffect(() => {
     if (!flowQuip || !flowQuip.text || !single?.polarisId) return;
-    const key = `${single.polarisId}:${flowQuip.source}`;
+    const key = `${single.polarisId}:${flowQuip.source}:${flowQuip.weekdayTheme ?? ''}`;
     if (lastQuipEventRef.current === key) return;
     lastQuipEventRef.current = key;
     window.gtag?.('event', 'quip_shown', {
       quip_pool: flowQuip.source,
       rating_bucket: bucketRating(single.currentRating),
+      day_theme: flowQuip.weekdayTheme ?? 'none',
     });
   }, [flowQuip, single]);
 

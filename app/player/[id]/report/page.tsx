@@ -24,6 +24,7 @@ import {
   type ConditionFacts,
 } from '@/app/jokes';
 import { seasonOf } from '@/app/season-jokes';
+import { weekdayThemeOf } from '@/app/weekday-jokes';
 import { buildQuipFacts } from '@/lib/tekken/quip-facts';
 import { guessTimezone, hourHistogramUtcFromRecords } from '@/lib/wavu/region';
 import { R, parseLang, weekdayText, hourText, REPORT_LANGS, type Lang } from './strings';
@@ -617,7 +618,17 @@ export default async function ReportPage({ params, searchParams }: Props) {
     tzKnown: tz.source !== 'default',
   });
   const quip = advice
-    ? pickJoke(mood, lang, seed, advice.recentDeltaPp, advice.losingStreak, seasonOf(latest.dt), quipFacts).text
+    ? pickJoke(
+        mood,
+        lang,
+        seed,
+        advice.recentDeltaPp,
+        advice.losingStreak,
+        seasonOf(latest.dt),
+        quipFacts,
+        // 요일 테마도 계절과 같은 기준(마지막 경기 날짜, latest.dt)이다.
+        weekdayThemeOf(latest.dt),
+      ).text
     : '';
   const coach = advice
     ? pickCoach(mood, lang, seed + 13, latest?.myRating ?? null, advice.baselineWinRate)

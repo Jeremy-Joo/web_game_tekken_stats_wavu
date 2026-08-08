@@ -4,6 +4,8 @@
 // "금요일 밤입니다"가 나갈 뿐이다. 조용히 깨지는 쪽이라 여기서 못박는다.
 
 import { factPools } from '../app/fact-jokes';
+import { pickJoke } from '../app/jokes';
+import { pickWeekdayJoke, type WeekdayTheme } from '../app/weekday-jokes';
 import type { QuipFacts } from '../lib/tekken/quip-facts';
 
 let failed = 0;
@@ -37,6 +39,7 @@ const base: QuipFacts = {
   lastSessionGames: 20,
   todaySameChar: null,
   divergence: null,
+  sixState: null,
 };
 const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
 
@@ -271,6 +274,66 @@ const f = (over: Partial<QuipFacts>): QuipFacts => ({ ...base, ...over });
     ok(`${lang} 특성 문구가 있다`, p.traits.length > 0);
     ok(`${lang} 빈 문자열이 없다`, [...p.events.flat(), ...p.traits].every((s) => s.trim().length > 0));
   }
+}
+
+// ── 요일 테마 (pickJoke 통합) — 2026-08-09 ──────────────────────────
+// factPools 가 아니라 pickJoke 자체를 부른다. 요일 테마는 사다리 안에서
+// "상태" 티어와 "기본" 티어 두 자리를 갈아끼우는 구조라, factPools 단위
+// 테스트로는 안 잡히고 pickJoke 통합 테스트가 필요하다.
+{
+  const sixStateFacts = f({
+    sixState: { kind: 'winNoGain', wins: 14, losses: 11, net: -20 },
+  });
+
+  // seed 가 짝수(STATE_EVERY=2)면 "상태" 티어에서 요일 테마가 먼저 잡는다.
+  // 문구 내용을 하드코딩하지 않는다 — 풀에 줄이 여러 개면 seed 마다 다른 줄이
+  // 나오므로, pickWeekdayJoke 직접 호출과 **같은 결과인지**만 확인한다
+  // (두 삽입 지점이 같은 함수·같은 seed 로 위임한다는 게 이 테스트의 핵심).
+  const atState = pickJoke('steady', 'ko', 2, 0, 0, null, sixStateFacts, 'movie' as WeekdayTheme);
+  ok('6상태 테마 — 상태 티어에서 잡히면 source=state', atState.source === 'state', atState.source);
+  ok(
+    '6상태 테마 — 상태 티어 문구가 pickWeekdayJoke 직접 호출과 같다',
+    atState.text === pickWeekdayJoke('movie', 'winNoGain', 'steady', 'ko', 2),
+    atState.text,
+  );
+
+  // seed 가 홀수면 상태 티어 확률에 안 걸려 "기본" 티어까지 내려간다. seed가
+  // 다르면 풀 안에서 고르는 줄도 달라질 수 있으므로(줄이 여럿이라), **그 seed로
+  // pickWeekdayJoke 를 직접 불렀을 때와 같은지**로 검증한다 — 상태 티어 결과와
+  // 문자열이 같은지는 더 이상 안 본다(다양성 보강 이후 우연의 일치였을 뿐이다).
+  const atBase = pickJoke('steady', 'ko', 3, 0, 0, null, sixStateFacts, 'movie' as WeekdayTheme);
+  ok('6상태 테마 — 기본 티어까지 내려가면 source=base', atBase.source === 'base', atBase.source);
+  ok(
+    '6상태 테마 — 기본 티어 문구도 pickWeekdayJoke 직접 호출과 같다',
+    atBase.text === pickWeekdayJoke('movie', 'winNoGain', 'steady', 'ko', 3),
+    atBase.text,
+  );
+
+  // movieQuote 는 mood 기반이라 상태 티어를 건드리지 않는다 — sixState가 있어도,
+  // seed가 STATE_EVERY에 걸려도 상태 티어는 조용해야(divergence가 없으니 원래도
+  // 비어 있다) 하고, 문구는 기본 티어에서만 나와야 한다.
+  const movieQuote = pickJoke('hot', 'ko', 2, 0, 0, null, sixStateFacts, 'movieQuote' as WeekdayTheme);
+  ok('영화대사 — 기본 티어에서만 나온다', movieQuote.source === 'base', movieQuote.source);
+  ok('영화대사 — 출처 표기가 붙는다', movieQuote.text.includes('(영화'), movieQuote.text);
+
+  // frozen은 의도적으로 영화대사 풀이 없다 — "여기서는 놀리지 않는다" 원칙
+  // (app/jokes.ts frozen 섹션 머리말) 때문에 요일 테마가 끼어들면 안 된다.
+  const frozenQuote = pickJoke('frozen', 'ko', 2, 0, 0, null, sixStateFacts, 'movieQuote' as WeekdayTheme);
+  ok(
+    'frozen — 영화대사가 안 끼어들고 기존 진지한 풀로 떨어진다',
+    !frozenQuote.text.includes('(영화'),
+    frozenQuote.text,
+  );
+
+  // 주말(weekdayTheme=null)은 기존 동작 그대로 — 요일 테마가 전혀 안 끼어든다.
+  // '영화' 풀이 같은 seed·같은 sixState로 냈을 문구와 달라야 한다(우연히 같은
+  // 문장을 기본 JOKES 풀이 낼 가능성은 사실상 0이라 다르면 안 끼어든 것으로 본다).
+  const weekend = pickJoke('steady', 'ko', 2, 0, 0, null, sixStateFacts, null);
+  ok(
+    '주말(테마 없음) — sixState가 있어도 요일 테마 문구는 안 나온다',
+    weekend.text !== pickWeekdayJoke('movie', 'winNoGain', 'steady', 'ko', 2),
+    weekend.text,
+  );
 }
 
 console.log(failed ? `\n${failed}건 실패` : '\n전부 통과');

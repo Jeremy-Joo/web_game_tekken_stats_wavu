@@ -307,20 +307,50 @@ eq('마일스톤 미만이면 아래 단계', facts(make([{ n: 520 }]))!.milesto
   // 저구간(750~999, 손익분기 17.5%대라 문턱이 낮다): 여기선 14승이 문턱을 넘는다.
   const low = facts(make(pattern, 900))!;
   eq('저구간 — 56% 승률이면 winNoGain (문턱이 낮다)', low.divergence?.kind, 'winNoGain');
+  eq('저구간 — sixState도 같은 계산이라 winNoGain', low.sixState?.kind, 'winNoGain');
 
   // 고구간(2250~2499, 손익분기 64%대라 문턱이 높다): 같은 55%대 승률로는 안 열린다.
   const high = facts(make(pattern, 2450))!;
   eq('고구간 — 같은 56% 승률은 winNoGain 안 열림 (문턱이 높다)', high.divergence, null);
+  // divergence는 여기서 침묵하지만(winNoGain/loseButGain/flatEven 어디에도 안 들어맞음),
+  // sixState는 같은 계산에서 '정상 패배'(승률도 못 미치고 순변화도 뚜렷이 마이너스)까지
+  // 담아낸다 — 이게 요일 테마가 상태 축에서 새로 얻는 정보다(weekday-jokes.ts 참조).
+  eq('고구간 — divergence가 버리는 정상패배를 sixState는 잡아낸다', high.sixState?.kind, 'normalLose');
 }
 {
   // loseButGain — 저승률(20%)인데 순변화가 뚜렷이 양수(+15 이상).
   const f = facts(make([{ n: 25, winRate: 20, winGain: 10, lossLoss: 1 }], 1470))!;
   eq('중구간 — 저승률+순변화 양수는 loseButGain', f.divergence?.kind, 'loseButGain');
+  eq('중구간 — sixState도 같은 계산이라 loseButGain', f.sixState?.kind, 'loseButGain');
 }
 {
   // flatEven — 저승률(20%)인데 순변화가 거의 0.
   const f = facts(make([{ n: 25, winRate: 20, winGain: 3, lossLoss: 1 }], 1505))!;
   eq('중구간 — 저승률+순변화 거의 0은 flatEven', f.divergence?.kind, 'flatEven');
+  eq('중구간 — sixState도 같은 계산이라 flatEven', f.sixState?.kind, 'flatEven');
+}
+
+// ── sixState 전용 — divergence가 일부러 버리는 세 상태(요일 테마 전용) ──────
+// 같은 창·같은 손익분기 계산에서 나온다는 걸 보장하려고 quip-facts.ts 안에서
+// 같이 만든다(weekday-jokes.ts 머리말 참조) — 여기서 그 여섯 칸이 서로 안
+// 겹치고 전부 채워지는지 못박는다.
+{
+  // normalWin — 손익분기 뚜렷이 위(승수 15/25, 문턱 14) + 순변화 양수.
+  const f = facts(make([{ n: 25, winRate: 60, winGain: 5, lossLoss: 1 }], 1505))!;
+  eq('정상승리 — 손익분기 위 + 순변화 양수는 normalWin', f.sixState?.kind, 'normalWin');
+  eq('정상승리는 divergence 축에는 안 잡힌다(정상은 mood가 맡는다)', f.divergence, null);
+}
+{
+  // near — 손익분기 근방(승수 12/25, 문턱 10~14 사이)이라 방향이 뚜렷하지 않다.
+  const f = facts(make([{ n: 25, winRate: 48, winGain: 5, lossLoss: 5 }], 1505))!;
+  eq('애매 — 손익분기 근방(뚜렷하지 않음)은 near', f.sixState?.kind, 'near');
+  eq('애매도 divergence 축에는 안 잡힌다', f.divergence, null);
+}
+{
+  // normalLose — 손익분기 뚜렷이 아래(승수 5/25, 문턱 10) + 순변화가 뚜렷이 마이너스.
+  const f = facts(make([{ n: 25, winRate: 20, winGain: 1, lossLoss: 10 }], 1505))!;
+  eq('정상패배 — 손익분기 아래 + 순변화 마이너스는 normalLose', f.sixState?.kind, 'normalLose');
+  eq('정상패배도 divergence 축에는 안 잡힌다', f.divergence, null);
 }
 
 console.log(failed ? `\n${failed}건 실패` : '\n전부 통과');

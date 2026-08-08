@@ -519,6 +519,11 @@ export interface QuipPoolRow {
   pool: string;
   /** '1750-1999' 형태(app/page.tsx 의 bucketRating), 알 수 없으면 'unknown'. */
   ratingBucket: string;
+  /**
+   * 요일 테마(app/weekday-jokes.ts 의 WeekdayTheme) 이름, 아니면 `'none'`.
+   * 2026-08-09 day_theme 맞춤 측정기준 등록 전 기간은 GA가 빈 값을 주므로 'unknown'.
+   */
+  dayTheme: string;
   count: number;
   users: number;
 }
@@ -532,11 +537,19 @@ const QUIP_POOLS = ['event', 'rankChange', 'clock', 'state', 'season', 'trait', 
  * **quip_pool·rating_bucket 을 GA4 맞춤 측정기준으로 등록한 시점부터 쌓인다.**
  * 등록 전 기간은 전부 0 이며, featureUsage() 와 같은 사정으로 '아무도 그 풀을 못
  * 봤다'가 아니라 '셀 방법이 없었다'는 뜻이다 — 호출부가 그렇게 구분해서 보여줄 것.
+ *
+ * `day_theme`(2026-08-09 추가)은 세 번째 차원이다 — quip_pool·rating_bucket과
+ * 등록 시점이 다를 수 있어(day_theme이 나중에 등록됨) 그 기간에는 이 값만 'unknown'일
+ * 수 있다. 호출부가 그 경우를 구분해서 보여줄 것.
  */
 export async function quipUsage(days: number): Promise<QuipPoolRow[]> {
   const rows = await runReport({
     dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
-    dimensions: [{ name: 'customEvent:quip_pool' }, { name: 'customEvent:rating_bucket' }],
+    dimensions: [
+      { name: 'customEvent:quip_pool' },
+      { name: 'customEvent:rating_bucket' },
+      { name: 'customEvent:day_theme' },
+    ],
     metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
     dimensionFilter: {
       filter: { fieldName: 'eventName', stringFilter: { matchType: 'EXACT', value: 'quip_shown' } },
@@ -547,6 +560,7 @@ export async function quipUsage(days: number): Promise<QuipPoolRow[]> {
   const got: QuipPoolRow[] = rows.map((r) => ({
     pool: r.dimensionValues?.[0]?.value || 'unknown',
     ratingBucket: r.dimensionValues?.[1]?.value || 'unknown',
+    dayTheme: r.dimensionValues?.[2]?.value || 'unknown',
     count: Number(r.metricValues?.[0]?.value ?? 0),
     users: Number(r.metricValues?.[1]?.value ?? 0),
   }));
@@ -556,7 +570,7 @@ export async function quipUsage(days: number): Promise<QuipPoolRow[]> {
   // 전부 조합해서 채우지는 않는다(구간은 열린 값이라 조합 자체가 큰 의미가 없다).
   const seenPools = new Set(got.map((r) => r.pool));
   for (const pool of QUIP_POOLS) {
-    if (!seenPools.has(pool)) got.push({ pool, ratingBucket: 'all', count: 0, users: 0 });
+    if (!seenPools.has(pool)) got.push({ pool, ratingBucket: 'all', dayTheme: 'all', count: 0, users: 0 });
   }
 
   return got.sort((a, b) => b.count - a.count);
